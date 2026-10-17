@@ -1,0 +1,82 @@
+{
+  "items": [
+    {
+      "id": "fz273",
+      "kind": "federal_law",
+      "number": "273-ФЗ",
+      "date": "2012-12-29",
+      "title": "Федеральный закон от 29.12.2012 № 273-ФЗ «Об образовании в Российской Федерации»",
+      "applies_to": ["pk", "dop"],
+      "in_force": true,
+      "status": "to_verify",
+      "source_url": null,
+      "checked_at": null
+    },
+    {
+      "id": "minobrnauki266",
+      "kind": "order",
+      "number": "266",
+      "date": "2025-03-24",
+      "title": "Приказ Минобрнауки России от 24.03.2025 № 266 «Об утверждении Порядка организации и осуществления образовательной деятельности по дополнительным профессиональным программам»",
+      "applies_to": ["pk"],
+      "in_force": true,
+      "in_force_since": "2025-09-01",
+      "replaces": "minobrnauki499",
+      "status": "verified",
+      "source_url": "https://www.consultant.ru/document/cons_doc_LAW_503832/",
+      "checked_at": "2026-10-14"
+    },
+    {
+      "id": "minobrnauki499",
+      "kind": "order",
+      "number": "499",
+      "date": "2013-07-01",
+      "title": "Приказ Минобрнауки России от 01.07.2013 № 499 «Об утверждении Порядка организации и осуществления образовательной деятельности по дополнительным профессиональным программам»",
+      "applies_to": ["pk"],
+      "in_force": false,
+      "in_force_until": "2025-09-01",
+      "replaced_by": "minobrnauki266",
+      "note": "Указан в ТЗ кейса. В программе не цитировать как действующий; в отчёте пояснить замену.",
+      "status": "verified",
+      "source_url": "https://www.finkont.ru/blog/Noviy-poryadok-dpo-na-chto-obratit-vnimanie-slushatelyam-i-uchebnym-centram-s-sentiabrya-2025/",
+      "checked_at": "2026-10-14"
+    },
+    {
+      "id": "minpros629",
+      "kind": "order",
+      "number": "629",
+      "date": "2022-07-27",
+      "title": "Приказ Минпросвещения России от 27.07.2022 № 629 «Об утверждении Порядка организации и осуществления образовательной деятельности по дополнительным общеобразовательным программам»",
+      "applies_to": ["dop"],
+      "in_force": true,
+      "status": "to_verify",
+      "source_url": null,
+      "checked_at": null
+    },
+    {
+      "id": "minobrnauki816",
+      "kind": "order",
+      "number": "816",
+      "date": "2017-08-23",
+      "title": "Приказ Минобрнауки России от 23.08.2017 № 816 «Об утверждении Порядка применения организациями, осуществляющими образовательную деятельность, электронного обучения, дистанционных образовательных технологий при реализации образовательных программ»",
+      "applies_to": ["pk", "dop"],
+      "in_force": true,
+      "status": "to_verify",
+      "source_url": null,
+      "checked_at": null
+    },
+    {
+      "id": "letter_vk1013",
+      "kind": "letter",
+      "number": "ВК-1013/06",
+      "date": "2015-04-21",
+      "title": "Письмо Минобрнауки России от 21.04.2015 № ВК-1013/06 «О направлении методических рекомендаций по реализации дополнительных профессиональных программ с использованием дистанционных образовательных технологий, электронного обучения и в сетевой форме»",
+      "applies_to": ["pk"],
+      "in_force": true,
+      "note": "В образце АЦР дата ошибочно указана как 01.04.2015",
+      "status": "verified",
+      "source_url": "https://rulaws.ru/acts/Pismo-Minobrnauki-Rossii-ot-21.04.2015-N-VK-1013_06/",
+      "checked_at": "2026-10-14"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.cache/
+.tmp/
+.env
+.env.*
+!.env.example
+cache/
+logs/
+eval/runs/
+data/sessions/
