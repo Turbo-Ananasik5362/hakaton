@@ -65,6 +65,8 @@ logger = logging.getLogger("karkas.skeleton")
 
 PS_CANDIDATES = 2  # сколько профстандартов из реестра предлагать модели
 PS_MIN_SCORE = 3  # меньше — совпадение случайное (одно общее слово)
+PS_SECOND_SHARE = 0.6  # второй ПС — только если подходит почти так же, как первый
+MAX_FUNCTIONS_PER_PS = 20  # у 06.015 и 06.016 по 150+ ТФ: в промпт — только ближайшие к запросу
 REFERENCE_ROWS = 30  # строк учебного плана образца в промпт — как пример детализации
 MAX_TOPICS_PER_MODULE = 6
 INTERNSHIP_CONTROL = "Собеседование с руководителем стажировки"
@@ -97,6 +99,17 @@ class LaborFunctionOption:
     title: str
 
 
+# Фразы о форме аттестации ничего не говорят о предметной области: «Итоговая аттестация — тестирование»
+# не должна приводить к профстандарту тестировщика.
+_ATTESTATION_RE = re.compile(r"аттестац|итогов\w*\s+(?:тестирован|контрол|экзамен)", re.IGNORECASE)
+_CLAUSE_SPLIT_RE = re.compile(r"(?<=[.!?;,\n])\s+")
+
+
+def subject_text(raw_text: str) -> str:
+    """Текст запроса без фраз (до точки или запятой) о форме аттестации — для поиска профстандарта."""
+    return " ".join(part for part in _CLAUSE_SPLIT_RE.split(raw_text) if not _ATTESTATION_RE.search(part))
+
+
 def labor_function_options(spec: RequestSpec, registry: Registry | None) -> list[LaborFunctionOption]:
     """ТФ самых подходящих профстандартов реестра (по тексту запроса). Для ДОП — пусто."""
     if registry is None or spec.program_type not in PK_TYPES:
@@ -105,18 +118,22 @@ def labor_function_options(spec: RequestSpec, registry: Registry | None) -> list
         part
         for part in (
             spec.title or "",
-            spec.raw_text,
+            subject_text(spec.raw_text),
             spec.audience.category,
             spec.audience.domain or "",
             " ".join(r.label for r in spec.required_topics),
         )
         if part
     )
-    standards = registry.search_profstandards(query, min_score=PS_MIN_SCORE)[:PS_CANDIDATES]
+    ranked = registry.scored_profstandards(query, min_score=PS_MIN_SCORE)[:PS_CANDIDATES]
+    if not ranked:
+        return []
+    top_score = ranked[0][0]
+    standards = [ps for score, ps in ranked if score >= top_score * PS_SECOND_SHARE]
     return [
         LaborFunctionOption(f"{ps.code}:{tf.code}", ps.code, ps.title, tf.code, tf.title)
         for ps in standards
-        for tf in ps.labor_functions
+        for tf in registry.relevant_labor_functions(ps, query, MAX_FUNCTIONS_PER_PS)
     ]
 
 

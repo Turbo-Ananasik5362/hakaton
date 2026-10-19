@@ -38,6 +38,7 @@ from app.pipeline.skeleton import (
     describe_request,
     labor_function_options,
     run_skeleton,
+    subject_text,
 )
 from tests.intake_queries import OPEN, OWN, ROOT
 from tests.skeleton_registry import make_skeleton_registry
@@ -512,3 +513,20 @@ def test_truncated_twice_fails_clearly() -> None:
     cut = TruncatedResponse("skeleton", {"completion_tokens": 10000})
     with pytest.raises(AgentError, match="слишком большой"):
         asyncio.run(run_skeleton(_spec(), None, StubLLM(cut, cut), REGISTRY, check))  # type: ignore[arg-type]
+
+
+def test_second_standard_only_when_almost_as_relevant() -> None:
+    """Второй профстандарт добавляет в промпт свои ТФ, только если подходит почти так же, как первый."""
+    clear = labor_function_options(_spec(raw_text="Аналитика в pandas и SQL для бухгалтеров"), REGISTRY)
+    assert {o.ps_code for o in clear} == {"06.042"}  # 15 баллов против 5 у «Бухгалтера»
+    close = labor_function_options(_spec(raw_text="Кибербезопасность для бухгалтеров"), REGISTRY)
+    assert {o.ps_code for o in close} == {"06.032", "08.002"}
+
+
+def test_attestation_form_does_not_pick_standard() -> None:
+    """«Итоговая аттестация — тестирование» говорит о форме контроля, а не о предмете: ПС тестировщика не выбирается."""
+    assert subject_text("Курс SQL для экономистов, 16 часов, итоговая аттестация — тестирование.") == (
+        "Курс SQL для экономистов, 16 часов,"
+    )
+    assert subject_text("Основы Linux. В конце итоговое тестирование") == "Основы Linux."
+    assert subject_text("Автоматизация тестирования на Python") == "Автоматизация тестирования на Python"

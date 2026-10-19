@@ -16,18 +16,41 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Sequence
+from functools import lru_cache
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 RecordStatus = Literal["verified", "to_verify"]
 
+_RU_LETTERS = "А-Яа-яЁё"
+_WORD_CHARS = f"0-9A-Za-z{_RU_LETTERS}_"
+_RU_SUFFIX = r"(?:ами|ями|ом|ем|ой|ей|ов|ев|ам|ям|ах|ях|а|я|у|ю|е|и|ы)?"
+
 
 def normalize_text(text: str) -> str:
     """Для сравнения названий: нижний регистр, ё→е, без кавычек и пунктуации, одиночные пробелы."""
     text = text.lower().replace("ё", "е")
-    text = re.sub(r"[«»\"'“”„()\[\],.;:!?—–-]+", " ", text)
+    text = re.sub(r"[«»\"'’‘`“”„()\[\],.;:!?—–-]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def fold_yo(text: str) -> str:
+    """ё → е с сохранением длины строки (позиции совпадений в исходном тексте не сдвигаются)."""
+    return text.replace("ё", "е").replace("Ё", "Е")
+
+
+@lru_cache(maxsize=4096)
+def name_pattern(name: str) -> re.Pattern[str] | None:
+    """Регулярка упоминания имени сервиса или инструмента: границы слова для латиницы и кириллицы, без учёта
+    регистра, любые пробелы между словами. К имени, оканчивающемуся на кириллицу, допускаются падежные окончания
+    («в ГигаЧате», «Дипсику»). Искать в тексте, пропущенном через fold_yo."""
+    name = fold_yo(name.strip())
+    if not name:
+        return None
+    body = r"\s+".join(re.escape(part) for part in name.split())
+    suffix = _RU_SUFFIX if re.search(f"[{_RU_LETTERS}]$", name) else ""
+    return re.compile(f"(?<![{_WORD_CHARS}]){body}{suffix}(?![{_WORD_CHARS}])", re.IGNORECASE)
 
 
 class RegistryRecord(BaseModel):
@@ -44,7 +67,7 @@ class RegistryRecord(BaseModel):
 
 class NormRecord(RegistryRecord):
     id: str
-    kind: str = ""  # federal_law | order | letter
+    kind: str = ""  # federal_law | order | decree (постановление/распоряжение Правительства) | letter
     number: str = ""
     date: str = ""  # ISO
     title: str

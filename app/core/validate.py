@@ -28,7 +28,7 @@ from typing import Literal
 
 from app.core import copycheck
 from app.core.ids import display_numbers, issue_id
-from app.core.registry_api import NormRecord, RegistryView, normalize_text
+from app.core.registry_api import NormRecord, RegistryView, fold_yo, name_pattern, normalize_text
 from app.models import (
     CalendarMode,
     FAForm,
@@ -117,21 +117,29 @@ REQUIRED_NORMS: dict[str, tuple[str, ...]] = {
     "pk": ("fz273", "minobrnauki266"),
     "dop": ("fz273", "minpros629"),
 }
-DOT_NORM = "minobrnauki816"
+# ЭО и ДОТ: Правила, утв. постановлением Правительства РФ от 11.10.2023 № 1678 (с 01.09.2024);
+# приказ Минобрнауки № 816 утратил силу с 01.09.2023 — ссылка на него из образца АЦР не переносится.
+DOT_NORM = "gov1678"
 # Запасные сведения на случай, когда реестр не подключён (с реестром всё берётся из записей).
-KNOWN_REPLACED_NORMS = {"minobrnauki499": "minobrnauki266"}
+KNOWN_REPLACED_NORMS = {"minobrnauki499": "minobrnauki266", "minobrnauki816": "gov1678"}
 NORM_FALLBACK_NAMES = {
     "fz273": "Федеральный закон № 273-ФЗ «Об образовании в Российской Федерации»",
     "minobrnauki266": "приказ Минобрнауки России № 266 (Порядок по ДПП)",
     "minobrnauki499": "приказ Минобрнауки России № 499",
     "minpros629": "приказ Минпросвещения России № 629 (Порядок по дополнительным общеобразовательным программам)",
     "minobrnauki816": "приказ Минобрнауки России № 816 (электронное обучение и ДОТ)",
+    "gov1678": "постановление Правительства РФ № 1678 (Правила применения электронного обучения и ДОТ)",
 }
 NORM_REPLACED_FALLBACK = (
     "Порядок по ДПП — приказ Минобрнауки России от 24.03.2025 № 266: с 01.09.2025 он заменил приказ № 499 "
     "от 01.07.2013, который указан в задании. В программе приведён действующий приказ № 266."
 )
-NORM_KIND_WORDS = {"federal_law": "Федеральный закон", "order": "приказ", "letter": "письмо"}
+NORM_KIND_WORDS = {
+    "federal_law": "Федеральный закон",
+    "order": "приказ",
+    "decree": "постановление Правительства РФ",
+    "letter": "письмо",
+}
 
 # Предупреждения, которые пишет не validate (LLM, солвер, календарь): переносятся из прошлого отчёта.
 EXTERNAL_WARNING_TYPES = (
@@ -2668,8 +2676,23 @@ def _norm_name(registry: RegistryView | None, norm_id: str) -> str:
     return NORM_FALLBACK_NAMES.get(norm_id, norm_id)
 
 
+# Род вида акта: «приказ утратил», «постановление / распоряжение / письмо утратило».
+_LOST_FORCE = {"decree": "утратило", "letter": "утратило"}
+
+
+def _lost_force(record: NormRecord) -> str:
+    return _LOST_FORCE.get(record.kind, "утратил")
+
+
+def _upper_first(text: str) -> str:
+    """Первая буква заглавная, остальное как есть (str.capitalize испортил бы «Правительства РФ»)."""
+    return text[:1].upper() + text[1:]
+
+
 def _norm_short(record: NormRecord) -> str:
     word = NORM_KIND_WORDS.get(record.kind, "акт")
+    if record.kind == "decree" and record.title.lower().startswith("распоряжение"):
+        word = "распоряжение Правительства РФ"  # kind decree — и постановления, и распоряжения
     date_text = f" от {_iso_to_ru(record.date)}" if record.date else ""
     if record.kind == "federal_law":
         return f"{word}{date_text} № {record.number}"
@@ -2737,7 +2760,7 @@ def check_v24(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             out.append(
                 Finding(
                     ERROR,
-                    f"{_norm_short(record).capitalize()} утратил силу{until} — его нельзя указывать как действующий{tail}.",
+                    f"{_upper_first(_norm_short(record))} {_lost_force(record)} силу{until} — нельзя указывать как действующий акт{tail}.",
                     detail=f"norm not in force: {norm_id}",
                     fix_by=FixBy.CODE,
                     refs=("F4", "G4b"),
@@ -2759,7 +2782,7 @@ def check_v24(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             out.append(
                 Finding(
                     WARNING,
-                    f"{_norm_short(record).capitalize()} не относится к программам этого типа.",
+                    f"{_upper_first(_norm_short(record))} не относится к программам этого типа.",
                     detail=f"norm applies_to={record.applies_to}",
                     fix_by=FixBy.CODE,
                     refs=("K9",),
@@ -3017,18 +3040,22 @@ def check_v27(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     return _cap(out, ctx)
 
 
-def _name_regex(name: str) -> re.Pattern[str]:
-    return re.compile(r"(?<![\w])" + re.escape(name) + r"(?![\w])", re.I)
+def _mentions(name: str, folded_text: str) -> bool:
+    """Упоминание сервиса в тексте (уже через fold_yo) — тем же поиском, что и в реестре (с падежными
+    окончаниями: «в Дипсике»)."""
+    pattern = name_pattern(name)
+    return pattern is not None and pattern.search(folded_text) is not None
 
 
 def _blocked_services_soft(kit: Kit, registry: RegistryView) -> list[Finding]:
     """Без требования «только сервисы РФ»: недоступный в России сервис — предупреждение, а не ошибка."""
     texts = [t for t in _collect_texts(kit) if t.scope != "term"]
+    folded = {id(t): fold_yo(t.text) for t in texts}
     out: list[Finding] = []
     for service in registry.ai_services():
         if service.available_in_ru:
             continue
-        hits = [t for name in service.all_names() for t in texts if _name_regex(name).search(t.text)]
+        hits = [t for name in service.all_names() for t in texts if _mentions(name, folded[id(t)])]
         if hits:
             out.append(
                 Finding(
@@ -3052,15 +3079,13 @@ def check_v28(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     if not strict:
         return _blocked_services_soft(kit, registry)
     texts = [t for t in _collect_texts(kit) if t.scope != "term"]
+    folded = {id(t): fold_yo(t.text) for t in texts}
     out: list[Finding] = []
     services = registry.ai_services()
     for service in services:
         if service.available_in_ru:
             continue
-        hits = []
-        for name in service.all_names():
-            regex = _name_regex(name)
-            hits += [t for t in texts if regex.search(t.text)]
+        hits = [t for name in service.all_names() for t in texts if _mentions(name, folded[id(t)])]
         if hits:
             out.append(
                 Finding(
@@ -3099,6 +3124,23 @@ def _version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(x) for x in re.findall(r"\d+", text))
 
 
+# После имени инструмента — номер версии: через пробел, «v», «версия»/«версии» (не «pip3», не «python3»);
+# число, за которым идут часы, минуты, проценты и т. п., — не версия («Docker 2 ч практики»).
+_VERSION_SEP = r"(?:\s+(?:верси[яиюей]\s+)?|\s*v\.?\s*|\s*,\s*верси[яиюей]\s+)"
+_NOT_VERSION_TAIL = r"(?!\s*(?:ч\b|ч\.|час|мин|сек|%|шт|раз|дн|нед|мес|ак\.|академ|занят|урок|тем|модул))"
+
+
+def _version_regex(name: str) -> re.Pattern[str]:
+    return re.compile(
+        r"(?<![\w])"
+        + re.escape(name)
+        + _VERSION_SEP
+        + r"(\d+(?:\.\d+){0,3})(?![\d.,]\d)(?![\w])"
+        + _NOT_VERSION_TAIL,
+        re.I,
+    )
+
+
 def check_v29(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     texts = [t for t in _collect_texts(kit) if t.scope != "term"]
     registry = ctx.registry
@@ -3114,10 +3156,7 @@ def check_v29(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             continue
         minimum = _version_tuple(tool.min_version)
         for name in tool.all_names():
-            regex = re.compile(
-                r"(?<![\w])" + re.escape(name) + r"\s*(?:верси[ия]\s*|v\.?\s*)?(\d+(?:\.\d+){0,3})(?![\d.])",
-                re.I,
-            )
+            regex = _version_regex(name)
             for item in texts:
                 for match in regex.finditer(item.text):
                     version = _version_tuple(match.group(1))
@@ -4345,10 +4384,11 @@ def _norm_replaced_text(kit: Kit, registry: RegistryView | None) -> str:
             old = registry.norm(record.replaces)
             if old is None:
                 continue
-            since = f" с {_iso_to_ru(record.in_force_since)}" if record.in_force_since else ""
+            since = f" (действует с {_iso_to_ru(record.in_force_since)})" if record.in_force_since else ""
+            until = f" с {_iso_to_ru(old.in_force_until)}" if old.in_force_until else ""
             texts.append(
-                f"Действующий акт — {_norm_short(record)}:{since} он заменил {_norm_short(old)}. Если в задании "
-                f"указан {_norm_short(old)}, в программе он не приводится как действующий."
+                f"Действующий акт — {_norm_short(record)}{since}. {_upper_first(_norm_short(old))} "
+                f"{_lost_force(old)} силу{until}: ссылка на него из задания или образца в программу не переносится."
             )
     if not texts and kit.program.type in PK_TYPES:
         texts.append(NORM_REPLACED_FALLBACK)

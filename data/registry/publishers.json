@@ -1,0 +1,414 @@
+{
+  "items": [
+    {
+      "id": "piter",
+      "name": "Питер",
+      "aliases": ["Издательский дом Питер", "ИД Питер", "Издательство Питер", "Piter", "Питер Пресс", "Питер, Прогресс книга", "Прогресс книга"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.piter.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Магазин книг ИД Питер», логотип «Издательский Дом «Питер»». В выходных данных РГБ/РНБ встречается «Питер, Прогресс книга»."
+    },
+    {
+      "id": "dmk_press",
+      "name": "ДМК Пресс",
+      "aliases": ["ДМК", "DMK Press", "DMK", "Издательство ДМК Пресс"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.dmkpress.com/",
+      "checked_at": "2026-10-19",
+      "note": "Официальный сайт с каталогом и карточками изданий (ISBN в адресе карточки)."
+    },
+    {
+      "id": "bhv",
+      "name": "БХВ-Петербург",
+      "aliases": ["БХВ", "Издательство БХВ", "BHV", "BHV-Petersburg"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://bhv.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт называет себя «Издательство БХВ — Официальный сайт», редакция в Санкт-Петербурге. В записях РГБ встречаются оба написания: «БХВ-Петербург» и «БХВ»."
+    },
+    {
+      "id": "dialektika",
+      "name": "Диалектика",
+      "aliases": ["Издательство Диалектика", "Dialektika"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.dialektika.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство Диалектика: книжные новинки»."
+    },
+    {
+      "id": "williams",
+      "name": "Вильямс",
+      "aliases": ["Издательский дом Вильямс", "ИД Вильямс", "И. Д. Вильямс", "Williams Publishing"],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "http://www.williamspublishing.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт открывается, но текст в неверной кодировке — название издательства прочитать не удалось; на странице есть ссылка на dialektika.com, а сайт «Диалектики» ссылается на williamspublishing.com. В записях РГБ/РНБ издания «Вильямс» до 2018 г. включительно."
+    },
+    {
+      "id": "alpina_pro",
+      "name": "Альпина ПРО",
+      "aliases": ["Альпина PRO", "Alpina PRO"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://альпинапро.рф/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт называет себя «Alpina PRO»; входит в группу «Альпина» (ссылка на сайт — с alpinabook.ru)."
+    },
+    {
+      "id": "alpina_publisher",
+      "name": "Альпина Паблишер",
+      "aliases": ["Альпина", "Alpina Publisher", "ООО Альпина Паблишер"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://alpinabook.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Книги издательства Альпина Паблишер», юрлицо ООО «Альпина Паблишер». Алиас «Альпина» — общее название группы, отдельного издательства с таким названием нет."
+    },
+    {
+      "id": "mif",
+      "name": "МИФ",
+      "aliases": ["Манн, Иванов и Фербер", "Издательство МИФ", "Mann, Ivanov and Ferber", "MIF"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.mann-ivanov-ferber.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «© 2004–2026 Издательство МИФ». В выходных данных до 2023 г. — «Манн, Иванов и Фербер», позже — «МИФ»."
+    },
+    {
+      "id": "urait",
+      "name": "Юрайт",
+      "aliases": ["Издательство Юрайт", "Urait", "Электронное издательство Юрайт", "Образовательная платформа Юрайт"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://urait.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Образовательная платформа Юрайт», юрлицо ООО «Электронное издательство Юрайт». Карточки изданий на urait.ru отдают выходные данные только скриптом — для сверки использовался каталог РГБ."
+    },
+    {
+      "id": "lan",
+      "name": "Лань",
+      "aliases": ["Издательство Лань", "Lan", "Lanbook"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.lanbook.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство Лань — выпуск учебной литературы для вузов» (lanbook.com перенаправляет сюда). ЭБС издательства — e.lanbook.com."
+    },
+    {
+      "id": "infra_m",
+      "name": "ИНФРА-М",
+      "aliases": ["НИЦ ИНФРА-М", "Научно-издательский центр ИНФРА-М", "INFRA-M", "Группа компаний Инфра-М", "РИОР, ИНФРА-М"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://infra-m.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «ИНФРА-М, научно-издательский центр», «Группа компаний «Инфра-М»». ЭБС — znanium.ru. Часть книг выходит совместно с РИОР («РИОР, ИНФРА-М»)."
+    },
+    {
+      "id": "rior",
+      "name": "РИОР",
+      "aliases": ["Издательский центр РИОР", "ИЦ РИОР", "RIOR"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://riorpub.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательский центр РИОР» (ИЦ РИОР). Совместные издания с ИНФРА-М."
+    },
+    {
+      "id": "kurs",
+      "name": "КУРС",
+      "aliases": ["Издательство КУРС"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://kursizdat.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство «КУРС» с Вами с 2011 года»."
+    },
+    {
+      "id": "binom",
+      "name": "БИНОМ. Лаборатория знаний",
+      "aliases": ["Бином", "Лаборатория знаний"],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "https://lbz.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Домен lbz.ru перенаправляет (301) на каталог «Просвещения» prosv.ru/catalog-all/; собственная страница издательства не открылась — текущий статус бренда не подтверждён."
+    },
+    {
+      "id": "eksmo",
+      "name": "Эксмо",
+      "aliases": ["Издательство Эксмо", "Eksmo"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://eksmo.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Универсальное российское издательство «Эксмо»»; в разделе «Наши бренды» — ссылка на «Бомбора»."
+    },
+    {
+      "id": "bombora",
+      "name": "Бомбора",
+      "aliases": ["Издательство Бомбора", "Bombora", "Эксмо, Бомбора", "Бомбора, Эксмо"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://bombora.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство БОМБОРА — крупнейшее в России non-fiction издательство»; бренд «Эксмо». В выходных данных — «Эксмо, Бомбора»."
+    },
+    {
+      "id": "solon_press",
+      "name": "СОЛОН-Пресс",
+      "aliases": ["Солон-Пр", "Solon-Press", "Издательский дом СОЛОН-ПРЕСС"],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "https://solon-press.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт из среды проверки ответил 403; WebSearch не вернул ни одной страницы solon-press.ru (только профили на labirint.ru и litres.com). Адрес не подтверждён."
+    },
+    {
+      "id": "hotline_telecom",
+      "name": "Горячая линия – Телеком",
+      "aliases": ["Издательство Горячая линия – Телеком", "Научно-техническое издательство Горячая линия – Телеком"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.techbook.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Научно-техническое издательство «Горячая линия – Телеком»». Написания через дефис и без тире после нормализации совпадают с name."
+    },
+    {
+      "id": "nauka_i_tekhnika",
+      "name": "Наука и техника",
+      "aliases": ["Издательство Наука и Техника", "НиТ"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.nit.com.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство «Наука и Техника»», интернет-магазин «НиТ», Санкт-Петербург."
+    },
+    {
+      "id": "nacionalnoe_obrazovanie",
+      "name": "Национальное образование",
+      "aliases": ["Издательство Национальное образование"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://nobr.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство «Национальное образование»», юрлицо ООО «Издательство «Национальное образование»». Домен national-education.ru не существует."
+    },
+    {
+      "id": "academia",
+      "name": "Академия",
+      "aliases": ["Издательский центр Академия", "ИЦ Академия"],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "https://www.academia-moscow.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт из среды проверки ответил 403 (с www и без); WebSearch страниц academia-moscow.ru не вернул. Издательство подтверждено записями РГБ (учебники СПО, серия «Профессиональное образование»), адрес сайта — нет."
+    },
+    {
+      "id": "knorus",
+      "name": "КноРус",
+      "aliases": ["Издательство КНОРУС", "Юстиция, КноРус", "KnoRus"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.knorus.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «КНОРУС — издательство учебной литературы»; ЭБС BOOK.ru. В выходных данных встречается «Юстиция, КноРус»."
+    },
+    {
+      "id": "direct_media",
+      "name": "Директ-Медиа",
+      "aliases": ["Издательство Директ-Медиа", "Direct-Media"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://directmedia.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «© 2001-2026, Издательство «Директ-Медиа»»."
+    },
+    {
+      "id": "nic_art",
+      "name": "НИЦ АРТ",
+      "aliases": [],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "https://rusneb.ru/catalog/000199_000009_011126303/",
+      "checked_at": "2026-10-19",
+      "note": "Издательство из Санкт-Петербурга, известно только по записям РГБ/РНБ (например, Власова Е. З. и др., 2019; Шубнякова В. А. и др., 2026). Официальный сайт не найден; расшифровка названия не подтверждена."
+    },
+    {
+      "id": "kreativnaya_ekonomika",
+      "name": "Креативная экономика",
+      "aliases": ["Издательство Креативная экономика", "Первое экономическое издательство"],
+      "country": "RU",
+      "status": "to_verify",
+      "source_url": "https://1economic.ru/",
+      "checked_at": "2026-10-19",
+      "note": "creativeconomy.ru перенаправляет (302) на 1economic.ru — «Первое экономическое издательство», у которого «Креативная экономика» значится как журнал. Что это то же юрлицо, что выпустило книгу 2019 г. с издательством «Креативная экономика», документально не подтверждено."
+    },
+    {
+      "id": "rudn",
+      "name": "РУДН",
+      "aliases": ["Издательство РУДН", "Российский университет дружбы народов", "Российский университет дружбы народов имени Патриса Лумумбы", "RUDN University"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://www.rudn.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Вузовское издательство: на сайте университета в разделе «Медиа-центр» — ссылка «Издательство РУДН»."
+    },
+    {
+      "id": "lgu_pushkin",
+      "name": "ЛГУ им. А. С. Пушкина",
+      "aliases": ["Ленинградский государственный университет имени А. С. Пушкина", "ЛГУ имени А. С. Пушкина"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://lengu.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Вузовское издательство; сайт: «Ленинградский государственный университет им. А.С. Пушкина»."
+    },
+    {
+      "id": "ast",
+      "name": "АСТ",
+      "aliases": ["Издательство АСТ", "AST", "Corpus", "Редакция Corpus", "CORPUS, АСТ"],
+      "country": "RU",
+      "status": "verified",
+      "source_url": "https://ast.ru/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «Издательство АСТ»; редакция «Corpus» — https://ast.ru/redactions/corpus/. В выходных данных — «CORPUS, АСТ»."
+    },
+    {
+      "id": "oreilly",
+      "name": "O'Reilly Media",
+      "aliases": ["O'Reilly", "O’Reilly", "O’Reilly Media", "O'Reilly Media, Inc.", "OReilly", "О'Райли", "О’Райли", "О'Рейли"],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://www.oreilly.com/",
+      "checked_at": "2026-10-19",
+      "note": "Подвал: «© 2026, O'Reilly Media, Inc.». Варианты с типографским апострофом заведены отдельно: normalize_text не удаляет символ ’. Серия «Бестселлеры O'Reilly» у Питера — переводы, издатель Питер."
+    },
+    {
+      "id": "manning",
+      "name": "Manning Publications",
+      "aliases": ["Manning", "Manning Publications Co."],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://www.manning.com/",
+      "checked_at": "2026-10-19",
+      "note": "Подвал: «© 2026 Manning Publications Co.»."
+    },
+    {
+      "id": "no_starch",
+      "name": "No Starch Press",
+      "aliases": ["No Starch", "No Starch Press, Inc."],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://nostarch.com/",
+      "checked_at": "2026-10-19",
+      "note": "Подвал: «No Starch Press, Inc»."
+    },
+    {
+      "id": "packt",
+      "name": "Packt Publishing",
+      "aliases": ["Packt", "Packt Publishing Ltd"],
+      "country": "GB",
+      "status": "to_verify",
+      "source_url": "https://www.packtpub.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт из среды проверки ответил 403. В WebSearch есть страница «About» на packtpub.com (Бирмингем, Великобритания, с 2004 г.), но сама страница не открыта."
+    },
+    {
+      "id": "apress",
+      "name": "Apress",
+      "aliases": ["Apress Media", "Apress Media LLC"],
+      "country": "US",
+      "status": "to_verify",
+      "source_url": "https://www.apress.com/",
+      "checked_at": "2026-10-19",
+      "note": "apress.com перенаправляет (301) на link.springer.com/brands/apress (бренд Springer Nature), а та — на страницу авторизации; содержимое не открылось."
+    },
+    {
+      "id": "addison_wesley",
+      "name": "Addison-Wesley",
+      "aliases": ["Addison-Wesley Professional"],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://www.informit.com/imprint/index.aspx",
+      "checked_at": "2026-10-19",
+      "note": "Импринт Pearson: «Addison-Wesley Professional» в списке импринтов InformIT, подвал «© 2026 Pearson». Написание без дефиса после нормализации совпадает с name."
+    },
+    {
+      "id": "pearson",
+      "name": "Pearson",
+      "aliases": ["Pearson Education", "Pearson Education, Inc.", "Pearson plc"],
+      "country": "GB",
+      "status": "verified",
+      "source_url": "https://www.pearson.com/",
+      "checked_at": "2026-10-19",
+      "note": "Подвал: «© 1996–2026 Pearson»."
+    },
+    {
+      "id": "wiley",
+      "name": "Wiley",
+      "aliases": ["John Wiley & Sons", "John Wiley & Sons, Inc.", "John Wiley and Sons", "Wiley Publishing"],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://www.wiley.com/",
+      "checked_at": "2026-10-19",
+      "note": "Подвал: «© 2000-2026 by John Wiley & Sons, Inc.»."
+    },
+    {
+      "id": "mit_press",
+      "name": "MIT Press",
+      "aliases": ["The MIT Press"],
+      "country": "US",
+      "status": "to_verify",
+      "source_url": "https://mitpress.mit.edu/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт из среды проверки ответил 403; по WebSearch-сниппетам (в т. ч. Википедия) официальный сайт — mitpress.mit.edu, но сама страница не открыта."
+    },
+    {
+      "id": "springer",
+      "name": "Springer",
+      "aliases": ["Springer Nature", "Springer-Verlag", "Springer International Publishing"],
+      "country": "DE",
+      "status": "to_verify",
+      "source_url": "https://www.springer.com/",
+      "checked_at": "2026-10-19",
+      "note": "springer.com перенаправляет (301) на link.springer.com/brands/springer, далее на страницу авторизации; содержимое не открылось."
+    },
+    {
+      "id": "pragmatic_bookshelf",
+      "name": "Pragmatic Bookshelf",
+      "aliases": ["The Pragmatic Bookshelf", "The Pragmatic Programmers", "The Pragmatic Programmers, LLC"],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://pragprog.com/",
+      "checked_at": "2026-10-19",
+      "note": "Шапка: «Pragmatic Bookshelf»; подвал: «The Pragmatic Programmers, LLC © 1999-2026»."
+    },
+    {
+      "id": "microsoft_press",
+      "name": "Microsoft Press",
+      "aliases": ["Microsoft Press Store", "Microsoft Press Store by Pearson"],
+      "country": "US",
+      "status": "verified",
+      "source_url": "https://www.microsoftpressstore.com/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт: «The Microsoft Press Store by Pearson»."
+    },
+    {
+      "id": "cambridge_up",
+      "name": "Cambridge University Press",
+      "aliases": ["Cambridge University Press & Assessment"],
+      "country": "GB",
+      "status": "to_verify",
+      "source_url": "https://www.cambridge.org/",
+      "checked_at": "2026-10-19",
+      "note": "Сайт из среды проверки ответил 403; WebSearch вернул страницы cambridge.org (about us) и годовые отчёты, но сама страница не открыта."
+    }
+  ]
+}

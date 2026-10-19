@@ -14,7 +14,7 @@ from app.core.registry import (
     load_registry,
     mark_unverified,
 )
-from app.core.registry_api import LaborFunctionRecord, ProfStandardRecord, RegistryView
+from app.core.registry_api import LaborFunctionRecord, ProfStandardRecord, RegistryView, normalize_text
 from app.models import ProgramType
 
 ALL_FILES = [
@@ -59,18 +59,27 @@ def test_real_norm_statuses(real: Registry) -> None:
 
 def test_real_profstandard_and_labor_function(real: Registry) -> None:
     standard = real.profstandard("06.015")
-    assert standard is not None
-    assert standard.status == "to_verify" and not is_verified(standard)
+    assert standard is not None and is_verified(standard)
+    assert "586н" in standard.order  # действующая редакция (896н утратил силу с 01.09.2024)
     function = real.labor_function("06.015", "C/11.6")
-    assert function is not None and function.title == "Выявление требований к ИС"
+    assert function is not None and function.title.startswith("Выявление требований к ИС")
     assert real.labor_function("06.015", "С / 11.6") == function  # кириллическая «С» и пробелы
     assert real.labor_function("06.015", "C/99.6") is None
     assert real.labor_function("99.999", "C/11.6") is None
 
 
 def test_real_candidates_are_not_records(real: Registry) -> None:
+    raw = json.loads((DEFAULT_REGISTRY_DIR / "profstandards.json").read_text(encoding="utf-8"))
+    candidates = {item["code"] for item in raw.get("candidates_to_verify", [])}
     codes = {standard.code for standard in real.profstandards()}
-    assert "06.042" not in codes  # из candidates_to_verify
+    assert candidates and not candidates & codes
+
+
+def test_real_registry_all_items_verified(real: Registry) -> None:
+    """В items реестра — только подтверждённое; непроверенное лежит в candidates_to_verify."""
+    assert all(is_verified(n) for n in real.norms())
+    assert all(is_verified(s) for s in real.profstandards())
+    assert all(is_verified(item) for item in real.literature_items())
 
 
 @pytest.mark.parametrize(
@@ -80,11 +89,21 @@ def test_real_candidates_are_not_records(real: Registry) -> None:
             ProgramType.PK,
             False,
             ["fz273", "minobrnauki266"],
-            ["minobrnauki499", "minobrnauki816", "minpros629"],
+            ["minobrnauki499", "minobrnauki816", "gov1678", "minpros629"],
         ),
-        (ProgramType.PK_INTERNSHIP, True, ["fz273", "minobrnauki266", "minobrnauki816"], ["minobrnauki499"]),
-        (ProgramType.DOP, False, ["fz273", "minpros629"], ["minobrnauki266", "minobrnauki816"]),
-        ("dop", True, ["fz273", "minpros629", "minobrnauki816"], ["minobrnauki266", "letter_vk1013"]),
+        (
+            ProgramType.PK_INTERNSHIP,
+            True,
+            ["fz273", "minobrnauki266", "gov1678"],
+            ["minobrnauki499", "minobrnauki816"],
+        ),
+        (ProgramType.DOP, False, ["fz273", "minpros629"], ["minobrnauki266", "gov1678"]),
+        (
+            "dop",
+            True,
+            ["fz273", "minpros629", "gov1678"],
+            ["minobrnauki266", "minobrnauki816", "letter_vk1013"],
+        ),
     ],
 )
 def test_real_norms_for(
@@ -176,6 +195,45 @@ def test_broken_records_are_skipped_with_warnings(tmp_path: Path) -> None:
     assert any(w.startswith("tools.json") for w in warnings)
     assert any(w.startswith("publishers.json") for w in warnings)
     assert not any("06.042" in w for w in warnings)
+
+
+def test_norms_for_dot_decree_and_repealed_order(tmp_path: Path) -> None:
+    """ЭО/ДОТ: действующее постановление Правительства (kind decree) попадает в список, утративший силу
+    приказ — нет; порядок по типу программ берётся только из приказов."""
+    dot_title = (
+        "Об утверждении Правил применения электронного обучения, дистанционных образовательных технологий"
+    )
+    write_items(
+        tmp_path,
+        "norms.json",
+        [
+            {
+                "id": "law",
+                "kind": "federal_law",
+                "title": "Закон об образовании",
+                "applies_to": ["pk", "dop"],
+            },
+            {
+                "id": "order_pk",
+                "kind": "order",
+                "title": "Об утверждении Порядка организации и осуществления образовательной деятельности по ДПП",
+                "applies_to": ["pk"],
+            },
+            {"id": "decree_dot", "kind": "decree", "title": dot_title, "applies_to": ["pk", "dop"]},
+            {
+                "id": "old_dot",
+                "kind": "order",
+                "title": "Порядок применения электронного обучения",
+                "applies_to": ["pk", "dop"],
+                "in_force": False,
+                "replaced_by": "decree_dot",
+            },
+        ],
+    )
+    registry = load_registry(tmp_path)
+    assert [n.id for n in registry.norms_for(ProgramType.PK, dot=True)] == ["law", "order_pk", "decree_dot"]
+    assert [n.id for n in registry.norms_for(ProgramType.DOP, dot=True)] == ["law", "decree_dot"]
+    assert [n.id for n in registry.norms_for(ProgramType.PK, dot=False)] == ["law", "order_pk"]
 
 
 # --------------------------------------------------------------------------------------------------
@@ -310,3 +368,81 @@ def test_mark_unverified_without_double_mark() -> None:
     assert mark_unverified(marked) == marked
     assert mark_unverified("  ") == UNVERIFIED_MARK
     assert Registry.mark_unverified("ПС 06.999") == f"ПС 06.999 {UNVERIFIED_MARK}"
+
+
+# --------------------------------------------------------------------------------------------------
+# Профстандарты: большие ПС не выигрывают числом ТФ, в промпт — только ближайшие ТФ
+# --------------------------------------------------------------------------------------------------
+
+TAIL = " в рамках выполнения работ по созданию и сопровождению ИС"
+
+
+def _big_and_small() -> Registry:
+    big = ProfStandardRecord(
+        code="06.015",
+        title="Специалист по информационным системам",
+        tags=["ис"],
+        labor_functions=[
+            LaborFunctionRecord(otf="A", code=f"A/{i:02d}.4", title=f"Функция {word}{TAIL}")
+            for i, word in enumerate(
+                ["продаж", "клиентов", "отчётов", "обучения", "договоров", "закупок", "данных", "серверов"],
+                start=1,
+            )
+        ],
+    )
+    small = ProfStandardRecord(
+        code="99.001",
+        title="Специалист по продажам",
+        tags=["продаж"],
+        labor_functions=[LaborFunctionRecord(otf="A", code="A/01.5", title="Ведение переговоров")],
+    )
+    return Registry(profstandards=[big, small])
+
+
+def test_function_words_alone_do_not_select_standard() -> None:
+    registry = _big_and_small()
+    # «клиентов», «отчётов», «обучения» есть только в названиях ТФ большого ПС — это не повод его выбирать
+    assert registry.search_profstandards("Обучение клиентов работе с отчётами") == []
+    scored = registry.scored_profstandards("Продажи в информационной системе: клиенты, отчёты, договоры")
+    by_code = {ps.code: score for score, ps in scored}
+    # большой ПС: 2 слова названия (4) + 4 совпавших слова ТФ, но в зачёт не больше 3;
+    assert by_code == {"06.015": 4 + 3, "99.001": 5 + 2}  # тег «продаж» ~ «продажи» + слово названия
+
+
+def test_relevant_labor_functions_limit_and_order() -> None:
+    registry = _big_and_small()
+    big = registry.profstandard("06.015")
+    assert big is not None
+    picked = registry.relevant_labor_functions(big, "Работа с данными и серверами, сопровождение ИС", limit=3)
+    codes = [f.code for f in picked]
+    assert {"A/07.4", "A/08.4"} <= set(codes)  # «сопровождение ИС» есть во всех ТФ и не решает выбор
+    assert codes == sorted(codes)  # исходный порядок ТФ
+    assert len(codes) == 3
+    small = registry.profstandard("99.001")
+    assert registry.relevant_labor_functions(small, "что угодно", limit=3) == small.labor_functions
+
+
+def test_typographic_apostrophe_is_ignored() -> None:
+    assert normalize_text("O’Reilly Media") == normalize_text("O'Reilly Media") == "o reilly media"
+
+
+def test_tags_match_word_forms_once() -> None:
+    """Русский тег сравнивается по основе («машинного» ~ «машинное»), латиница и короткие — целиком;
+    несколько словоформ одного слова в тегах не дают лишних баллов."""
+    ml = ProfStandardRecord(code="06.042", title="Аналитик", tags=["машинного", "python"])
+    forms = ProfStandardRecord(code="01.001", title="Педагог", tags=["учителей", "учителя", "учитель"])
+    short = ProfStandardRecord(code="06.033", title="Защитник", tags=["иб"])
+    registry = Registry(profstandards=[ml, forms, short])
+    scores = {ps.code: score for score, ps in registry.scored_profstandards("Машинное обучение на Python")}
+    assert scores == {"06.042": 10}
+    scores = {ps.code: score for score, ps in registry.scored_profstandards("Курс для учителей")}
+    assert scores == {"01.001": 5}
+    assert registry.search_profstandards("Основы ИБ для бухгалтеров")[0].code == "06.033"
+    assert registry.search_profstandards("Либерализм и ибис") == []  # «иб» — только целым словом
+
+
+def test_real_registry_passes_formal_checks() -> None:
+    from scripts.check_registry import check_registry
+
+    result = check_registry()
+    assert result.ok, result.errors[:10]

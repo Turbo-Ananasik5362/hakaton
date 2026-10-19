@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from app.core.registry_api import AIServiceRecord, InMemoryRegistry, ToolRecord
 from app.core.validate import CHECKS, ValidationContext, validate, validate_reference
 from app.models import Kit, Severity, WarningType
 from tests.validate_kits import make_dop_kit, make_internship_kit, make_pk_kit, make_registry
@@ -79,6 +80,23 @@ def test_blocked_service_is_warning_without_requirement() -> None:
     kit.seminars[0].task += " Сравнить с ответом Чат ГПТ."
     issues = [i for i in run(kit).issues if i.check == "V28"]
     assert issues and issues[0].severity == Severity.WARNING
+
+
+def test_blocked_service_found_in_inflected_form() -> None:
+    """Кириллическое имя сервиса из стоп-листа ловится и в падежной форме, ё не мешает."""
+    registry = InMemoryRegistry(
+        ai_services=[AIServiceRecord(id="ds", name="Дипсик", available_in_ru=False, status="verified")]
+    )
+    ctx = ValidationContext(registry=registry, current_year=2026)
+    kit = make_pk_kit()
+    kit.request.constraints.ru_services_only = True
+    kit.seminars[0].task += " Попросите Дипсика объяснить ещё раз."
+    issues = [i for i in run(kit, ctx, only=["V28"]).issues if i.severity == Severity.ERROR]
+    assert issues and "Дипсик" in issues[0].message
+    clean = make_pk_kit()
+    clean.request.constraints.ru_services_only = True
+    clean.seminars[0].task += " Дипсиковый — не имя сервиса."
+    assert not [i for i in run(clean, ctx, only=["V28"]).issues if i.severity == Severity.ERROR]
 
 
 def test_without_registry_nothing_crashes() -> None:
@@ -187,3 +205,44 @@ def test_preparation_for_work_is_not_a_promise() -> None:
     kit = make_pk_kit()
     kit.program.goal = "Сформировать базовые компетенции для подготовки к работе в сфере безопасности."
     assert not [i for i in run(kit, only=["V40"]).issues if i.check == "V40"]
+
+
+def test_dot_program_with_repealed_order_816() -> None:
+    """ДОТ: приказ № 816 утратил силу — ошибка с указанием действующего постановления № 1678,
+    а отсутствие постановления в нормативной базе — предупреждение."""
+    kit = make_pk_kit()  # очно-заочная с ДОТ
+    kit.program.norm_ids = ["fz273", "minobrnauki266", "minobrnauki816"]
+    issues = [i for i in run(kit, only=["V24"]).issues]
+    errors = [i for i in issues if i.severity == Severity.ERROR]
+    assert errors and "№ 816 утратил силу" in errors[0].message
+    assert "постановление Правительства РФ от 11.10.2023 № 1678" in errors[0].message
+    assert any(i.severity == Severity.WARNING and "№ 1678" in i.message for i in issues)
+    kit.program.norm_ids = ["fz273", "minobrnauki266", "gov1678"]
+    assert run(kit, only=["V24"]).issues == []
+
+
+@pytest.mark.parametrize(
+    ("text", "flagged"),
+    [
+        ("Установите библиотеку: pip3 install pandas.", False),
+        ("Docker 2 ч практики, затем Docker 3 часа самостоятельно.", False),
+        ("Используем Python 3.12 и pip 26.2.", False),
+        ("Python3 уже установлен.", False),
+        ("Пример написан для Python 3.8.", True),
+        ("Нужен Python версии 3.9.", True),
+        ("Подойдёт pip v9.", True),
+    ],
+)
+def test_v29_version_mentions(text: str, flagged: bool) -> None:
+    """V29: версия — число после имени через пробел, «v» или «версии»; часы, «pip3» и «python3» — не версии."""
+    registry = InMemoryRegistry(
+        tools=[
+            ToolRecord(id="python", name="Python", aliases=["Питон"], min_version="3.11", status="verified"),
+            ToolRecord(id="pip", name="pip", min_version="26.2", status="verified"),
+            ToolRecord(id="docker", name="Docker", min_version="25.0", status="verified"),
+        ]
+    )
+    kit = make_pk_kit()
+    kit.seminars[0].task += " " + text
+    issues = run(kit, ValidationContext(registry=registry, current_year=2026), only=["V29"]).issues
+    assert bool(issues) is flagged, [i.message for i in issues]

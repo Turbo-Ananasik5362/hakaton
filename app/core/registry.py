@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from difflib import SequenceMatcher
 from functools import lru_cache
@@ -31,6 +32,8 @@ from app.core.registry_api import (
     ProfStandardRecord,
     PublisherRecord,
     ToolRecord,
+    fold_yo,
+    name_pattern,
     normalize_text,
 )
 from app.models import ProgramType
@@ -40,12 +43,13 @@ DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[2] / "data" / "registry"
 UNVERIFIED_MARK = "[не подтверждено]"
 LITERATURE_MATCH_THRESHOLD = 0.85
 """Порог похожести названий (SequenceMatcher.ratio) для совпадения кандидата с каталогом."""
+PS_FUNCTION_WORDS_CAP = 3
+"""Сколько баллов профстандарту могут дать слова названий его ТФ (иначе большие ПС выигрывают числом ТФ)."""
+COMMON_FUNCTION_STEM_SHARE = 0.3
+"""Слово, которое есть больше чем в этой доле ТФ стандарта, не помогает выбрать ТФ под запрос."""
 
 _MIN_MAIN_TITLE_LEN = 12
 _STEM_LEN = 5
-_RU_LETTERS = "А-Яа-яЁё"
-_WORD_CHARS = f"0-9A-Za-z{_RU_LETTERS}_"
-_RU_SUFFIX = r"(?:ами|ями|ом|ем|ой|ей|ов|ев|ам|ям|ах|ях|а|я|у|ю|е|и|ы)?"
 _CYR_TO_LAT = str.maketrans("АВСЕНКМОРТХ", "ABCEHKMOPTX")
 
 
@@ -113,17 +117,23 @@ def _title_similarity(wanted_title: str, item_title: str) -> float:
     return score
 
 
-def _name_pattern(name: str) -> re.Pattern[str] | None:
-    """Регулярка упоминания имени сервиса: границы слова для латиницы и кириллицы, без учёта регистра.
+def _tag_matcher(tag: str) -> tuple[str, bool]:
+    """Тег ПС → (образец, по началу слова?). Русское слово от 6 букв сравнивается без двух последних букв
+    («машинного» ~ «машинное», «тестированию» ~ «тестирование»); латиница и короткие теги — целиком («sql», «иб»)."""
+    tag = normalize_text(tag)
+    if re.fullmatch(r"[а-я]{6,}", tag):
+        return tag[: max(_STEM_LEN, len(tag) - 2)], True
+    return tag, False
 
-    Для имён, оканчивающихся на кириллицу, допускаются падежные окончания («в ГигаЧате»).
-    """
-    name = name.strip().replace("ё", "е").replace("Ё", "Е")
-    if not name:
-        return None
-    body = r"\s+".join(re.escape(part) for part in name.split())
-    suffix = _RU_SUFFIX if re.search(f"[{_RU_LETTERS}]$", name) else ""
-    return re.compile(f"(?<![{_WORD_CHARS}]){body}{suffix}(?![{_WORD_CHARS}])", re.IGNORECASE)
+
+def _tag_hits(tags: Iterable[str], query_tokens: set[str]) -> int:
+    """Сколько разных слов запроса совпало хотя бы с одним тегом (словоформы одного слова в тегах не суммируются)."""
+    matchers = [_tag_matcher(tag) for tag in tags if normalize_text(tag)]
+    return sum(
+        1
+        for token in query_tokens
+        if any(token.startswith(sample) if by_prefix else token == sample for sample, by_prefix in matchers)
+    )
 
 
 def _applies_key(program_type: ProgramType | str) -> str:
@@ -154,6 +164,7 @@ class Registry(InMemoryRegistry):
         self.load_warnings: list[str] = list(load_warnings)
         self.missing_files: list[str] = list(missing_files)
         self._service_patterns: list[tuple[AIServiceRecord, list[re.Pattern[str]]]] | None = None
+        self._function_stems_cache: dict[str, set[str]] = {}
 
     # --- статусы (для удобства вызова через реестр) ---
 
@@ -215,30 +226,62 @@ class Registry(InMemoryRegistry):
     def search_profstandards(
         self, text_or_tags: str | Iterable[str], min_score: int = 1
     ) -> list[ProfStandardRecord]:
+        """Профстандарты по убыванию релевантности (см. scored_profstandards)."""
+        return [standard for _, standard in self.scored_profstandards(text_or_tags, min_score)]
+
+    def scored_profstandards(
+        self, text_or_tags: str | Iterable[str], min_score: int = 1
+    ) -> list[tuple[int, ProfStandardRecord]]:
         """Профстандарты по тексту запроса или списку тегов: код в тексте — выше всего, затем теги,
         затем слова названия и названий ТФ. Только записи с релевантностью не ниже min_score
-        (совпавшее слово названия ПС даёт 2, слово названия ТФ — 1, тег — 5, код в тексте — 100)."""
+        (код в тексте — 100, тег — 5, слово названия ПС — 2, слова названий ТФ — по 1, но не больше
+        PS_FUNCTION_WORDS_CAP и только если совпал код, тег или слово названия)."""
         if isinstance(text_or_tags, str):
             text = text_or_tags
-            query_tags = {normalize_text(text)} | set(_tokens(text))
+            query_tokens = set(_tokens(text))
         else:
             parts = [str(tag) for tag in text_or_tags]
             text = " ".join(parts)
-            query_tags = {normalize_text(tag) for tag in parts}
+            query_tokens = {token for part in parts for token in _tokens(part)}
         query_stems = _stems(text)
         scored: list[tuple[int, int, ProfStandardRecord]] = []
         for order, standard in enumerate(self._profstandards):
             score = 0
             if re.search(rf"(?<![\d.]){re.escape(standard.code)}(?![\d])", text):
                 score += 100
-            score += 5 * len(query_tags & {normalize_text(tag) for tag in standard.tags})
+            score += 5 * _tag_hits(standard.tags, query_tokens)
             score += 2 * len(query_stems & _stems(standard.title))
-            functions_text = " ".join(lf.title for lf in standard.labor_functions)
-            score += len(query_stems & _stems(functions_text))
+            if score == 0:
+                continue  # совпали только слова названий ТФ — у больших ПС (150+ ТФ) это случайность
+            score += min(PS_FUNCTION_WORDS_CAP, len(query_stems & self._function_stems(standard)))
             if score >= max(1, min_score):
                 scored.append((score, order, standard))
         scored.sort(key=lambda triple: (-triple[0], triple[1]))
-        return [standard for _, _, standard in scored]
+        return [(score, standard) for score, _, standard in scored]
+
+    def _function_stems(self, standard: ProfStandardRecord) -> set[str]:
+        cached = self._function_stems_cache.get(standard.code)
+        if cached is None:
+            cached = _stems(" ".join(lf.title for lf in standard.labor_functions))
+            self._function_stems_cache[standard.code] = cached
+        return cached
+
+    def relevant_labor_functions(
+        self, standard: ProfStandardRecord, text: str, limit: int
+    ) -> list[LaborFunctionRecord]:
+        """Не больше limit ТФ стандарта, ближайших к тексту запроса, в исходном порядке. Слова, которые есть
+        в большинстве ТФ стандарта («в рамках … сопровождению ИС»), не различают ТФ и не учитываются."""
+        functions = list(standard.labor_functions)
+        if len(functions) <= limit:
+            return functions
+        stems = [_stems(f.title) for f in functions]
+        counts = Counter(stem for item in stems for stem in item)
+        common = {
+            stem for stem, count in counts.items() if count > COMMON_FUNCTION_STEM_SHARE * len(functions)
+        }
+        query = _stems(text) - common
+        best = sorted(range(len(functions)), key=lambda i: (-len(stems[i] & query), i))[:limit]
+        return [functions[i] for i in sorted(best)]
 
     def labor_functions_for(self, codes: Iterable[str]) -> list[tuple[str, LaborFunctionRecord]]:
         """Все ТФ указанных профстандартов парами (код ПС, ТФ) — список для промпта каркаса.
@@ -262,7 +305,8 @@ class Registry(InMemoryRegistry):
         - федеральный закон (273-ФЗ);
         - порядок организации и осуществления образовательной деятельности по типу программ
           (ПК — действующий порядок по ДПП, ДОП — порядок по дополнительным общеобразовательным);
-        - при ЭО/ДОТ — порядок применения ЭО и ДОТ (№ 816); include_letters добавляет письма по ДОТ.
+        - при ЭО/ДОТ — правила применения ЭО и ДОТ (приказ или постановление Правительства, kind decree);
+          include_letters добавляет письма по ДОТ.
         """
         key = _applies_key(program_type)
         applicable = [n for n in self._norms if n.in_force and key in n.applies_to]
@@ -279,7 +323,7 @@ class Registry(InMemoryRegistry):
         ]
         if dot:
             dot_needles = ("дистанционных образовательных технологий", "электронного обучения")
-            kinds = {"order", "letter"} if include_letters else {"order"}
+            kinds = {"order", "decree", "letter"} if include_letters else {"order", "decree"}
             result += [n for n in applicable if n.kind in kinds and title_has(n, *dot_needles)]
         unique: dict[str, NormRecord] = {}
         for norm in result:
@@ -293,7 +337,7 @@ class Registry(InMemoryRegistry):
         Один результат на сервис, в порядке первого упоминания."""
         if not text:
             return []
-        haystack = text.replace("ё", "е").replace("Ё", "Е")
+        haystack = fold_yo(text)
         found: list[tuple[int, AIServiceRecord, str]] = []
         for service, patterns in self._compiled_services():
             spans = [m.span() for pattern in patterns if (m := pattern.search(haystack))]
@@ -307,7 +351,7 @@ class Registry(InMemoryRegistry):
         if self._service_patterns is None:
             compiled = []
             for service in self._ai_services:
-                patterns = [p for name in service.all_names() if (p := _name_pattern(name)) is not None]
+                patterns = [p for name in service.all_names() if (p := name_pattern(name)) is not None]
                 compiled.append((service, patterns))
             self._service_patterns = compiled
         return self._service_patterns
