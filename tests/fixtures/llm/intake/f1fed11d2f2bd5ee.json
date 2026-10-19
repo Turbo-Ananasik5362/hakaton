@@ -1,0 +1,52 @@
+{
+  "_request": "Нужна программа повышения квалификации на 72 часа «Анализ данных на Python» для сотрудников региональных отделений банков, которые сейчас работают в Excel. Формат очно-заочный, срок 4 недели. Основные темы это pandas, визуализация, SQL для выгрузки данных и основы статистики. Итоговая аттестация в виде защиты проекта на обезличенных банковских данных. Прикладываю нашу прошлую программу, структуру можно взять оттуда, но содержание нужно новое. Слайды нужны для модуля про pandas.",
+  "program_type_guess": "pk",
+  "title": "Анализ данных на Python",
+  "audience": {
+    "category": "сотрудники региональных отделений банков",
+    "age_or_grade": null,
+    "entry_level": "работают в Excel, программированием не владеют",
+    "requirements": null,
+    "domain": "банк",
+    "domain_patterns": [
+      "банк",
+      "клиент",
+      "кредит",
+      "вклад",
+      "отделени"
+    ],
+    "constraints": []
+  },
+  "form_kind": "ochno_zaochnaya",
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "на 72 часа"
+    },
+    {
+      "what": "weeks",
+      "text": "срок 4 недели"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": "project_defense",
+  "fa_text": "защита проекта на обезличенных банковских данных",
+  "required_topics": [
+    "pandas",
+    "визуализация",
+    "SQL для выгрузки данных",
+    "основы статистики"
+  ],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": true,
+  "all_srs": false,
+  "intro_block_topic": "основы Python",
+  "slides_request": "Слайды нужны для модуля про pandas",
+  "assumptions": [
+    "Структура разделов берётся из приложенной программы, содержание — новое."
+  ]
+}

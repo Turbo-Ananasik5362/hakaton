@@ -6,6 +6,7 @@ requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 cache_dir = ".cache/pytest"
 markers = ["llm: реальный вызов GigaChat, тратит дневной бюджет (по умолчанию не запускать)"]
 addopts = "-m 'not llm'"

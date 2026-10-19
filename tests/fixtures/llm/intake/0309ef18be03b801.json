@@ -1,0 +1,40 @@
+{
+  "_request": "Программа повышения квалификации «Информационная безопасность в медицинской организации» для медицинских регистраторов и администраторов поликлиник, 24 часа, заочно с применением дистанционных технологий. Итоговая аттестация — тестирование.",
+  "program_type_guess": "pk",
+  "title": "Информационная безопасность в медицинской организации",
+  "audience": {
+    "category": "медицинские регистраторы и администраторы поликлиник",
+    "age_or_grade": null,
+    "entry_level": null,
+    "requirements": null,
+    "domain": "поликлиника",
+    "domain_patterns": [
+      "пациент",
+      "поликлиник",
+      "медицин",
+      "регистратур"
+    ],
+    "constraints": []
+  },
+  "form_kind": "zaochnaya",
+  "dot": true,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "24 часа"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": "test",
+  "fa_text": "тестирование",
+  "required_topics": [],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": []
+}

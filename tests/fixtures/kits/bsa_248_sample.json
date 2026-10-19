@@ -1,0 +1,697 @@
+{
+ "source_name": "pk_stazhirovka_bsa_248h.docx",
+ "program_type_guess": "pk_internship",
+ "headings": [
+  {
+   "level": 1,
+   "number": "1",
+   "title": "ОБЩАЯ ХАРАКТЕРИСТИКА ДОПОЛНИТЕЛЬНОЙ ПРОФЕССИОНАЛЬНОЙ ПРОГРАММЫ"
+  },
+  {
+   "level": 2,
+   "number": "1.1",
+   "title": "Аннотация программы"
+  },
+  {
+   "level": 2,
+   "number": "1.2",
+   "title": "Цель реализации программы"
+  },
+  {
+   "level": 2,
+   "number": "1.3",
+   "title": "Планируемые результаты обучения (РО)"
+  },
+  {
+   "level": 2,
+   "number": "1.4",
+   "title": "Программа разработана на основе:"
+  },
+  {
+   "level": 2,
+   "number": "1.5",
+   "title": "Перечень профессиональных компетенций в рамках имеющейся квалификации, качественное изменение которых осуществляется в результате обучения:"
+  },
+  {
+   "level": 2,
+   "number": "1.6",
+   "title": "Требования к слушателям (категории слушателей)"
+  },
+  {
+   "level": 2,
+   "number": "1.7",
+   "title": "Форма обучения"
+  },
+  {
+   "level": 2,
+   "number": "1.8",
+   "title": "Объём программы"
+  },
+  {
+   "level": 2,
+   "number": "1.9",
+   "title": "Выдаваемый документ"
+  },
+  {
+   "level": 1,
+   "number": "2",
+   "title": "СОДЕРЖАНИЕ ПРОГРАММЫ"
+  },
+  {
+   "level": 2,
+   "number": "2.1",
+   "title": "Учебный план"
+  },
+  {
+   "level": 2,
+   "number": "2.2",
+   "title": "Учебно-тематический план"
+  },
+  {
+   "level": 2,
+   "number": "2.3",
+   "title": "Календарный учебный график"
+  },
+  {
+   "level": 2,
+   "number": "2.4",
+   "title": "Рабочая программа учебных дисциплин"
+  },
+  {
+   "level": 2,
+   "number": "2.5",
+   "title": "Оценка качества освоения программы"
+  },
+  {
+   "level": 3,
+   "number": "2.5.1",
+   "title": "Форма(ы) текущей, промежуточной и итоговой аттестации"
+  },
+  {
+   "level": 3,
+   "number": "2.5.2",
+   "title": "Оценочные материалы"
+  },
+  {
+   "level": 3,
+   "number": "2.5.3",
+   "title": "Анализ удовлетворённости требований слушателей"
+  },
+  {
+   "level": 1,
+   "number": "3",
+   "title": "ОРГАНИЗАЦИОННО-ПЕДАГОГИЧЕСКИЕ УСЛОВИЯ РЕАЛИЗАЦИИ ПРОГРАММЫ"
+  },
+  {
+   "level": 2,
+   "number": "3.1",
+   "title": "Материально-техническое обеспечение"
+  },
+  {
+   "level": 2,
+   "number": "3.2",
+   "title": "Учебно-методическое и информационное обеспечение"
+  },
+  {
+   "level": 3,
+   "number": "3.2.1",
+   "title": "Нормативно-правовые документы"
+  },
+  {
+   "level": 3,
+   "number": "3.2.2",
+   "title": "Основная литература"
+  },
+  {
+   "level": 3,
+   "number": "3.2.3",
+   "title": "Дополнительная литература"
+  },
+  {
+   "level": 3,
+   "number": "3.2.4",
+   "title": "Интернет-ресурсы"
+  },
+  {
+   "level": 3,
+   "number": "3.2.5",
+   "title": "Программное обеспечение и информационные системы"
+  },
+  {
+   "level": 2,
+   "number": "3.3",
+   "title": "Организация образовательного процесса"
+  },
+  {
+   "level": 2,
+   "number": "3.4",
+   "title": "Кадровое обеспечение образовательного процесса"
+  },
+  {
+   "level": 1,
+   "number": null,
+   "title": "Приложение 1"
+  },
+  {
+   "level": 1,
+   "number": null,
+   "title": "Приложение 2"
+  },
+  {
+   "level": 2,
+   "number": null,
+   "title": "Методические указания к подготовке итоговой аттестации"
+  }
+ ],
+ "hour_tables": [
+  {
+   "kind": "plan",
+   "columns": [
+    "total",
+    "lk",
+    "pr",
+    "lb",
+    "srs"
+   ],
+   "raw_header": [
+    "№ п/п",
+    "Наименование разделов программы",
+    "Трудоёмкость, всего (час.)",
+    "ЛК",
+    "ПР",
+    "ЛБ",
+    "СРС (час.)",
+    "Форма аттестации"
+   ],
+   "rows": [
+    {
+     "number": "1.",
+     "title": "Бизнес и системный анализ: от требований к работающему решению",
+     "row_type": "section",
+     "values": {
+      "total": 246.0,
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 246.0
+     },
+     "form": "Собеседование"
+    },
+    {
+     "number": null,
+     "title": "Итоговая аттестация",
+     "row_type": "fa",
+     "values": {
+      "total": 2.0,
+      "lk": null,
+      "pr": null,
+      "lb": null,
+      "srs": null
+     },
+     "form": "зачет"
+    },
+    {
+     "number": null,
+     "title": "Итого (час.)",
+     "row_type": "total",
+     "values": {
+      "total": 248.0,
+      "lk": null,
+      "pr": 66.0,
+      "lb": 6.0,
+      "srs": 174.0
+     },
+     "form": null
+    }
+   ]
+  },
+  {
+   "kind": "utp",
+   "columns": [
+    "total",
+    "lk",
+    "pr",
+    "lb",
+    "srs"
+   ],
+   "raw_header": [
+    "№ п/п",
+    "Наименование разделов, тем программы",
+    "Трудоёмкость, всего (час.)",
+    "ЛК",
+    "ПР",
+    "ЛБ",
+    "СРС (час.)",
+    "Форма контроля"
+   ],
+   "rows": [
+    {
+     "number": "1",
+     "title": "Бизнес- и системный анализ: от требований к работающему решению",
+     "row_type": "section",
+     "values": {
+      "total": 246.0,
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 246.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.1.",
+     "title": "Введение в профессию: роли аналитика, экосистема, инструменты",
+     "row_type": "topic",
+     "values": {
+      "total": 30.0,
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 30.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.2.",
+     "title": "Работа с требованиями: классификация, техники elicitation, документирование",
+     "row_type": "topic",
+     "values": {
+      "total": 24.0,
+      "lk": 0.0,
+      "pr": 9.0,
+      "lb": 0.0,
+      "srs": 15.0
+     },
+     "form": "Собеседование"
+    },
+    {
+     "number": "1.3.",
+     "title": "Моделирование бизнес-процессов в нотации BPMN 2.0",
+     "row_type": "topic",
+     "values": {
+      "total": 30.0,
+      "lk": 0.0,
+      "pr": 9.0,
+      "lb": 6.0,
+      "srs": 15.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.4.",
+     "title": "User Stories, Use Cases и критерии качества требований",
+     "row_type": "topic",
+     "values": {
+      "total": 24.0,
+      "lk": 0.0,
+      "pr": 6.0,
+      "lb": 0.0,
+      "srs": 18.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.5.",
+     "title": "UML для аналитика: Use Case, Class, Sequence-диаграммы",
+     "row_type": "topic",
+     "values": {
+      "total": 24.0,
+      "lk": 0.0,
+      "pr": 6.0,
+      "lb": 0.0,
+      "srs": 18.0
+     },
+     "form": "Собеседование"
+    },
+    {
+     "number": "1.6.",
+     "title": "Прототипирование интерфейсов в Figma: wireframes и сценарии",
+     "row_type": "topic",
+     "values": {
+      "total": 30.0,
+      "lk": 0.0,
+      "pr": 12.0,
+      "lb": 0.0,
+      "srs": 18.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.7.",
+     "title": "Данные и логика: модель данных, глоссарий, основы SQL",
+     "row_type": "topic",
+     "values": {
+      "total": 18.0,
+      "lk": 0.0,
+      "pr": 9.0,
+      "lb": 0.0,
+      "srs": 9.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.8.",
+     "title": "Управление требованиями: трассировка, версионирование, изменения",
+     "row_type": "topic",
+     "values": {
+      "total": 16.0,
+      "lk": 0.0,
+      "pr": 6.0,
+      "lb": 0.0,
+      "srs": 10.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.9.",
+     "title": "Тестирование требований и подготовка к приёмке",
+     "row_type": "topic",
+     "values": {
+      "total": 20.0,
+      "lk": 0.0,
+      "pr": 9.0,
+      "lb": 0.0,
+      "srs": 11.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.10.",
+     "title": "Итоговый проект: защита и карьерная упаковка аналитика",
+     "row_type": "topic",
+     "values": {
+      "total": 24.0,
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 24.0
+     },
+     "form": null
+    },
+    {
+     "number": "1.11.",
+     "title": "Текущий контроль",
+     "row_type": "control",
+     "values": {
+      "total": 6.0,
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 0.0
+     },
+     "form": "Собеседование"
+    },
+    {
+     "number": null,
+     "title": "Итоговая аттестация",
+     "row_type": "fa",
+     "values": {
+      "total": 2.0,
+      "lk": null,
+      "pr": null,
+      "lb": null,
+      "srs": null
+     },
+     "form": "зачет"
+    },
+    {
+     "number": null,
+     "title": "Итого (час.)",
+     "row_type": "total",
+     "values": {
+      "total": 248.0,
+      "lk": 0.0,
+      "pr": 66.0,
+      "lb": 6.0,
+      "srs": 174.0
+     },
+     "form": null
+    }
+   ]
+  }
+ ],
+ "workprogram": [
+  {
+   "topic_number": "1.1",
+   "topic_title": "Введение в профессию аналитика",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 15.0,
+   "column_hours": 15.0
+  },
+  {
+   "topic_number": "1.1",
+   "topic_title": "Введение в профессию аналитика",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 15.0,
+   "column_hours": 15.0
+  },
+  {
+   "topic_number": "1.2",
+   "topic_title": "Работа с требованиями: классификация, техники elicitation, документирование",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 12.0,
+   "column_hours": 12.0
+  },
+  {
+   "topic_number": "1.2",
+   "topic_title": "Работа с требованиями: классификация, техники elicitation, документирование",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 9.0,
+   "column_hours": 9.0
+  },
+  {
+   "topic_number": null,
+   "topic_title": "",
+   "kind_label": "Текущий контроль",
+   "kind": null,
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.3",
+   "topic_title": "Моделирование бизнес-процессов в нотации BPMN 2.0",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 15.0,
+   "column_hours": 15.0
+  },
+  {
+   "topic_number": "1.3",
+   "topic_title": "Моделирование бизнес-процессов в нотации BPMN 2.0",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 9.0,
+   "column_hours": 9.0
+  },
+  {
+   "topic_number": "1.3",
+   "topic_title": "Моделирование бизнес-процессов в нотации BPMN 2.0",
+   "kind_label": "ЛР",
+   "kind": "lb",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.4",
+   "topic_title": "User Stories, Use Cases и критерии качества требований",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 12.0,
+   "column_hours": 12.0
+  },
+  {
+   "topic_number": "1.4",
+   "topic_title": "User Stories, Use Cases и критерии качества требований",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.4",
+   "topic_title": "User Stories, Use Cases и критерии качества требований",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.5",
+   "topic_title": "UML для аналитика: Use Case, Class, Sequence-диаграммы",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 12.0,
+   "column_hours": 12.0
+  },
+  {
+   "topic_number": "1.5",
+   "topic_title": "UML для аналитика: Use Case, Class, Sequence-диаграммы",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.5",
+   "topic_title": "UML для аналитика: Use Case, Class, Sequence-диаграммы",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": null,
+   "topic_title": "",
+   "kind_label": "Текущий контроль",
+   "kind": null,
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.6",
+   "topic_title": "Прототипирование интерфейсов в Figma: wireframes и сценарии",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 15.0,
+   "column_hours": 15.0
+  },
+  {
+   "topic_number": "1.6",
+   "topic_title": "Прототипирование интерфейсов в Figma: wireframes и сценарии",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 9.0,
+   "column_hours": 12.0
+  },
+  {
+   "topic_number": "1.6",
+   "topic_title": "Прототипирование интерфейсов в Figma: wireframes и сценарии",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.7",
+   "topic_title": "Данные и логика: модель данных, глоссарий, основы SQL",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.7",
+   "topic_title": "Данные и логика: модель данных, глоссарий, основы SQL",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 6.0,
+   "column_hours": 9.0
+  },
+  {
+   "topic_number": "1.7",
+   "topic_title": "Данные и логика: модель данных, глоссарий, основы SQL",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.8",
+   "topic_title": "Управление требованиями: трассировка, версионирование, изменения",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 7.0,
+   "column_hours": 7.0
+  },
+  {
+   "topic_number": "1.8",
+   "topic_title": "Управление требованиями: трассировка, версионирование, изменения",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 6.0,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": "1.8",
+   "topic_title": "Управление требованиями: трассировка, версионирование, изменения",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.9",
+   "topic_title": "Тестирование требований и подготовка к приёмке",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 8.0,
+   "column_hours": 8.0
+  },
+  {
+   "topic_number": "1.9",
+   "topic_title": "Тестирование требований и подготовка к приёмке",
+   "kind_label": "ПР",
+   "kind": "pr",
+   "label_hours": 9.0,
+   "column_hours": 9.0
+  },
+  {
+   "topic_number": "1.9",
+   "topic_title": "Тестирование требований и подготовка к приёмке",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 3.0,
+   "column_hours": 3.0
+  },
+  {
+   "topic_number": "1.10",
+   "topic_title": "Итоговый проект: защита и карьерная упаковка аналитика",
+   "kind_label": "СРС",
+   "kind": "srs",
+   "label_hours": 24.0,
+   "column_hours": 24.0
+  },
+  {
+   "topic_number": null,
+   "topic_title": "",
+   "kind_label": "Текущий контроль",
+   "kind": null,
+   "label_hours": null,
+   "column_hours": 6.0
+  },
+  {
+   "topic_number": null,
+   "topic_title": "",
+   "kind_label": "Итоговая аттестация",
+   "kind": null,
+   "label_hours": null,
+   "column_hours": 2.0
+  }
+ ],
+ "work_kind_labels": [
+  "ЛК",
+  "ПР",
+  "ЛБ",
+  "СРС",
+  "ЛР"
+ ],
+ "order_requisites": "Приказом № 17-ОБР от «31» июля 2026 г.",
+ "requisites_filled": true,
+ "ps_codes": [
+  "06.015"
+ ],
+ "tf_codes": [
+  "C/14.6"
+ ],
+ "order_refs": [
+  "приказом Министерства труда и социальной защиты РФ от 13.07.2023 № 586н",
+  "Письмо Минобрнауки России от 01.04.2015 № ВК-1013/06",
+  "Приказ Минобрнауки России от 23.08.2017 № 816",
+  "Приказ Минтруда России от 13.07.2023 № 586н",
+  "Федеральный закон от 29.12.2012 № 273-ФЗ"
+ ]
+}

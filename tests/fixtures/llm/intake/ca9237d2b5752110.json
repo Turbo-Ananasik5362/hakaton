@@ -1,0 +1,42 @@
+{
+  "_request": "Хотим обучить сотрудников отдела продаж работе с нейросетями для подготовки коммерческих предложений, примерно за две недели.",
+  "program_type_guess": "pk",
+  "title": "Нейросети для подготовки коммерческих предложений",
+  "audience": {
+    "category": "сотрудники отдела продаж",
+    "age_or_grade": null,
+    "entry_level": null,
+    "requirements": null,
+    "domain": "продажи",
+    "domain_patterns": [
+      "клиент",
+      "продаж",
+      "сделк",
+      "коммерческ"
+    ],
+    "constraints": []
+  },
+  "form_kind": null,
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "weeks",
+      "text": "примерно за две недели"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": null,
+  "fa_text": null,
+  "required_topics": [],
+  "required_seminar_types": [
+    "коммерческое предложение"
+  ],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": []
+}

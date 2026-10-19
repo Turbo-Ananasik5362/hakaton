@@ -1,0 +1,55 @@
+{
+  "_request": "Нужна программа повышения квалификации в форме стажировки «DevOps-инженер от Linux до CI/CD» на 256 часов. Слушатели проходят стажировку в ИТ-компаниях региона, вся работа самостоятельная под руководством наставника от компании, аудиторных занятий нет. Итоговая аттестация занимает 2 часа и проходит в форме защиты отчёта о стажировке. Срок около двух месяцев, не больше 4 часов в день. Возьмите за образец структуры нашу стажировку по бизнес-анализу.",
+  "program_type_guess": "pk_internship",
+  "title": "DevOps-инженер от Linux до CI/CD",
+  "audience": {
+    "category": "специалисты, проходящие стажировку в ИТ-компаниях региона",
+    "age_or_grade": null,
+    "entry_level": null,
+    "requirements": null,
+    "domain": "ИТ-компания",
+    "domain_patterns": [
+      "компани",
+      "сервер",
+      "инфраструктур",
+      "развертыван"
+    ],
+    "constraints": []
+  },
+  "form_kind": null,
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "на 256 часов"
+    },
+    {
+      "what": "fa_hours",
+      "text": "Итоговая аттестация занимает 2 часа"
+    },
+    {
+      "what": "months",
+      "text": "Срок около двух месяцев"
+    },
+    {
+      "what": "hours_per_day",
+      "text": "не больше 4 часов в день"
+    }
+  ],
+  "duration_text": "около двух месяцев",
+  "fa_form": "report_defense",
+  "fa_text": "защита отчёта о стажировке",
+  "required_topics": [
+    "Linux",
+    "CI/CD"
+  ],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": true,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": []
+}

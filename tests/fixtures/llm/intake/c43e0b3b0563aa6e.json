@@ -1,0 +1,48 @@
+{
+  "_request": "Программа повышения квалификации по основам SQL для экономистов, 16 часов, срок 3 месяца, итоговая аттестация — зачёт.",
+  "program_type_guess": "pk",
+  "title": "Основы SQL для экономистов",
+  "audience": {
+    "category": "экономисты",
+    "age_or_grade": null,
+    "entry_level": null,
+    "requirements": null,
+    "domain": "экономика предприятия",
+    "domain_patterns": [
+      "экономи",
+      "бюджет",
+      "отчет",
+      "затрат"
+    ],
+    "constraints": []
+  },
+  "form_kind": null,
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "16 часов"
+    },
+    {
+      "what": "months",
+      "text": "срок 3 месяца"
+    }
+  ],
+  "duration_text": "3 месяца",
+  "fa_form": "zachet",
+  "fa_text": "зачёт",
+  "required_topics": [
+    "SQL"
+  ],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": [
+    "16 часов на 3 месяца — очень редкие занятия."
+  ]
+}

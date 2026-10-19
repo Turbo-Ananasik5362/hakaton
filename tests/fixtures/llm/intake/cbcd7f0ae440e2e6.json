@@ -1,0 +1,47 @@
+{
+  "_request": "Нужна дополнительная общеразвивающая программа «Первые шаги в Python» для школьников 8 и 9 классов без опыта программирования. Объем 16 часов, занятия очно по 2 часа два раза в неделю. Практики должно быть не меньше половины всех часов. В конце каждый ученик защищает небольшой проект, например простую игру или чат-бота. Нужны итоговый тест на 10 вопросов и слайды для первых двух занятий.",
+  "program_type_guess": "dop",
+  "title": "Первые шаги в Python",
+  "audience": {
+    "category": "школьники 8–9 классов",
+    "age_or_grade": "8–9 классы",
+    "entry_level": "без опыта программирования",
+    "requirements": null,
+    "domain": null,
+    "domain_patterns": [],
+    "constraints": []
+  },
+  "form_kind": "ochnaya",
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "Объем 16 часов"
+    },
+    {
+      "what": "session_hours",
+      "text": "по 2 часа"
+    },
+    {
+      "what": "sessions_per_week",
+      "text": "два раза в неделю"
+    },
+    {
+      "what": "test_questions",
+      "text": "итоговый тест на 10 вопросов"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": "project_defense",
+  "fa_text": "каждый ученик защищает небольшой проект, например простую игру или чат-бота",
+  "required_topics": [],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": "слайды для первых двух занятий",
+  "assumptions": []
+}

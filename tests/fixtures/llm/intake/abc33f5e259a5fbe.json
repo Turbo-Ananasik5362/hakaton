@@ -1,0 +1,38 @@
+{
+  "_request": "Сделайте курс по кибербезопасности для студентов колледжа, примерно на месяц, чтобы после него ребята могли пойти работать в эту сферу.",
+  "program_type_guess": "pk",
+  "title": "Основы кибербезопасности",
+  "audience": {
+    "category": "студенты колледжа",
+    "age_or_grade": null,
+    "entry_level": "начальный уровень",
+    "requirements": null,
+    "domain": null,
+    "domain_patterns": [],
+    "constraints": []
+  },
+  "form_kind": "ochnaya",
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "months",
+      "text": "примерно на месяц"
+    }
+  ],
+  "duration_text": "примерно на месяц",
+  "fa_form": "exam_practical",
+  "fa_text": null,
+  "required_topics": [],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": [
+    "Не указан объём программы в часах.",
+    "Не указан тип программы."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "_request": "Нужен курс по 1С:Бухгалтерии для бухгалтеров малого бизнеса на 40 часов, очно, в конце экзамен с практическим заданием.",
+  "program_type_guess": "pk",
+  "title": "1С:Бухгалтерия для малого бизнеса",
+  "audience": {
+    "category": "бухгалтеры малого бизнеса",
+    "age_or_grade": null,
+    "entry_level": null,
+    "requirements": null,
+    "domain": "бухгалтерия",
+    "domain_patterns": [
+      "бухгалтер",
+      "проводк",
+      "налог",
+      "отчетност"
+    ],
+    "constraints": []
+  },
+  "form_kind": "ochnaya",
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "на 40 часов"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": "exam_practical",
+  "fa_text": "экзамен с практическим заданием",
+  "required_topics": [
+    "1С:Бухгалтерия"
+  ],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": []
+}

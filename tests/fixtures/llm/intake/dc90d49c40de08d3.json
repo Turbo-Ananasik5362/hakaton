@@ -1,0 +1,45 @@
+{
+  "_request": "Дополнительная общеразвивающая программа «Робототехника на Arduino» для детей 10–12 лет, 36 часов, занятия по 90 минут раз в неделю. В конце — выставка собственных проектов.",
+  "program_type_guess": "dop",
+  "title": "Робототехника на Arduino",
+  "audience": {
+    "category": "дети 10–12 лет",
+    "age_or_grade": "10–12 лет",
+    "entry_level": null,
+    "requirements": null,
+    "domain": null,
+    "domain_patterns": [],
+    "constraints": []
+  },
+  "form_kind": "ochnaya",
+  "dot": false,
+  "eo": false,
+  "quantities": [
+    {
+      "what": "total_hours",
+      "text": "36 часов"
+    },
+    {
+      "what": "session_hours",
+      "text": "занятия по 90 минут"
+    },
+    {
+      "what": "sessions_per_week",
+      "text": "раз в неделю"
+    }
+  ],
+  "duration_text": null,
+  "fa_form": "project_defense",
+  "fa_text": "выставка собственных проектов",
+  "required_topics": [
+    "Arduino"
+  ],
+  "required_seminar_types": [],
+  "ru_services_only": false,
+  "no_programming": false,
+  "anonymized_data": false,
+  "all_srs": false,
+  "intro_block_topic": null,
+  "slides_request": null,
+  "assumptions": []
+}
