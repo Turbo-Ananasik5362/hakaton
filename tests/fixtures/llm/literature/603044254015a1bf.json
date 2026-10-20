@@ -1,0 +1,52 @@
+{
+  "selected": [
+    {
+      "catalog_id": "lit:ai_mitchell_2022",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:security_baranova_2026",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:security_biryukov_2024",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:ai_taulli_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:education_hattie_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:ml_geron_2020",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:ai_gigachat_docs",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:security_fstec_bdu",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:ai_yandex_aistudio_docs",
+      "section": "internet"
+    }
+  ],
+  "candidates": [
+    {
+      "authors": [
+        "Иванов И. И."
+      ],
+      "title": "Полное руководство по всему",
+      "year": 2023,
+      "publisher": "Питер",
+      "isbn": "978-5-4461-0000-1",
+      "section": "additional"
+    }
+  ]
+}

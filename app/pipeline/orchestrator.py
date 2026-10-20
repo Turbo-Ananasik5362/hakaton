@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 import traceback
 from collections.abc import Awaitable, Callable
@@ -84,6 +85,48 @@ def describe_error(exc: BaseException) -> tuple[str, str]:
         f"Внутренняя ошибка агента ({type(exc).__name__}). Подробности — в журнале сессии.",
         "internal_error",
     )
+
+
+SKIP_ONE = "Шаг «{title}» пропущен: {reason}"
+SKIP_MANY_PREFIX = "Шаги пропущены — "
+
+
+def _add_skip_note(notes: list[str], title: str, reason: str) -> None:
+    """Одна заметка на причину: при исчерпанном бюджете пропущенные шаги перечисляются в одной строке."""
+    tail = f": {reason}"
+    for i, note in enumerate(notes):
+        if not note.endswith(tail):
+            continue
+        if note.startswith(SKIP_MANY_PREFIX):
+            titles = note[len(SKIP_MANY_PREFIX) : -len(tail)]
+            if f"«{title}»" not in titles:
+                notes[i] = f"{SKIP_MANY_PREFIX}{titles}, «{title}»{tail}"
+            return
+        match = re.match(r"^Шаг «(.+)» пропущен$", note[: -len(tail)])
+        if match:
+            if match.group(1) != title:
+                notes[i] = f"{SKIP_MANY_PREFIX}«{match.group(1)}», «{title}»{tail}"
+            return
+    notes.append(SKIP_ONE.format(title=title, reason=reason))
+
+
+RETRY_SUFFIX = " (повтор)"
+
+
+def _drop_skip_note(notes: list[str], title: str) -> None:
+    """Шаг, пропущенный из-за сбоя, удался при повторе — из заметок он убирается."""
+    for note in list(notes):
+        reason_at = note.find(": ")
+        head, tail = (note[:reason_at], note[reason_at:]) if reason_at >= 0 else (note, "")
+        if head == f"Шаг «{title}» пропущен":
+            notes.remove(note)
+        elif head.startswith(SKIP_MANY_PREFIX) and f"«{title}»" in head:
+            titles = [t for t in re.findall(r"«([^»]+)»", head[len(SKIP_MANY_PREFIX) :]) if t != title]
+            index = notes.index(note)
+            if len(titles) == 1:
+                notes[index] = SKIP_ONE.format(title=titles[0], reason=tail[2:])
+            else:
+                notes[index] = SKIP_MANY_PREFIX + ", ".join(f"«{t}»" for t in titles) + tail
 
 
 class Orchestrator:
@@ -460,12 +503,12 @@ class Orchestrator:
                 finished.add(step.name)
                 if isinstance(result, asyncio.CancelledError):
                     raise result
+                if not isinstance(result, BaseException) and step.name.startswith("retry:"):
+                    _drop_skip_note(state.notes, step.title.removesuffix(RETRY_SUFFIX))  # повтор удался
                 if isinstance(result, BaseException):
                     if step.critical:
                         raise result
-                    note = f"Шаг «{step.title}» пропущен: {describe_error(result)[0]}"
-                    if note not in state.notes:
-                        state.notes.append(note)
+                    _add_skip_note(state.notes, step.title, describe_error(result)[0])
                     self.store.save(state)
 
     async def _run_step(self, state: SessionState, kit: Kit, ctx: StepContext, step: Step) -> None:

@@ -99,14 +99,19 @@ class LaborFunctionOption:
     title: str
 
 
-# Фразы о форме аттестации ничего не говорят о предметной области: «Итоговая аттестация — тестирование»
-# не должна приводить к профстандарту тестировщика.
-_ATTESTATION_RE = re.compile(r"аттестац|итогов\w*\s+(?:тестирован|контрол|экзамен)", re.IGNORECASE)
+# Фразы о форме аттестации и об образце ничего не говорят о предметной области: «Итоговая аттестация —
+# тестирование» не должна приводить к профстандарту тестировщика, а «за образец возьмите стажировку по
+# бизнес-анализу» — к профстандарту аналитика в программе по DevOps.
+_ATTESTATION_RE = re.compile(
+    r"аттестац|итогов\w*\s+(?:тестирован|контрол|экзамен)|(?:по|за|в\s+качестве)\s+образ(?:ец|ц\w*)"
+    r"|образ(?:ец|ц\w*)\s+(?:структур|программ)|приложенн\w*\s+(?:программ|документ|образ|файл)|за\s+основу",
+    re.IGNORECASE,
+)
 _CLAUSE_SPLIT_RE = re.compile(r"(?<=[.!?;,\n])\s+")
 
 
 def subject_text(raw_text: str) -> str:
-    """Текст запроса без фраз (до точки или запятой) о форме аттестации — для поиска профстандарта."""
+    """Текст запроса без фраз (до точки или запятой) о форме аттестации и об образце — для поиска профстандарта."""
     return " ".join(part for part in _CLAUSE_SPLIT_RE.split(raw_text) if not _ATTESTATION_RE.search(part))
 
 
@@ -360,6 +365,18 @@ NUMBER_PREFIX_RE = re.compile(
 )
 
 
+# ID трудовой функции из списка для модели («06.042:A/03.6») — только для tf_ids, в тексты программы не попадает
+OPTION_ID_RE = re.compile(
+    r"\s*[(\[]?\s*(?:ТФ\s*)?\b\d{2}\.\d{3}:[A-ZА-Я]/\d{2}\.\d{1,2}\b\s*[)\]]?", re.IGNORECASE
+)
+
+
+def _strip_option_ids(text: str | None) -> str:
+    """Текст без ID трудовых функций; пункт, в котором ничего, кроме ID, не было, становится пустым."""
+    value = _clean(OPTION_ID_RE.sub(" ", text or "")).strip(" ,;:—-")
+    return value if re.search(r"[A-Za-zА-Яа-яЁё]{3}", value) else ""
+
+
 def _title(text: str | None) -> str:
     cleaned = _clean(text)
     stripped = NUMBER_PREFIX_RE.sub("", cleaned).strip()
@@ -533,8 +550,8 @@ def build_skeleton(
         audience=_program_audience(spec, ptype),
         form=form,
         total_hours=spec.total_hours or 0,
-        goal=_clean(draft.goal),
-        tasks=[_clean(t) for t in draft.tasks if _clean(t)],
+        goal=_strip_option_ids(draft.goal),
+        tasks=[t for t in (_strip_option_ids(x) for x in draft.tasks) if t],
         direction=(_clean(draft.direction) or None) if ptype == ProgramType.DOP else None,
         level=(_clean(draft.level) or None) if ptype == ProgramType.DOP else None,
         profstandards=used_ps if ptype in PK_TYPES else [],
@@ -589,7 +606,7 @@ def _link_orphans(outcomes: list[LearningOutcome], topics: list[Topic], notes: l
 # --------------------------------------------------------------------------------------------------
 
 
-def _slides_modules(kit: Kit, scope: SlidesScope) -> list[str]:
+def slides_modules(kit: Kit, scope: SlidesScope) -> list[str]:
     """Модули, к которым нужны слайды: сначала по названиям модулей, и только если ни один не подошёл — по темам."""
     if scope.mode != "module" or not scope.module_pattern:
         return []
@@ -704,7 +721,7 @@ def assemble(
     requested = spec.outputs.slides_scope
     scope = requested.model_copy(deep=True)
     if requested.mode == "module":
-        scope.module_ids = _slides_modules(kit, requested)
+        scope.module_ids = slides_modules(kit, requested)
         if not scope.module_ids:
             built.notes.append(
                 "Не найден модуль, к которому по запросу нужны слайды — проверьте названия модулей."

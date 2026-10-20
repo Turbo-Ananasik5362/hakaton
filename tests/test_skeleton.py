@@ -530,3 +530,11 @@ def test_attestation_form_does_not_pick_standard() -> None:
     )
     assert subject_text("Основы Linux. В конце итоговое тестирование") == "Основы Linux."
     assert subject_text("Автоматизация тестирования на Python") == "Автоматизация тестирования на Python"
+
+
+def test_option_ids_are_stripped_from_tasks() -> None:
+    from app.pipeline.skeleton import _strip_option_ids
+
+    assert _strip_option_ids("06.042:A/03.6") == ""
+    assert _strip_option_ids("Освоить подготовку данных (06.042:A/03.6)") == "Освоить подготовку данных"
+    assert _strip_option_ids("Освоить pandas 2.3") == "Освоить pandas 2.3"

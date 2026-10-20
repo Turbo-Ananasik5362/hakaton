@@ -1,0 +1,52 @@
+{
+  "selected": [
+    {
+      "catalog_id": "lit:devops_chacon_2021",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:linux_shotts_2020",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:python_sweigart_2021",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:devops_luksa_2019",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:devops_kim_2018",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:devops_balanov_2026",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:devops_progit_ru",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:linux_astra_wiki",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:linux_alt_docs",
+      "section": "internet"
+    }
+  ],
+  "candidates": [
+    {
+      "authors": [
+        "Иванов И. И."
+      ],
+      "title": "Полное руководство по всему",
+      "year": 2023,
+      "publisher": "Питер",
+      "isbn": "978-5-4461-0000-1",
+      "section": "additional"
+    }
+  ]
+}

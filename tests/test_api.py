@@ -335,7 +335,7 @@ def test_failure_before_skeleton_is_reported(api: Api) -> None:
 
 def test_default_pipeline_open_query_4_end_to_end(tmp_path: Path) -> None:
     """Боевой пайплайн (LLM в mock, реестр из data/registry): запрос 4 → 5 вопросов → ответы методиста →
-    каркас ПК на 72 ч → (auto_approve) генерация: содержание пока не подключено и честно пропущено."""
+    каркас ПК на 72 ч → (auto_approve) генерация содержания → самопроверка со стоимостью и временем по шагам."""
     from tests.intake_queries import OPEN
 
     query = OPEN[4]
@@ -352,7 +352,15 @@ def test_default_pipeline_open_query_4_end_to_end(tmp_path: Path) -> None:
         assert body["status"] == "done", body
         kit = Kit.model_validate(body["kit"])
         assert kit.program.type.value == "pk" and kit.total_hours() == 72
-        assert any("Содержание комплекта" in note for note in body["notes"])
+        assert kit.lectures and kit.seminars and kit.questions and kit.final_attestation.criteria
+        assert kit.texts.annotation and any(s.section.value == "main" for s in kit.sources)
+        assert all(t.content for t in kit.topics)
+        report = body["report"]
+        assert {"module_content", "lectures", "seminars", "tests", "judge"} <= {
+            c["step"] for c in report["cost"]
+        }
+        assert "plan" in report["timing"] and "module_content:M1" in report["timing"]
+        assert not body.get("notes")  # ни один шаг не пропущен
         assert client.get(body["files"]["kit_json"]).status_code == 200
 
 

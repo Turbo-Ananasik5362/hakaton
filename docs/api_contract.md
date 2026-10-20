@@ -98,3 +98,6 @@
 Появятся с выгрузками: `program_docx`, `slides_pptx`, `tests_gift` (и Moodle XML / CSV). После правки (`/patch`)
 в ответе есть `patch`: `{target_id, ok, changed_ids, error, revision}` — неудачная правка комплект не меняет.
 `GET /` показывает `llm_mode` сервера: для автопрогона на ВМ должно быть `live`.
+В `report` готового комплекта: `cost` — вызовы, токены, ₽ и секунды по навыкам; `timing` — секунды по шагам
+генерации; `judge` — смысловая проверка (критерии J1–J9). В `kit.meta`: `generation_mode` (`full` / `economy`),
+`budget` (оценка ₽ полного и экономного режима, остаток, оценка секунд), `generation_notes` (что пропущено и почему).

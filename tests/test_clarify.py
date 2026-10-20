@@ -248,3 +248,17 @@ def test_tiny_volume_is_questioned(tmp_path: Path) -> None:
     question = next(q for q in ask(spec) if q.id == "conflict_volume")
     assert "слишком мал" in question.text and question.options
     assert apply_answers(spec, {"conflict_volume": "36 часов"}).total_hours == 36
+
+
+def test_part_time_form_means_dot_unless_said_otherwise() -> None:
+    """Очно-заочная форма без оговорок — заочная часть с ЭО и ДОТ (допущение записано); «без ДОТ» — нет."""
+    from app.models import StudyForm, StudyFormKind
+
+    base = RequestSpec(raw_text="Формат очно-заочный.", program_type=ProgramType.PK, total_hours=72)
+    base.form = StudyForm(kind=StudyFormKind.OCHNO_ZAOCHNAYA)
+    done = finalize_spec(base)
+    assert done.form.dot and done.form.eo and any("дистанционных" in a for a in done.assumptions)
+    plain = base.model_copy(update={"raw_text": "Очно-заочно, без применения дистанционных технологий."})
+    assert not finalize_spec(plain).form.dot
+    full_time = base.model_copy(update={"form": StudyForm(kind=StudyFormKind.OCHNAYA)})
+    assert not finalize_spec(full_time).form.dot

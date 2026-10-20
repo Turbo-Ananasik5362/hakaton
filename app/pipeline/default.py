@@ -2,14 +2,14 @@
 
 Шаги, которых ещё нет в этой версии, честно отвечают StepUnavailable — сессия получает понятное сообщение,
 а не молчаливую пустоту. По мере готовности шаги подключаются здесь:
-intake/clarify — app/pipeline/intake.py, clarify.py; skeleton — skeleton.py (подключены); содержание — content.py;
+intake/clarify — app/pipeline/intake.py, clarify.py; skeleton — skeleton.py; содержание — content.py (подключены);
 правка — patch.py; выгрузки — app/render/.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from app.config import Settings, get_settings
 from app.core.reference import extract_text
@@ -19,15 +19,21 @@ from app.llm import LLMClient
 from app.models import ClarifyQuestion, Kit, MethodistWarning, RequestSpec, ValidationReport
 from app.pipeline import clarify as clarify_step
 from app.pipeline.base import PatchResult, RequestInput, Step, StepContext, StepUnavailable
+from app.pipeline.content import ContentGenerator, merge_costs
 from app.pipeline.intake import run_intake
 from app.pipeline.skeleton import run_skeleton
 from app.render.kit_json import render_kit_json
 
 
 class DefaultPipeline:
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self, settings: Settings | None = None, budget_fn: Callable[[], float] | None = None
+    ) -> None:
         self.settings = settings or get_settings()
+        self.budget_fn = budget_fn  # остаток суточного бюджета, ₽ (для тестов экономного режима)
         self._registry: Registry | None = None
+        self._content: ContentGenerator | None = None
+        self._semaphores: dict[asyncio.AbstractEventLoop, asyncio.Semaphore] = {}
 
     @property
     def registry(self) -> Registry:
@@ -38,8 +44,18 @@ class DefaultPipeline:
     # ---- до утверждения ----------------------------------------------------------------------------
 
     def llm(self) -> LLMClient:
-        """Клиент LLM на один шаг: режим (mock/live/replay), кеш и учёт расхода — из настроек."""
-        return LLMClient(self.settings)
+        """Клиент LLM на один шаг: режим (mock/live/replay), кеш и учёт расхода — из настроек. Семафор — общий
+        на процесс: шлюз ограничивает одновременные запросы всей команды, а не одной сессии."""
+        return LLMClient(self.settings, semaphore=self._shared_semaphore())
+
+    def _shared_semaphore(self) -> asyncio.Semaphore:
+        loop = asyncio.get_running_loop()
+        for closed in [lp for lp in self._semaphores if lp.is_closed()]:
+            del self._semaphores[closed]
+        semaphore = self._semaphores.get(loop)
+        if semaphore is None:
+            semaphore = self._semaphores[loop] = asyncio.Semaphore(self.settings.concurrency)
+        return semaphore
 
     async def intake(self, request: RequestInput, ctx: StepContext) -> RequestSpec:
         return await run_intake(request, ctx, self.llm())
@@ -58,18 +74,32 @@ class DefaultPipeline:
 
     # ---- генерация ---------------------------------------------------------------------------------
 
+    @property
+    def content(self) -> ContentGenerator:
+        if self._content is None:
+            self._content = ContentGenerator(
+                self.settings, self.registry, self._session_client, self.budget_fn
+            )
+        return self._content
+
+    def _session_client(self, ctx: StepContext) -> LLMClient:
+        """Клиент на шаг генерации (свой учёт расхода); семафор — общий на процесс (см. llm)."""
+        return self.llm()
+
     def generation_steps(self, kit: Kit, finished: set[str]) -> list[Step]:
-        if "content" not in finished:
-            return [Step("content", "Содержание комплекта", self._content, critical=False)]
+        steps = self.content.steps(kit, finished)
+        if steps:
+            return steps
         if "validate" not in finished:
             return [Step("validate", "Самопроверка комплекта", self._validate_step)]
         return []
 
-    async def _content(self, kit: Kit, ctx: StepContext) -> None:
-        raise StepUnavailable("генерация содержания ещё не подключена в этой версии агента.")
-
     async def _validate_step(self, kit: Kit, ctx: StepContext) -> None:
-        kit.report = await asyncio.to_thread(self.validate, kit, (), ctx)  # не блокирует event loop
+        report = await asyncio.to_thread(self.validate, kit, (), ctx)  # не блокирует event loop
+        report.cost = merge_costs(kit.meta.cost)
+        report.timing = dict(kit.meta.timing)
+        report.judge = list(kit.meta.judge)
+        kit.report = report
 
     def validate(
         self,

@@ -199,10 +199,18 @@ TK_INTERVIEW_REQ_RE = re.compile(
 )
 ANON_RE = re.compile(r"обезличен|анонимизир|деперсонализ", re.I)
 PS_WORD_RE = re.compile(r"профстандарт|профессиональн\w*\s+стандарт|трудов\w*\s+функци", re.I)
-PS_CODE_RE = re.compile(r"(?<![\d.])\d{2}\.\d{3}(?![\d.])")
+PS_CODE_RE = re.compile(r"(?<![\d.])\d{2}\.\d{3}(?!\d|\.\d)")  # точка конца предложения — не часть кода
+# «15.000 тыс. руб.», «версия 10.123» — не коды ПС: код считается кодом ПС только рядом со словами о профстандарте
+PS_CONTEXT_RE = re.compile(
+    r"профстандарт|профессиональн\w*\s+стандарт|трудов\w*\s+функци|(?<![\w])(?-i:ПС)(?![\w])", re.I
+)
+PS_CONTEXT_BEFORE = 80
+PS_CONTEXT_AFTER = 40
 TF_CODE_RE = re.compile(r"(?<![\w/])[A-HАВСЕН]/\d{2}\.\d(?!\d)")
+# формы слов целиком: «указанные в задании № 2», «письменный ответ на вопрос № 3» — не реквизиты актов
 ACT_RE = re.compile(
-    r"(?:приказ\w*|письм\w*|постановлени\w*|распоряжени\w*|указ\w*|закон\w*)[^№\n]{0,80}?№\s*"
+    r"(?<![\w])(?:приказ(?:а|у|ом|е|ы|ов|ам|ами|ах)?|письм(?:о|а|у|ом|е)|постановлени\w*|распоряжени\w*"
+    r"|указ(?:а|у|ом|е|ы|ов)?|закон(?:а|у|ом|е|ы|ов)?)(?![\w])[^№\n]{0,80}?№\s*"
     r"([0-9A-Za-zА-Яа-яЁё][\w./-]*)",
     re.I,
 )
@@ -988,7 +996,62 @@ def check_v05(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                             FixBy.CODE,
                         )
                     )
+    out += _free_hour_mentions(kit)
     return _cap(out, ctx)
+
+
+# Упоминание часов: «36 ч», «2 часа», «72 ак. ч.», «16 акад. часов», «8 а.ч.», «18-часовой», «72-х часов».
+# Общий шаблон для V05 и для очистки ответов модели (app/pipeline/content_apply.py). Нормы вида «4 часа в день»
+# не исключаются: лимиты из запроса (hours_per_day_max, session_hours) и суммы дней есть в _plan_hour_numbers.
+HOURS_PATTERN = (
+    r"(\d+(?:[.,]\d+)?)(?:\s*-\s*(?:х|ти|ми))?\s*-?\s*"
+    r"(?:(?:ак(?:ад\w*)?|а)\.?\s*)?"
+    r"(?:ч\b\.?|час(?:а|ах|ам|ами|ом|у|ов(?:ой|ая|ое|ую|ые|ых|ого|ому|ым|ыми)?)?\b)"
+)
+FREE_HOURS_RE = re.compile(r"(?<![\w.,])" + HOURS_PATTERN, re.I)
+HOURS_FREE_SCOPES = ("source", "term", "calendar")  # библиография, термины и примечания календаря (пишет код)
+
+
+def _plan_hour_numbers(kit: Kit) -> set[float]:
+    """Все числа часов, которые есть в учебном плане и паспорте: строки тем и модулей по видам, итоги, ИА, лимиты."""
+    rows = (
+        [t.hours for t in kit.topics] + [kit.module_hours(m.id) for m in kit.modules] + [kit.program_hours()]
+    )
+    values = {
+        round(v, 1)
+        for row in rows
+        for v in (row.lk, row.pr, row.lb, row.srs, row.total, row.contact, row.distance)
+    }
+    values |= {round(kit.fa_hours(), 1), round(kit.total_hours(), 1), round(kit.program.total_hours, 1)}
+    schedule = kit.program.schedule
+    values |= {round(v, 1) for v in (schedule.hours_per_day_max, schedule.session_hours) if v}
+    if kit.calendar is not None:
+        values |= {round(sum(i.hours for i in d.items), 1) for d in kit.calendar.days}
+    return values
+
+
+def _free_hour_mentions(kit: Kit) -> list[Finding]:
+    """Страховка жёсткого правила 2: число часов в тексте, которого нет ни в одной строке плана, — выдумано."""
+    allowed = _plan_hour_numbers(kit)
+    out: list[Finding] = []
+    for item in _collect_texts(kit):
+        if item.scope in HOURS_FREE_SCOPES:
+            continue
+        for match in FREE_HOURS_RE.finditer(item.text):
+            value = round(float(match.group(1).replace(",", ".")), 1)
+            if value not in allowed:
+                out.append(
+                    Finding(
+                        ERROR,
+                        f"{item.where}: «{_short(match.group(0), 30)}» — такого числа часов нет в учебном плане; часы в "
+                        "тексте берутся только из плана.",
+                        [item.target] if item.target else [],
+                        f"free hours mention {value}",
+                        FixBy.CODE,
+                        refs=("G1e",),
+                    )
+                )
+    return out
 
 
 def check_v06(kit: Kit, ctx: ValidationContext) -> list[Finding]:
@@ -1174,6 +1237,38 @@ def check_v09(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     ]
 
 
+FORM_CLAIM_RE = re.compile(r"дистанционн\w*|\bДОТ\b|электронн\w*\s+обучени\w*|\bЭО\b", re.IGNORECASE)
+FORM_NEGATION_RE = re.compile(r"(?:\bбез\b|\bне\b)[^.;]{0,40}$", re.IGNORECASE)
+
+
+def _form_text_claims(kit: Kit) -> list[Finding]:
+    """Тексты программы обещают ЭО или ДОТ, которых нет в форме обучения (и в учебном плане)."""
+    out: list[Finding] = []
+    texts = kit.texts
+    fields = [
+        ("описание формы обучения", texts.form_description),
+        ("аннотация", texts.annotation),
+        ("организация образовательного процесса", texts.org_process),
+        ("пояснительная записка", texts.relevance),
+    ]
+    for where, text in fields:
+        for match in FORM_CLAIM_RE.finditer(text or ""):
+            if FORM_NEGATION_RE.search(text[max(0, match.start() - 40) : match.start()]):
+                continue
+            out.append(
+                Finding(
+                    WARNING,
+                    f"{where}: «{_short(match.group(0), 30)}» — в форме обучения программы ЭО и ДОТ не предусмотрены; "
+                    "текст расходится с учебным планом и нормативной базой.",
+                    detail="form text claims eo/dot",
+                    fix_by=FixBy.LLM,
+                    refs=("F6",),
+                )
+            )
+            break
+    return out
+
+
 def check_v10(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     """Разбивка «очно / с ДОТ»: задана, когда есть ДОТ, и сходится в каждой строке."""
     names = _Names(kit)
@@ -1228,7 +1323,9 @@ def check_v10(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                         fix_by=FixBy.CODE,
                     )
                 )
-    elif total.distance > EPS:
+    if not (form.dot or form.eo):
+        out += _form_text_claims(kit)
+    if not form.dot and total.distance > EPS:
         out.append(
             Finding(
                 ERROR,
@@ -2972,7 +3069,7 @@ def check_v26(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                 )
             )
     for item in _texts_for_registry(kit):
-        match = PS_WORD_RE.search(item.text) or PS_CODE_RE.search(item.text) or TF_CODE_RE.search(item.text)
+        match = PS_WORD_RE.search(item.text) or _ps_code_search(item.text) or TF_CODE_RE.search(item.text)
         if match:
             out.append(
                 Finding(
@@ -2991,41 +3088,88 @@ def _marked(text: str, end: int) -> bool:
     return UNVERIFIED_MARK in text[end : end + 60]
 
 
+@dataclass(frozen=True)
+class _KnownCodes:
+    acts: set[str]
+    ps: set[str]
+    tf: set[str]
+
+
+def _known_codes(registry: RegistryView) -> _KnownCodes:
+    acts = {_norm_number(n.number) for n in registry.norms() if n.number}
+    for standard in registry.profstandards():
+        acts |= {_norm_number(x) for x in NUMBER_RE.findall(standard.order)}
+    return _KnownCodes(
+        acts=acts,
+        ps={p.code for p in registry.profstandards()},
+        tf={f.code for p in registry.profstandards() for f in p.labor_functions},
+    )
+
+
+def _ps_context(text: str, match: re.Match[str]) -> bool:
+    """«06.015» — код ПС, только если рядом слова о профстандарте (иначе это сумма, версия, номер пункта)."""
+    window = text[max(0, match.start() - PS_CONTEXT_BEFORE) : match.end() + PS_CONTEXT_AFTER]
+    return bool(PS_CONTEXT_RE.search(window))
+
+
+def _ps_code_search(text: str) -> re.Match[str] | None:
+    return next((m for m in PS_CODE_RE.finditer(text) if _ps_context(text, m)), None)
+
+
+def _code_mentions(text: str) -> list[tuple[str, str, str, int]]:
+    """(вид, код, фрагмент, конец фрагмента) — номера актов, коды ПС и ТФ без метки «[не подтверждено]»."""
+    found: list[tuple[str, str, str, int]] = []
+    for regex, kind in ((ACT_RE, "act"), (FZ_RE, "act"), (PS_CODE_RE, "ps"), (TF_CODE_RE, "tf")):
+        for match in regex.finditer(text):
+            if _marked(text, match.end()) or (kind == "ps" and not _ps_context(text, match)):
+                continue
+            end = match.end()
+            if kind == "act":  # «№ 4321.» — точка конца предложения не входит в номер
+                code = match.group(1).rstrip("./-")
+                end = match.end(1) - (len(match.group(1)) - len(code))
+            else:
+                code = match.group(0)
+            found.append((kind, code.translate(LOOKALIKES) if kind == "tf" else code, match.group(0), end))
+    return found
+
+
+def _code_known(kind: str, code: str, known: _KnownCodes) -> bool:
+    if kind == "act":
+        number = _norm_number(code)
+        return number in known.acts or "_" in code or number.endswith("-обр")  # реквизиты организации — V30
+    return code in (known.ps if kind == "ps" else known.tf)
+
+
+def mark_unknown_codes(text: str, registry: RegistryView) -> str:
+    """Номера актов, коды ПС и ТФ, которых нет в реестре, получают метку «[не подтверждено]» (жёсткое правило 3).
+    Для текстов, написанных моделью: код, а не модель, решает, что подтверждено."""
+    if not text:
+        return text
+    mentions = _code_mentions(text)
+    if not mentions:
+        return text
+    known = _known_codes(registry)
+    ends = sorted(
+        {end for kind, code, _, end in mentions if not _code_known(kind, code, known)}, reverse=True
+    )
+    for end in ends:
+        text = f"{text[:end]} {UNVERIFIED_MARK}{text[end:]}"
+    return text
+
+
 def check_v27(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     """Номера актов, коды ПС и ТФ в свободном тексте — только из реестра или с меткой."""
-    found: list[tuple[_Text, str, str, str]] = []  # (поле, вид, код, фрагмент)
-    for item in _texts_for_registry(kit):
-        text = item.text
-        for match in ACT_RE.finditer(text):
-            if not _marked(text, match.end()):
-                found.append((item, "act", match.group(1), match.group(0)))
-        for match in FZ_RE.finditer(text):
-            if not _marked(text, match.end()):
-                found.append((item, "act", match.group(1), match.group(0)))
-        for match in PS_CODE_RE.finditer(text):
-            if not _marked(text, match.end()):
-                found.append((item, "ps", match.group(0), match.group(0)))
-        for match in TF_CODE_RE.finditer(text):
-            if not _marked(text, match.end()):
-                found.append((item, "tf", match.group(0).translate(LOOKALIKES), match.group(0)))
+    found = [(item, *mention) for item in _texts_for_registry(kit) for mention in _code_mentions(item.text)]
     if not found:
         return []
     registry = ctx.registry
     if registry is None:
         return [_no_registry(f"номера актов и коды ПС/ТФ в тексте ({len(found)} упоминаний)")]
-    known_acts = {_norm_number(n.number) for n in registry.norms() if n.number}
-    for standard in registry.profstandards():
-        known_acts |= {_norm_number(x) for x in NUMBER_RE.findall(standard.order)}
-    known_ps = {p.code for p in registry.profstandards()}
-    known_tf = {f.code for p in registry.profstandards() for f in p.labor_functions}
+    known = _known_codes(registry)
     out: list[Finding] = []
     words = {"act": "акта", "ps": "профстандарта", "tf": "трудовой функции"}
-    for item, kind, code, fragment in found:
-        if kind == "act":
-            number = _norm_number(code)
-            if number in known_acts or "_" in code or number.endswith("-обр"):
-                continue  # реквизиты организации проверяет V30
-        elif kind == "ps" and code in known_ps or kind == "tf" and code in known_tf:
+    for item, kind, code, fragment, _ in found:
+        if _code_known(kind, code, known):
             continue
         out.append(
             Finding(
@@ -3234,13 +3378,35 @@ def _language_tokens(text: str, skip: set[str]) -> tuple[list[str], list[str]]:
     return cyr, lat
 
 
+# Код в вариантах ответа и заданиях («SELECT … FROM …», «import pandas as pd», «df.groupby(…)») — не текст на языке
+_CYR = "А-Яа-яЁё"
+CODE_LIKE_RE = re.compile(
+    r"\b(?:SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b[\s\S]*?\b(?:FROM|INTO|SET|TABLE|WHERE)\b"
+    r"|^\s*(?:import|from)\s+[\w.]+|\b\w+(?:\.\w+)*\([^()]*\)|[\w\]]\s*(?:=|:=|==)\s*[\w'\"\[(]"
+)
+CODE_SYMBOLS = set("=()[]{};:.,'\"<>*_/#")
+
+
+def looks_like_code(text: str) -> bool:
+    """Поле — фрагмент кода: SQL, импорт, вызов функции, присваивание или много служебных символов."""
+    stripped = text.strip()
+    if not stripped or re.search(f"[{_CYR}]", stripped) and not CODE_LIKE_RE.search(stripped):
+        return False
+    symbols = sum(1 for ch in stripped if ch in CODE_SYMBOLS)
+    return bool(CODE_LIKE_RE.search(stripped)) or symbols / len(stripped) > 0.15
+
+
 def check_v32(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     registry = ctx.registry
     skip: set[str] = set()
     if registry is not None:
         skip |= {n.lower() for t in registry.tools() for n in t.all_names()}
         skip |= {n.lower() for s in registry.ai_services() for n in s.all_names()}
-    texts = [t for t in _collect_texts(kit) if t.scope not in ("source", "software", "term")]
+    texts = [
+        t
+        for t in _collect_texts(kit)
+        if t.scope not in ("source", "software", "term") and not looks_like_code(t.text)
+    ]
     out: list[Finding] = []
     cyr_letters = lat_letters = 0
     for item in texts:
@@ -3572,8 +3738,33 @@ def check_v38(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     return _cap(out, ctx)
 
 
+REAL_DATA_RE = re.compile(
+    r"реальн\w*\s+(?:\w+\s+){0,2}данн\w*|доступ\w*\s+к\s+(?:\w+\s+){0,2}(?:сервер|баз)\w*", re.I
+)
+
+
 def check_v39(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     out: list[Finding] = []
+    if kit.request.constraints.anonymized_data:
+        for item in _texts_for_registry(kit):
+            for sentence in re.split(r"(?<=[.!?;])\s+", item.text):
+                match = REAL_DATA_RE.search(sentence)
+                if (
+                    match
+                    and not ANON_RE.search(sentence)
+                    and not re.search(r"\bбез\b|\bне\b", sentence[: match.start()])
+                ):
+                    out.append(
+                        Finding(
+                            WARNING,
+                            f"{item.where}: «{_short(match.group(0), 40)}» — по запросу используются только обезличенные "
+                            "учебные данные, без доступа к реальным системам и данным организации.",
+                            [item.target] if item.target else [],
+                            "real data with anonymized constraint",
+                            FixBy.LLM,
+                        )
+                    )
+                    break
     for item in _texts_for_registry(kit):
         for what, regex in PII_RES:
             match = regex.search(item.text)
@@ -3649,6 +3840,36 @@ def _term_regex(term: str) -> re.Pattern[str]:
     if re.fullmatch(r"[А-Яа-яЁё]{6,}", term):
         stem = term[:-2]
     return re.compile(r"(?<![\w])" + re.escape(stem), re.I)
+
+
+def fix_glossary_order(kit: Kit) -> list[str]:
+    """Термин глоссария — в лекции, где он впервые встречается (в порядке тем), без повторов в следующих лекциях.
+    Лекции модулей генерируются параллельно, и модель не знает, что уже объяснено, — порядок наводит код.
+    Возвращает ID лекций, у которых изменился глоссарий."""
+    lectures = _ordered_lectures(kit)
+    texts = {lec.id: _lecture_text(lec) for lec in lectures}
+    by_id = {lec.id: lec for lec in lectures}
+    seen: set[str] = set()
+    changed: set[str] = set()
+    for lecture in lectures:
+        for entry in list(lecture.glossary):
+            key = normalize_text(entry.term)
+            if not key:
+                continue
+            if key in seen:
+                lecture.glossary = [g for g in lecture.glossary if g is not entry]
+                changed.add(lecture.id)
+                continue
+            seen.add(key)
+            regex = _term_regex(entry.term)
+            first = next(
+                (lec for lec in lectures if lec.id == lecture.id or regex.search(texts[lec.id])), lecture
+            )
+            if first.id != lecture.id:
+                lecture.glossary = [g for g in lecture.glossary if g is not entry]
+                by_id[first.id].glossary = [*by_id[first.id].glossary, entry]
+                changed |= {lecture.id, first.id}
+    return sorted(changed)
 
 
 def check_v41(kit: Kit, ctx: ValidationContext) -> list[Finding]:

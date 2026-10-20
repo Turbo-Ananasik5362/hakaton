@@ -246,3 +246,92 @@ def test_v29_version_mentions(text: str, flagged: bool) -> None:
     kit.seminars[0].task += " " + text
     issues = run(kit, ValidationContext(registry=registry, current_year=2026), only=["V29"]).issues
     assert bool(issues) is flagged, [i.message for i in issues]
+
+
+def test_v05_hours_in_text_not_from_plan() -> None:
+    """Число часов в тексте, которого нет в учебном плане, — ошибка (страховка правила «часы — только от солвера»)."""
+    kit = make_pk_kit()
+    total = kit.program.total_hours
+    kit.texts.annotation = f"Программа рассчитана на {total:g} часов. Обучение длится 123 часа."
+    kit.seminars[0].task += " Нормы: не больше 8 часов в день."
+    issues = [i for i in run(kit, only=["V05"]).issues if i.severity == Severity.ERROR]
+    assert len(issues) == 1 and "123 часа" in issues[0].message
+
+
+def test_v05_catches_hour_forms_and_daily_norms() -> None:
+    """«акад. часов», «18-часовой», «а.ч.» и «N часов в день», которых нет в плане, — тоже выдуманные часы."""
+    kit = make_pk_kit()
+    kit.texts.annotation = (
+        "Это 117-часовой интенсив. Объём 137 акад. часов. Всего 139 а.ч. Занятия по 11 часов в день."
+    )
+    issues = [i for i in run(kit, only=["V05"]).issues if i.severity == Severity.ERROR]
+    assert len(issues) == 4
+
+
+def test_codes_without_context_are_not_marked() -> None:
+    """Номер задания, сумма, версия — не реквизиты акта и не код ПС: метку не получают."""
+    from app.core.validate import mark_unknown_codes
+
+    registry = make_registry()
+    for text in (
+        "Ответьте на вопросы, указанные в задании № 2.",
+        "Письменный ответ на вопрос № 3.",
+        "Бюджет — 15.000 тыс. руб., версия 10.123.",
+    ):
+        assert mark_unknown_codes(text, registry) == text
+    assert "[не подтверждено]" in mark_unknown_codes("Указом Президента № 4321 утверждено.", registry)
+    assert "[не подтверждено]" in mark_unknown_codes("Профстандарт 06.099 не найден.", registry)
+
+
+def test_mark_unknown_codes_and_v27() -> None:
+    """Коды ПС/ТФ и номера актов, которых нет в реестре, получают метку; известные — нет; V27 после метки молчит."""
+    from app.core.validate import mark_unknown_codes
+
+    registry = make_registry()
+    text = "По профстандарту 06.099 и приказу № 1234; действует приказ № 266, стандарт 06.015, ТФ C/11.6."
+    marked = mark_unknown_codes(text, registry)
+    assert marked.count("[не подтверждено]") == 2
+    assert "06.099 [не подтверждено]" in marked and "№ 1234 [не подтверждено]" in marked
+    assert mark_unknown_codes(marked, registry) == marked  # повторная метка не ставится
+    kit = make_pk_kit()
+    kit.texts.annotation = text
+    assert [i for i in run(kit, only=["V27"]).issues if i.target_ids == []]
+    kit.texts.annotation = marked
+    assert not [i for i in run(kit, only=["V27"]).issues if "06.099" in i.message or "1234" in i.message]
+
+
+@pytest.mark.parametrize(
+    ("option", "flagged"),
+    [
+        ("SELECT c.name, SUM(t.amount) FROM customers c JOIN transactions t ON c.id = t.customer_id;", False),
+        ("import pandas as pd; df = pd.read_sql('SELECT * FROM transactions', conn)", False),
+        ("df.groupby('region')['amount'].sum().sort_values(ascending=False)", False),
+        ("The quick analysis of the data is done with the help of the best tools in the world", True),
+    ],
+)
+def test_v32_code_in_options_is_not_foreign_text(option: str, flagged: bool) -> None:
+    kit = make_pk_kit()
+    kit.questions[0].options[0] = option
+    issues = [i for i in run(kit, only=["V32"]).issues if "не на русском" in i.message]
+    assert bool(issues) is flagged
+
+
+def test_v10_form_text_must_match_form_flags() -> None:
+    """Текст «форма обучения» обещает ДОТ, которых нет в форме программы, — предупреждение; «без ДОТ» — нет."""
+    from tests.validate_kits import make_internship_kit
+
+    kit = make_internship_kit()
+    assert not (kit.program.form.dot or kit.program.form.eo)
+    kit.texts.form_description = "Обучение с применением электронного обучения и дистанционных технологий."
+    assert [i for i in run(kit, only=["V10"]).issues if "ЭО и ДОТ не предусмотрены" in i.message]
+    kit.texts.form_description = "Стажировка проходит очно, без применения дистанционных технологий."
+    assert not run(kit, only=["V10"]).issues
+
+
+def test_v39_real_data_with_anonymized_requirement() -> None:
+    kit = make_pk_kit()
+    kit.request.constraints.anonymized_data = True
+    kit.texts.mto = ["Доступ к SQL-серверам банка с реальными клиентскими данными"]
+    assert [i for i in run(kit, only=["V39"]).issues if "обезличенные" in i.message]
+    kit.texts.mto = ["Учебная база на реальных, но обезличенных данных"]
+    assert not [i for i in run(kit, only=["V39"]).issues if "обезличенные" in i.message]

@@ -41,7 +41,7 @@ class Settings(BaseModel):
     default_model: str = DEFAULT_MODEL
     reasoning_model: str = REASONING_MODEL
     daily_budget_rub: float = Field(default=90.0, ge=0)
-    concurrency: int = Field(default=4, ge=1)
+    concurrency: int = Field(default=2, ge=1)  # шлюз ограничивает одновременные запросы всей команды (429)
     timeout_s: float = Field(default=120.0, gt=0)
     max_retries: int = Field(default=4, ge=0)
     max_repairs: int = Field(default=2, ge=0)
@@ -65,7 +65,7 @@ class Settings(BaseModel):
             api_key=SecretStr(env.get("OPENAI_API_KEY", "")),
             default_model=env.get("LLM_DEFAULT_MODEL", DEFAULT_MODEL),
             daily_budget_rub=float(env.get("LLM_DAILY_BUDGET_RUB", "90")),
-            concurrency=int(env.get("LLM_CONCURRENCY", "4")),
+            concurrency=int(env.get("LLM_CONCURRENCY", "2")),
             timeout_s=float(env.get("LLM_TIMEOUT_S", "120")),
             max_retries=int(env.get("LLM_MAX_RETRIES", "4")),
             schema_strict=env.get("LLM_SCHEMA_STRICT", "1") not in ("0", "false", "False"),

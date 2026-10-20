@@ -274,7 +274,7 @@ def _literature_sources(start: int) -> list[Source]:
     ]
 
 
-def _texts(dop: bool = False) -> ProgramTexts:
+def _texts(dop: bool = False, dot: bool = False) -> ProgramTexts:
     return ProgramTexts(
         annotation="Программа знакомит слушателей с подготовкой и анализом данных для ежедневных задач отделения "
         "банка: от выгрузки таблиц до наглядного отчёта для руководителя.",
@@ -283,7 +283,9 @@ def _texts(dop: bool = False) -> ProgramTexts:
         if dop
         else "",
         form_description="Обучение очно-заочное: лекции проходят дистанционно, практические занятия — в учебном "
-        "классе, итоговая аттестация — очно.",
+        "классе, итоговая аттестация — очно."
+        if dot
+        else "Обучение очное: занятия проходят в учебном классе, итоговая аттестация — очно.",
         audience_requirements="Слушатели имеют среднее профессиональное или высшее образование и опыт работы "
         "с электронными таблицами.",
         mto=["Компьютерный класс с доступом в интернет", "Проектор и экран для демонстрации"],
@@ -549,7 +551,7 @@ def make_pk_kit() -> Kit:
             )
         ]
         + _literature_sources(5),
-        texts=_texts(),
+        texts=_texts(dot=True),
     )
     return _finish(kit)
 

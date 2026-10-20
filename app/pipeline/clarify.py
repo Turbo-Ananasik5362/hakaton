@@ -503,6 +503,28 @@ def _apply_default(spec: RequestSpec, key: str, deferred: bool = False) -> None:
         spec.assumptions.append(f"{reason} — принята форма «{FA_TITLES[spec.fa_form]}».")
 
 
+NO_DOT_RE = re.compile(r"без\s+(?:применени\w+\s+)?(?:дистанционн|электронн|ДОТ\b|онлайн)", re.IGNORECASE)
+
+
+def _part_time_with_dot(spec: RequestSpec) -> None:
+    """Общее правило: заочная часть очно-заочной или заочной программы проводится с применением ЭО и ДОТ, если
+    в запросе не сказано иначе. Тогда учебный план показывает часы с ДОТ, а нормативная база — правила ЭО и ДОТ."""
+    form = spec.form
+    if (
+        form is None
+        or form.kind == StudyFormKind.OCHNAYA
+        or form.dot
+        or form.eo
+        or NO_DOT_RE.search(spec.raw_text)
+    ):
+        return
+    spec.form = form.model_copy(update={"dot": True, "eo": True})
+    spec.assumptions.append(
+        f"Форма {FORM_TITLES[form.kind]}: заочная часть проводится с применением электронного обучения и "
+        "дистанционных образовательных технологий (обычная практика ДПП); если ДОТ не нужны — уточните."
+    )
+
+
 def finalize_spec(spec: RequestSpec) -> RequestSpec:
     """Перед каркасом: всё, что осталось неизвестным, закрывается умолчаниями с записью в assumptions.
 
@@ -512,6 +534,7 @@ def finalize_spec(spec: RequestSpec) -> RequestSpec:
     for key in CORE_PARAMS:  # program_type первым: от типа зависят остальные умолчания
         if key in new.missing or (key == "program_type" and new.program_type is None):
             _apply_default(new, key)
+    _part_time_with_dot(new)
     facts = extract_facts(new.raw_text)
     for key in [m for m in new.missing if is_conflict(m)]:
         new.assumptions.append(f"Не снято противоречие: {describe_conflict(key, new, facts)}")

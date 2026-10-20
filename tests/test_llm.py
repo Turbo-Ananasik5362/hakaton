@@ -412,3 +412,67 @@ def test_timeout_is_retried_only_once(tmp_path: Path) -> None:
     with pytest.raises(GatewayError):
         call(client)
     assert calls["n"] == 2
+
+
+def test_team_rate_limit_waits_longer_than_server_errors(tmp_path: Path) -> None:
+    """429 «too many concurrent requests from this team»: место освобождается, когда закончится чужой вызов, —
+    клиент ждёт дольше и пробует больше раз, чем при сбое сервера (живой прогон 20.10: 4 коротких повтора не хватило)."""
+    busy = httpx.Response(429, json={"error": {"code": "llm_too_many_requests"}})
+    gateway = FakeGateway([busy] * 7 + [chat('{"ok": true, "word": "дождались"}')])
+    sleeps: list[float] = []
+
+    async def record(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    client = LLMClient(make_settings(tmp_path, max_retries=4), transport=gateway.transport(), sleep=record)
+    assert call(client) == Tiny(ok=True, word="дождались")
+    assert len(sleeps) == 7 and sum(sleeps) > 60  # не 15 с, как у экспоненты 1–8 с
+    gateway = FakeGateway([httpx.Response(429)] * 20)
+    with pytest.raises(GatewayError) as info:
+        call(
+            LLMClient(
+                make_settings(tmp_path / "other", max_retries=4),
+                transport=gateway.transport(),
+                sleep=no_sleep,
+            )
+        )
+    assert info.value.status == 429 and len(gateway.bodies) <= 4 + 1 + 4  # конечное число попыток
+
+
+def test_rate_limit_total_wait_is_capped(tmp_path: Path) -> None:
+    """Retry-After: 60 на каждый ответ — суммарное ожидание одного вызова не больше MAX_RATE_LIMIT_WAIT_S."""
+    from app.llm import MAX_RATE_LIMIT_WAIT_S
+
+    gateway = FakeGateway([httpx.Response(429, headers={"retry-after": "60"})] * 20)
+    sleeps: list[float] = []
+
+    async def record(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    client = LLMClient(make_settings(tmp_path, max_retries=4), transport=gateway.transport(), sleep=record)
+    with pytest.raises(GatewayError) as info:
+        call(client)
+    assert info.value.status == 429 and sum(sleeps) <= MAX_RATE_LIMIT_WAIT_S and len(sleeps) == 3
+
+
+def test_gateway_down_gets_no_rate_limit_retries(tmp_path: Path) -> None:
+    """Шлюз лежит (ошибка соединения): только max_retries повторов, доп. попытки — лишь для 429."""
+    calls = {"n": 0}
+
+    def down(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        raise httpx.ConnectError("нет соединения", request=request)
+
+    client = LLMClient(
+        make_settings(tmp_path, max_retries=2), transport=httpx.MockTransport(down), sleep=no_sleep
+    )
+    with pytest.raises(GatewayError):
+        call(client)
+    assert calls["n"] == 3
+
+
+def test_server_errors_get_no_rate_limit_retries(tmp_path: Path) -> None:
+    gateway = FakeGateway([httpx.Response(503)] * 20)
+    with pytest.raises(GatewayError) as info:
+        call(make_client(tmp_path, gateway, max_retries=2))
+    assert info.value.status == 503 and len(gateway.bodies) == 3

@@ -40,8 +40,8 @@ def test_query_4_goes_through_questions(tmp_path: Path) -> None:
     assert all(q["answer_source"] == "methodist" for q in transcript["questions"])
     assert [e["action"] for e in transcript["events"]] == ["create", "answer", "approve", "result"]
     assert transcript["final_status"] == "done" and transcript["complete"] is False
-    assert any("Содержание комплекта" in item for item in transcript["limitations"])
-    assert any(".docx" in item for item in transcript["limitations"])
+    assert not any("Содержание" in item for item in transcript["limitations"])  # содержание собрано
+    assert any(".docx" in item for item in transcript["limitations"])  # выгрузок пока нет
     kit = Kit.model_validate(load(out / "kit.json"))
     assert kit.program.total_hours == 72 and kit.total_hours() == 72
     assert load(out / "report.json")["status"] in ("ok", "warnings", "errors")
@@ -111,7 +111,7 @@ def test_live_at_night_is_refused_before_any_work(tmp_path: Path, monkeypatch: p
 
 
 def test_estimate_is_reasonable() -> None:
-    assert 0.5 < script.estimate_rub() < 3.0
+    assert 8.0 < script.estimate_rub() < 20.0  # каркас + комплект 72 ч (§7.3: ≈ 13,5 ₽)
     assert script.estimate_rub(with_clarify=False) < script.estimate_rub()
 
 

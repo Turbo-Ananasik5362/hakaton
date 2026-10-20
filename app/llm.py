@@ -37,7 +37,14 @@ T = TypeVar("T", bound=BaseModel)
 Message = dict[str, str]
 
 RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+RATE_LIMIT_EXTRA_RETRIES = (
+    4  # при 429 — до max_retries + 4 попыток с паузами 5–30 с (≈ 2,5 мин в худшем случае)
+)
 REASONING_MIN_TOKENS = 1000
+MAX_RATE_LIMIT_WAIT_S = (
+    180.0  # суммарно ждать место у шлюза (429) не дольше: дальше шаг уйдёт в повтор или заглушку
+)
+MIN_TOKENS_PER_SECOND = 40  # нижняя граница скорости шлюза для таймаута длинных ответов (замер: 69–80 ток/с)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -264,8 +271,12 @@ class LLMClient:
         settings: Settings | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        semaphore: asyncio.Semaphore | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self._shared_semaphore = (
+            semaphore  # общий на сессию генерации: не больше N вызовов шлюза одновременно
+        )
         self.records: list[CallRecord] = []
         self._transport = transport
         self._sleep = sleep
@@ -427,6 +438,7 @@ class LLMClient:
             raise ReplayMiss(f"Режим replay: ответа для шага {step!r} нет в кеше ({key[:12]}…).")
         self._check_live_ready()
         async with self._semaphore():
+            self._check_live_ready()  # в очереди к семафору можно простоять долго — лимит проверяется перед вызовом
             raw, seconds = await self._post_with_retries(body)
         self._record(step, model, raw, seconds=seconds, from_cache=False)
         return raw, key, False
@@ -502,6 +514,8 @@ class LLMClient:
     # ---- HTTP ------------------------------------------------------------------------------------
 
     def _semaphore(self) -> asyncio.Semaphore:
+        if self._shared_semaphore is not None:
+            return self._shared_semaphore
         loop = asyncio.get_running_loop()
         for known in [lp for lp in self._semaphores if lp.is_closed()]:
             del self._semaphores[known]
@@ -512,9 +526,14 @@ class LLMClient:
     async def _post_with_retries(self, body: dict[str, Any]) -> tuple[RawResponse, float]:
         url = f"{self.settings.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.settings.api_key.get_secret_value()}"}
-        timeout = httpx.Timeout(self.settings.timeout_s, connect=min(10.0, self.settings.timeout_s))
-        attempts = self.settings.max_retries + 1
+        # длинный ответ (module_pack до 8000 токенов) при 60–70 ток/с не должен упираться в общий таймаут
+        read_s = max(self.settings.timeout_s, int(body.get("max_tokens") or 0) / MIN_TOKENS_PER_SECOND + 30)
+        timeout = httpx.Timeout(read_s, connect=min(10.0, self.settings.timeout_s))
+        attempts = self.settings.max_retries + 1 + RATE_LIMIT_EXTRA_RETRIES
         timeouts = 0
+        failures = 0  # сбои сети и сервера: не больше max_retries повторов (доп. попытки — только на 429)
+        rate_limited = 0
+        waited = 0.0  # суммарное ожидание из-за 429
         for attempt in range(attempts):
             last = attempt == attempts - 1
             started = time.perf_counter()
@@ -524,20 +543,42 @@ class LLMClient:
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 if isinstance(exc, httpx.TimeoutException):
                     timeouts += 1  # долгая генерация, вероятно, оплачена — повторяем её не больше одного раза
-                if last or timeouts > 1:
+                failures += 1
+                if last or timeouts > 1 or failures > self.settings.max_retries:
                     raise GatewayError(f"Шлюз недоступен: {type(exc).__name__}") from None
-                await self._sleep(self._backoff(attempt, None))
+                await self._sleep(self._backoff(failures - 1, None))
                 continue
             seconds = time.perf_counter() - started
             if resp.status_code == 200:
                 return self._raw_from_response(resp), seconds
             if resp.status_code in (400, 422) and "response_format" in body:
                 raise SchemaRejected(self._error_text(resp), status=resp.status_code)
-            if resp.status_code in RETRYABLE_STATUS and not last:
-                await self._sleep(self._backoff(attempt, resp.headers.get("retry-after")))
+            if resp.status_code == 429 and not last:
+                # «too many concurrent requests from this team»: место освободится, когда закончится чужой вызов
+                # (10–30 с) — ждём дольше, чем при сбое сервера
+                rate_limited += 1
+                pause = self._rate_limit_backoff(rate_limited, resp.headers.get("retry-after"))
+                if waited + pause > MAX_RATE_LIMIT_WAIT_S:
+                    raise GatewayError(self._error_text(resp), status=resp.status_code)
+                waited += pause
+                await self._sleep(pause)
+                continue
+            server_error = resp.status_code in RETRYABLE_STATUS and resp.status_code != 429  # 429 — выше
+            if server_error and not last and failures < self.settings.max_retries:
+                failures += 1
+                await self._sleep(self._backoff(failures - 1, resp.headers.get("retry-after")))
                 continue
             raise GatewayError(self._error_text(resp), status=resp.status_code)
         raise GatewayError("Шлюз не ответил после повторов")  # недостижимо, для анализатора
+
+    @staticmethod
+    def _rate_limit_backoff(n: int, retry_after: str | None) -> float:
+        if retry_after:
+            try:
+                return min(float(retry_after), 60.0)
+            except ValueError:
+                pass
+        return min(5.0 * n, 30.0) * (0.75 + random.random() / 2)
 
     @staticmethod
     def _backoff(attempt: int, retry_after: str | None) -> float:

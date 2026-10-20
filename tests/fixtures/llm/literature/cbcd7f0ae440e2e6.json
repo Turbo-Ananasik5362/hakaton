@@ -1,0 +1,52 @@
+{
+  "selected": [
+    {
+      "catalog_id": "lit:python_matthes_2024",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:python_lubanovic_2021",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:data_mckinney_2023",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:data_vanderplas_2023",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:python_chernyshev_2022",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:testing_beck_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:python_docs_tutorial",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:data_pandas_docs",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:ml_sklearn_docs",
+      "section": "internet"
+    }
+  ],
+  "candidates": [
+    {
+      "authors": [
+        "Иванов И. И."
+      ],
+      "title": "Полное руководство по всему",
+      "year": 2023,
+      "publisher": "Питер",
+      "isbn": "978-5-4461-0000-1",
+      "section": "additional"
+    }
+  ]
+}

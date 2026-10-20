@@ -766,6 +766,9 @@ class KitMeta(KitModel):
     skills_version: str = ""
     timing: dict[str, float] = Field(default_factory=dict)
     cost: list[StepCost] = Field(default_factory=list)
+    budget: dict[str, float] = Field(default_factory=dict)  # оценка полного и экономного режима, остаток, ₽
+    judge: list[JudgeResult] = Field(default_factory=list)  # смысловая проверка (навык judge) — в отчёт
+    generation_notes: list[str] = Field(default_factory=list)  # что пропущено и почему — для отчёта методисту
 
 
 KitObject = (
@@ -997,13 +1000,25 @@ class ModuleContentDraft(DraftModel):
     topics: list[TopicContentDraft] = Field(default_factory=list)
 
 
+class PlanItemDraft(DraftModel):
+    """Раздел плана лекции от модели: ссылки на РО — строки, их проверяет код (битая ссылка не роняет ответ)."""
+
+    title: str
+    theses: list[str] = Field(default_factory=list)
+    lo_ids: list[str] = Field(default_factory=list)
+
+
+class GlossaryDraft(DraftModel):
+    term: str
+    definition: str
+
+
 class LectureDraft(DraftModel):
     topic_ids: list[str] = Field(default_factory=list)
-    session_no: int | None = None
     title: str
     goal: str = ""
-    plan: list[PlanItem] = Field(default_factory=list)
-    glossary: list[GlossaryItem] = Field(default_factory=list)
+    plan: list[PlanItemDraft] = Field(default_factory=list)
+    glossary: list[GlossaryDraft] = Field(default_factory=list)
 
 
 class LecturesDraft(DraftModel):
@@ -1017,7 +1032,7 @@ class SlidesDraft(DraftModel):
 
 class CriterionDraft(DraftModel):
     text: str
-    max_points: float = Field(gt=0)
+    max_points: float = 0  # баллы > 0 проверяет код (content_apply), а не схема
 
 
 class SeminarDraft(DraftModel):
@@ -1038,14 +1053,16 @@ class SeminarsDraft(DraftModel):
 
 
 class QuestionDraft(DraftModel):
+    """Правильные ответы — текстом варианта (correct_answers), а не номером: модели путают счёт с 0 и с 1."""
+
     topic_id: str
     lo_ids: list[str] = Field(default_factory=list)
     kind: QuestionKind = QuestionKind.SINGLE
     stem: str
     options: list[str] = Field(default_factory=list)
-    correct: list[int] = Field(default_factory=list)
+    correct_answers: list[str] = Field(default_factory=list)
     explanation: str = ""
-    difficulty: int = Field(default=1, ge=1, le=3)
+    difficulty: int = 1  # 1–3 приводит код
 
 
 class InterviewDraft(DraftModel):
@@ -1113,7 +1130,7 @@ class BookCandidate(DraftModel):
 
 class LiteratureDraft(DraftModel):
     selected: list[CatalogPick] = Field(default_factory=list)
-    candidates: list[BookCandidate] = Field(default_factory=list, max_length=6)
+    candidates: list[BookCandidate] = Field(default_factory=list)  # не больше 6 берёт код
 
 
 class PatchPlanDraft(DraftModel):
@@ -1123,6 +1140,16 @@ class PatchPlanDraft(DraftModel):
     quantity_text: str | None = (
         None  # фрагмент с количеством («добавь 2 часа практики») — число извлекает код
     )
+
+
+class ModulePackDraft(DraftModel):
+    """Экономный режим (module_pack): содержание тем, лекции, задания и вопросы модуля — одним ответом."""
+
+    topics: list[TopicContentDraft] = Field(default_factory=list)
+    lectures: list[LectureDraft] = Field(default_factory=list)
+    seminars: list[SeminarDraft] = Field(default_factory=list)
+    questions: list[QuestionDraft] = Field(default_factory=list)
+    interview: list[InterviewDraft] = Field(default_factory=list)
 
 
 class JudgeItemDraft(DraftModel):

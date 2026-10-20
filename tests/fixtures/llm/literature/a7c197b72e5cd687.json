@@ -1,0 +1,48 @@
+{
+  "selected": [
+    {
+      "catalog_id": "lit:python_sweigart_2021",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:security_shustikov_2025",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:data_vanderplas_2023",
+      "section": "main"
+    },
+    {
+      "catalog_id": "lit:data_bruce_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:networks_severance_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:pm_brooks_2021",
+      "section": "additional"
+    },
+    {
+      "catalog_id": "lit:security_fstec_bdu",
+      "section": "internet"
+    },
+    {
+      "catalog_id": "lit:linux_astra_wiki",
+      "section": "internet"
+    }
+  ],
+  "candidates": [
+    {
+      "authors": [
+        "Иванов И. И."
+      ],
+      "title": "Полное руководство по всему",
+      "year": 2023,
+      "publisher": "Питер",
+      "isbn": "978-5-4461-0000-1",
+      "section": "additional"
+    }
+  ]
+}
