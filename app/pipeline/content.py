@@ -77,6 +77,8 @@ T = TypeVar("T", bound=BaseModel)
 ClientFactory = Callable[[StepContext], LLMClient]
 
 FILL_MARK = "[заполнить методисту]"
+SUMMARY_SLIDE_TITLE = "Итоги лекции"
+SUMMARY_SLIDE_NOTES = "Подведите итоги: что слушатели теперь умеют и какие вопросы остались."
 BUDGET_MARGIN = 1.5
 QUESTIONS_PER_LO = 2
 MIN_INTERVIEW_PER_MODULE = 3
@@ -610,6 +612,9 @@ class ContentGenerator:
             kit, self.registry, items, draft.selected, draft.candidates, now_msk().year
         )
         kit.sources = [s for s in kit.sources if s.section.value == "normative"] + result.sources
+        kit.meta.literature_checks = dict(
+            Counter(str(row.get("status", "")) for row in result.log)
+        )  # для отчёта
         for note in result.notes:
             if note not in kit.meta.generation_notes:
                 kit.meta.generation_notes.append(note)
@@ -1185,7 +1190,8 @@ def software_list(kit: Kit, registry: Registry) -> list[str]:
 
 
 def build_slides(kit: Kit, lecture) -> list[Slide]:  # noqa: ANN001
-    """Титульный слайд (заголовок = тема учебного плана), слайд на каждый пункт плана, итоговый слайд."""
+    """Титульный слайд (заголовок = тема учебного плана), слайд на каждый пункт плана, итоговый слайд —
+    всего len(plan) + 2."""
     plan = lecture.plan
     intro_points = [p.title for p in plan][:5]
     if lecture.goal:
@@ -1198,8 +1204,9 @@ def build_slides(kit: Kit, lecture) -> list[Slide]:  # noqa: ANN001
         :4
     ]
     summary += [_term_line(g.term, g.definition) for g in lecture.glossary][: max(0, 5 - len(summary))]
-    if summary:
-        slides.append(Slide(title="Итоги лекции", bullets=summary[:5]))
+    if not summary:  # итоговый слайд есть всегда: без РО и глоссария — что разобрали
+        summary = [p.title for p in plan][:5]
+    slides.append(Slide(title=SUMMARY_SLIDE_TITLE, bullets=summary[:5], notes=SUMMARY_SLIDE_NOTES))
     return slides
 
 

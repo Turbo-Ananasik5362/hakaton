@@ -48,6 +48,7 @@ _MEDIA_TYPES = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".json": "application/json",
     ".gift": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
     ".txt": "text/plain; charset=utf-8",
     ".xml": "application/xml",
     ".csv": "text/csv; charset=utf-8",

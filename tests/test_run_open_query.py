@@ -39,9 +39,9 @@ def test_query_4_goes_through_questions(tmp_path: Path) -> None:
     ]
     assert all(q["answer_source"] == "methodist" for q in transcript["questions"])
     assert [e["action"] for e in transcript["events"]] == ["create", "answer", "approve", "result"]
-    assert transcript["final_status"] == "done" and transcript["complete"] is False
-    assert not any("Содержание" in item for item in transcript["limitations"])  # содержание собрано
-    assert any(".docx" in item for item in transcript["limitations"])  # выгрузок пока нет
+    assert transcript["final_status"] == "done" and transcript["complete"] is True, transcript["limitations"]
+    for name in ("program.docx", "slides.pptx", "tests.gift", "tests_moodle.xml", "tests.csv"):
+        assert (out / name).is_file(), name  # все выгрузки скачаны
     kit = Kit.model_validate(load(out / "kit.json"))
     assert kit.program.total_hours == 72 and kit.total_hours() == 72
     assert load(out / "report.json")["status"] in ("ok", "warnings", "errors")

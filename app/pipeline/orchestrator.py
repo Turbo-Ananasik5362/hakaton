@@ -474,9 +474,14 @@ class Orchestrator:
                 raise AgentError("Каркас сессии не найден — начните сессию заново.")
             ctx = self._ctx(state)
             await self._run_generation(state, kit, ctx)
+            for note in state.notes:  # пропущенные шаги — в комплект: их показывает отчёт автопроверки
+                if note not in kit.meta.generation_notes:
+                    kit.meta.generation_notes.append(note)
+            notes_before = list(kit.meta.generation_notes)
             files = await self._sync_step(
                 state, "generate", "render", "Выгрузка файлов", self.pipeline.render, kit, ctx
             )
+            _surface_render_notes(state.notes, notes_before, kit)
             self.store.save_kit(session_id, kit)
             state.files = dict(files)
             state.status = SessionStatus.DONE
@@ -539,9 +544,11 @@ class Orchestrator:
             new_kit = result.kit
             if new_kit.revision <= kit.revision:
                 new_kit.revision = kit.revision + 1
+            notes_before = list(new_kit.meta.generation_notes)
             files = await self._sync_step(
                 state, "patch", "render", "Выгрузка файлов", self.pipeline.render, new_kit, ctx
             )
+            _surface_render_notes(state.notes, notes_before, new_kit)
             self.store.save_kit(state.id, new_kit)
             state.files = dict(files)
             state.last_patch = PatchOutcome(
@@ -585,3 +592,10 @@ def _approve_refusal(state: SessionState) -> str:
     ):
         return f"Каркас уже утверждён: сессия {STATUS_TEXT[state.status]}."
     return f"Утвердить нечего: сессия {STATUS_TEXT[state.status]}, каркас не построен. Начните новую сессию."
+
+
+def _surface_render_notes(notes: list[str], before: list[str], kit: Kit) -> None:
+    """Заметки, которые появились при выгрузке (сбой .docx, расхождения V31), — в notes ответа API."""
+    for note in kit.meta.generation_notes:
+        if note not in before and note not in notes:
+            notes.append(note)

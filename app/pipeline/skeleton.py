@@ -538,7 +538,9 @@ def build_skeleton(
     form = spec.form or StudyForm()
     used_ps = sorted({r.ps_code for c in competencies for r in c.tf_refs})
     norm_ids = (
-        [n.id for n in registry.norms_for(ptype, dot=form.dot or form.eo)] if registry is not None else []
+        [n.id for n in registry.norms_for(ptype, dot=form.dot or form.eo, include_letters=True)]
+        if registry is not None
+        else []
     )
     title = _clean(spec.title)
     if not title:

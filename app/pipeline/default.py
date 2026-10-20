@@ -3,12 +3,13 @@
 Шаги, которых ещё нет в этой версии, честно отвечают StepUnavailable — сессия получает понятное сообщение,
 а не молчаливую пустоту. По мере готовности шаги подключаются здесь:
 intake/clarify — app/pipeline/intake.py, clarify.py; skeleton — skeleton.py; содержание — content.py (подключены);
-правка — patch.py; выгрузки — app/render/.
+правка — patch.py; выгрузки — app/render/ (program.docx + V31, kit.json, report.json).
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable, Iterable
 
 from app.config import Settings, get_settings
@@ -16,13 +17,18 @@ from app.core.reference import extract_text
 from app.core.registry import Registry, default_registry
 from app.core.validate import ValidationContext, validate
 from app.llm import LLMClient
-from app.models import ClarifyQuestion, Kit, MethodistWarning, RequestSpec, ValidationReport
+from app.models import ClarifyQuestion, Issue, Kit, MethodistWarning, RequestSpec, ValidationReport
 from app.pipeline import clarify as clarify_step
 from app.pipeline.base import PatchResult, RequestInput, Step, StepContext, StepUnavailable
 from app.pipeline.content import ContentGenerator, merge_costs
 from app.pipeline.intake import run_intake
 from app.pipeline.skeleton import run_skeleton
+from app.render.bundle import FAILED_NOTE, RenderOutcome, failure_issue, render_all
+from app.render.common import load_organization
 from app.render.kit_json import render_kit_json
+from app.render.report_md import write_report_md
+
+logger = logging.getLogger("karkas.render")
 
 
 class DefaultPipeline:
@@ -123,7 +129,47 @@ class DefaultPipeline:
         raise StepUnavailable("Точечная правка ещё не подключена в этой версии агента.")
 
     def render(self, kit: Kit, ctx: StepContext) -> dict[str, str]:
-        return render_kit_json(kit, ctx.files_dir)
+        """Программа .docx, слайды .pptx, тесты GIFT / Moodle XML / CSV (каждая выгрузка — с проверкой V31),
+        затем kit.json и report.json — последними, чтобы отчёт уже включал V31. Сбой выгрузки не роняет выдачу:
+        понятная заметка в notes и замечание V31, остальные файлы и JSON выдаются всегда."""
+        references = _attachment_texts(ctx) if ctx.request is not None else []
+        try:
+            org = load_organization(self.settings.organization_file)
+            notes = list(kit.meta.generation_notes)
+            outcome = render_all(kit, ctx.files_dir, self.registry, org, notes, references)
+        except Exception as exc:  # noqa: BLE001 — последний рубеж: без файлов, но с комплектом в JSON
+            logger.exception("Выгрузки не удались")
+            error = f"{type(exc).__name__}: {exc}"
+            outcome = RenderOutcome(
+                notes=[FAILED_NOTE.format(title="Выгрузки .docx, .pptx и тестов", error=error)],
+                issues=[failure_issue("Выгрузки .docx, .pptx и тестов", error)],
+            )
+        for note in outcome.notes:
+            _add_note(kit, note)
+        _attach_render_issues(kit, outcome.issues)
+        files = dict(outcome.files)
+        try:  # отчёт автопроверки — после всех выгрузок, чтобы в нём был и итог их сверки (V31)
+            files["report_md"] = write_report_md(kit, ctx.files_dir, (), references, list(files.values()))
+        except Exception:  # noqa: BLE001 — без report.md комплект и остальные файлы всё равно выдаются
+            logger.exception("report.md не сформирован")
+            _add_note(
+                kit,
+                "Отчёт автопроверки report.md не сформирован из-за внутренней ошибки; отчёт есть в report.json.",
+            )
+        files.update(render_kit_json(kit, ctx.files_dir))
+        return files
+
+
+def _add_note(kit: Kit, note: str) -> None:
+    if note not in kit.meta.generation_notes:
+        kit.meta.generation_notes.append(note)
+
+
+def _attach_render_issues(kit: Kit, issues: list[Issue]) -> None:
+    """Замечания V31 — в отчёт комплекта (прежние V31 после повторной выгрузки заменяются)."""
+    if kit.report is None:
+        kit.report = ValidationReport()
+    kit.report.issues = [i for i in kit.report.issues if i.check != "V31"] + issues
 
 
 def _attachment_texts(ctx: StepContext) -> list[str]:

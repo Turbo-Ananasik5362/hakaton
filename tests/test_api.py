@@ -95,8 +95,11 @@ def assert_error(resp: Any, status: int, code: str | None = None) -> dict[str, A
 
 def test_health_and_index(api: Api) -> None:
     client = api.client()
-    assert client.get("/health").json() == {"status": "ok"}
-    assert client.get("/").json()["docs"] == "/docs"
+    health = client.get("/health").json()
+    assert health["status"] == "ok" and health["llm_mode"] == "mock" and health["llm_ready"] is False
+    assert set(health) == {"status", "llm_mode", "llm_ready", "version"} and health["version"]
+    index = client.get("/").json()
+    assert index["docs"] == "/docs" and index["version"] == health["version"]
 
 
 def test_importable_app_uses_default_pipeline() -> None:
@@ -642,7 +645,8 @@ def test_skipped_attachment_is_explained_to_methodist(tmp_path: Path) -> None:
 
 
 def test_index_shows_llm_mode(api: Api) -> None:
-    assert api.client().get("/").json()["llm_mode"] == "mock"
+    index = api.client().get("/").json()
+    assert index["llm_mode"] == "mock" and "не настоящие" in index["warning"]
 
 
 def test_stale_session_is_not_resumed_after_restart(api: Api) -> None:

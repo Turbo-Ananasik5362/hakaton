@@ -49,6 +49,16 @@ EXPECTED_FILES = {
     "program_docx": "программа .docx",
     "slides_pptx": "слайды .pptx",
     "tests_gift": "тесты GIFT",
+    "tests_moodle_xml": "тесты Moodle XML",
+    "tests_csv": "тесты CSV",
+}
+# Выгрузка ожидается, только если в комплекте есть материал для неё (у стажировки без лекций и тестов их нет —
+# сервер объясняет это в notes)
+NEEDS_MATERIAL = {
+    "slides_pptx": lambda kit: any(lec.get("slides") for lec in kit.get("lectures", [])),
+    "tests_gift": lambda kit: bool(kit.get("questions")),
+    "tests_moodle_xml": lambda kit: bool(kit.get("questions")),
+    "tests_csv": lambda kit: bool(kit.get("questions")),
 }
 OWN_FILES = ("kit.json", "report.json")  # сохраняются из ответа API
 
@@ -295,7 +305,12 @@ def _save_kit(client: httpx.Client, body: dict[str, Any], out: Path, log: Transc
         text = f"Шаг «{step['title']}» не выполнен: {step.get('error') or step['status']}."
         if not any(step["title"] in item for item in log.limitations):
             log.limitations.append(text)
-    missing = [title for key, title in EXPECTED_FILES.items() if key not in files]
+    kit = body.get("kit") or {}
+    missing = [
+        title
+        for key, title in EXPECTED_FILES.items()
+        if key not in files and NEEDS_MATERIAL.get(key, lambda _kit: True)(kit)
+    ]
     if missing:
         log.limitations.append(
             "Комплект собран не полностью: нет выгрузок — "

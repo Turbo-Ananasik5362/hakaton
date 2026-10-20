@@ -522,7 +522,7 @@ Mock-фикстуры шагов содержания строит `tests/fixtur
 | V28 | Сервисы РФ | упомянутые ИИ-сервисы — из белого списка; неизвестные — кандидаты для судьи | Q2.5a (+Q2.5b) |
 | V29 | Версии инструментов | указанные версии ≥ минимальных из `tools.json` | Q3.6a |
 | V30 | Реквизиты пустые | номер и дата приказа — `____`; ФИО и подписи — пусто; нет «17-ОБР» и т.п. | G5a, G5b, G5c |
-| V31 | Выгрузки | .docx открывается и его числа = kit; JSON проходит схему и обратимо; .pptx открывается; GIFT/XML разбираются | G6a, G6b, K7 |
+| V31 | Выгрузки | .docx открывается, разделы шаблона на месте, числа каждой строки УП/УТП/рабочей программы и календаря = kit, метки = колонка, реквизиты «____» (`app/render/verify.py`); .pptx открывается; GIFT/XML разбираются | G6a, G6b, K7 |
 | V32 | Русский язык | доля кириллицы в текстовых полях ≥ порога (код и названия инструментов исключены) | G6c |
 | V33 | Обязательные темы | для каждой группы из запроса есть отдельная тема/модуль с часами > 0 | Q2.4a, Q3.2, Q5.5 |
 | V34 | Вводный блок | программа начинается с вводного блока, если он требуется | Q3.3 |
@@ -817,8 +817,18 @@ app/
   skills/                intake.md clarify.md skeleton.md program_texts.md module_content.md lectures.md
                          slides.md seminars.md tests.md final_attestation.md literature.md patch.md judge.md
   render/
-    tables.py            ProgramTables — снимок таблиц для рендеров и V31
-    docx_pk.py docx_dop.py pptx.py gift.py moodle_xml.py csv_tests.py kit_json.py report_docx.py
+    tables.py            ProgramTables — снимок таблиц из Kit (числа и метки «ПР (N часов)»), рендеры не считают
+    program.py           program.docx: выбор шаблона по типу, рендер, V31
+    docx_pk.py           ПК / стажировка: копия образца как основа (стили, поля), тело собирается заново
+    docx_dop.py          ДОП: чистый Document(), свои стили TNR, альбомная секция для УП и УТП
+    writer.py texts.py common.py   раскладка (DocWriter), строки из реестра, помощники python-docx
+    verify.py            V31: .docx перечитывается и сверяется с Kit (часы строк, итоги, разделы, пустые реквизиты)
+    bundle.py            все выгрузки по очереди: сбой одной не мешает остальным, нет материала — заметка
+    pptx.py              слайды лекций из slides_scope: титул (= тема УП), слайд на пункт плана, итоги; заметки
+    gift.py moodle_xml.py csv_tests.py questions.py   тесты: банк вопросов, категории по модулям, обратная связь
+    report_md.py         отчёт автопроверки: ReportDoc (итог, исправления, часы, покрытие, источники, образец,
+                         судья, пропущенное, стоимость) → report.md; report_docx.py — то же приложением к программе
+    kit_json.py
   api/                   routes_v1.py schemas.py adapters/official.py
   storage/sessions.py
   web/                   templates/ static/

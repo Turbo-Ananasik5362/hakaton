@@ -3924,6 +3924,45 @@ def check_v41(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     return _cap(out, ctx)
 
 
+@dataclass
+class CopyStats:
+    """Совпадение текстов комплекта с образцами по шинглам: всего шинглов, совпавших, по полям."""
+
+    total: int = 0
+    copied: int = 0
+    fields: list[tuple[_Text, set, set]] = field(default_factory=list)  # (поле, его шинглы, совпавшие)
+
+    @property
+    def ratio(self) -> float:
+        return self.copied / self.total if self.total else 0.0
+
+
+def copy_stats(kit: Kit, references: Sequence[str]) -> CopyStats:
+    """Доля дословных совпадений с образцами (V42 и отчёт методисту); общие формулировки из белого списка не
+    считаются."""
+    stats = CopyStats()
+    references = [t for t in references if t and t.strip()]
+    if not references:
+        return stats
+    ref_shingles: set[copycheck.Shingle] = set()
+    for text in references:
+        ref_shingles |= copycheck.shingles(text)
+    white: set[copycheck.Shingle] = set()
+    for text in copycheck.DEFAULT_WHITELIST:
+        white |= copycheck.shingles(text)
+    for item in _collect_texts(kit):
+        if item.scope in ("source", "software", "term"):
+            continue
+        own = copycheck.shingles(item.text)
+        if not own:
+            continue
+        hit = (own & ref_shingles) - white
+        stats.total += len(own)
+        stats.copied += len(hit)
+        stats.fields.append((item, own, hit))
+    return stats
+
+
 def check_v42(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     out: list[Finding] = []
     reference = kit.request.reference
@@ -3943,23 +3982,10 @@ def check_v42(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     references = [t for t in ctx.reference_texts if t and t.strip()]
     if not references:
         return out
-    ref_shingles: set[copycheck.Shingle] = set()
-    for text in references:
-        ref_shingles |= copycheck.shingles(text)
-    white: set[copycheck.Shingle] = set()
-    for text in copycheck.DEFAULT_WHITELIST:
-        white |= copycheck.shingles(text)
-    total = copied = 0
+    stats = copy_stats(kit, references)
+    copied, total = stats.copied, stats.total
     field_findings: list[Finding] = []
-    for item in _collect_texts(kit):
-        if item.scope in ("source", "software", "term"):
-            continue
-        own = copycheck.shingles(item.text)
-        if not own:
-            continue
-        hit = (own & ref_shingles) - white
-        total += len(own)
-        copied += len(hit)
+    for item, own, hit in stats.fields:
         if len(hit) >= 3 and len(hit) / len(own) > ctx.copy_field_ratio:
             fragments = copycheck.copied_fragments(item.text, references, limit=1)
             field_findings.append(

@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from app.api import routes_v1
 from app.api.errors import error_payload, install_error_handlers
 from app.api.schemas import MAX_BODY_BYTES
-from app.config import Settings, get_settings
+from app.config import Settings, app_version, get_settings
 from app.pipeline.base import Pipeline
 from app.pipeline.default import DefaultPipeline
 from app.pipeline.orchestrator import Orchestrator
@@ -36,14 +36,16 @@ def create_app(
     settings = settings or get_settings()
     store = store or SessionStore(settings.sessions_dir)
     orchestrator = Orchestrator(store, pipeline or DefaultPipeline(settings), max_generating=max_generating)
+    version = app_version()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        if settings.llm_mode != "live":
-            logger.warning(
-                "LLM_MODE=%s: ответы модели не настоящие. Для автопрогона и демо сервер запускают с LLM_MODE=live.",
-                settings.llm_mode,
-            )
+        warning = settings.llm_warning
+        if warning:
+            banner = "!" * 100
+            logger.warning("\n%s\n%s\n%s", banner, warning, banner)
+        else:
+            logger.info("LLM: режим live, шлюз настроен.")
         resumed = orchestrator.resume_pending()
         if resumed:
             logger.info("Продолжены незавершённые сессии: %s", ", ".join(resumed))
@@ -53,7 +55,7 @@ def create_app(
     app = FastAPI(
         title="Каркас — агент методиста АЦР",
         description="Собирает образовательную программу и комплект материалов по шаблонам АЦР.",
-        version="0.1.0",
+        version=version,
         lifespan=lifespan,
     )
     app.state.orchestrator = orchestrator
@@ -68,19 +70,30 @@ def create_app(
             return JSONResponse(error_payload("payload_too_large", message), status_code=413)
         return await call_next(request)
 
-    @app.get("/health", tags=["service"], summary="Сервер жив")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
+    @app.get("/health", tags=["service"], summary="Сервер жив; режим LLM и версия")
+    async def health() -> dict[str, object]:
+        # llm_ready — только «шлюз настроен и режим live»: адрес и ключ наружу не отдаются
+        return {
+            "status": "ok",
+            "llm_mode": settings.llm_mode,
+            "llm_ready": settings.llm_ready,
+            "version": version,
+        }
 
     @app.get("/", tags=["service"], include_in_schema=False)
-    async def index() -> dict[str, str]:
-        return {
+    async def index() -> dict[str, object]:
+        info: dict[str, object] = {
             "service": "Каркас — агент методиста АЦР",
             "api": "/api/v1",
             "docs": "/docs",
             "health": "/health",
-            "llm_mode": settings.llm_mode,  # на ВМ для автопрогона должно быть live
+            "llm_mode": settings.llm_mode,
+            "llm_ready": settings.llm_ready,
+            "version": version,
         }
+        if settings.llm_warning:
+            info["warning"] = settings.llm_warning
+        return info
 
     app.include_router(routes_v1.router)
     return app

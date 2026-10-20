@@ -42,6 +42,9 @@ Status = Literal["catalog", "unverified", "rejected"]
 # --------------------------------------------------------------------------------------------------
 
 
+REJECTED_NOTE_PREFIX = "Модель предложила источник"  # заметки об отброшенных кандидатах (не для .docx)
+
+
 @dataclass(frozen=True)
 class ShortlistItem:
     key: str  # «lit:python_lutz_2019» или «doc:pandas» — то, чем модель отвечает в catalog_id
@@ -309,7 +312,7 @@ def build_sources(
         if verdict.status == "rejected":
             result.log.append({**entry, "status": "rejected", "reasons": verdict.reasons})
             result.notes.append(
-                f"Модель предложила источник «{candidate.title}», который не удалось подтвердить "
+                f"{REJECTED_NOTE_PREFIX} «{candidate.title}», который не удалось подтвердить "
                 f"({'; '.join(verdict.reasons)}), — он не включён."
             )
             continue

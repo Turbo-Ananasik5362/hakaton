@@ -769,6 +769,7 @@ class KitMeta(KitModel):
     budget: dict[str, float] = Field(default_factory=dict)  # оценка полного и экономного режима, остаток, ₽
     judge: list[JudgeResult] = Field(default_factory=list)  # смысловая проверка (навык judge) — в отчёт
     generation_notes: list[str] = Field(default_factory=list)  # что пропущено и почему — для отчёта методисту
+    literature_checks: dict[str, int] = Field(default_factory=dict)  # кандидаты литературы: статус → сколько
 
 
 KitObject = (

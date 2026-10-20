@@ -10,6 +10,7 @@ from app.core.ids import display_numbers, id_number_safe
 from app.models import HoursRow, Kit, ReportStatus, SessionStatus
 from app.pipeline.editing import conflict_details
 from app.render.kit_json import kit_export
+from app.render.report_md import api_message
 from app.storage.sessions import FINISHED_STEP_STATUSES, SessionState, StepStatus
 
 from .schemas import (
@@ -121,9 +122,9 @@ def status_message(
     if status == SessionStatus.PATCHING:
         return "Выполняется точечная правка."
     if status == SessionStatus.DONE:
-        text = "Комплект готов." + _report_hint(kit, "report")
+        text = api_message(kit, state.notes) if kit is not None else "Комплект готов."
         if state.notes:
-            text += " Часть шагов пропущена — см. notes."
+            text += " Список пропущенного — также в notes."
         if state.last_patch is not None and not state.last_patch.ok:
             text += " Последняя правка не выполнена — см. patch."
         return text
