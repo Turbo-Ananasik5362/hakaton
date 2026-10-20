@@ -51,6 +51,9 @@ class Settings(BaseModel):
     max_retries: int = Field(default=4, ge=0)
     max_repairs: int = Field(default=2, ge=0)
     schema_strict: bool = True
+    generation_deadline_s: float = Field(default=1500.0, gt=0)  # 25 мин на генерацию комплекта одной сессии
+    rate_limit_per_minute: int = Field(default=30, ge=1)  # новых сессий в минуту с одного адреса
+    max_active_sessions: int = Field(default=50, ge=1)  # сессий в работе одновременно (идут и ждут в очереди)
     cache_dir: Path = ROOT / "cache" / "llm"
     cost_log: Path = ROOT / "logs" / "llm_cost.jsonl"
     fixtures_dir: Path = ROOT / "tests" / "fixtures" / "llm"
@@ -112,6 +115,9 @@ class Settings(BaseModel):
             timeout_s=float(env.get("LLM_TIMEOUT_S", "120")),
             max_retries=int(env.get("LLM_MAX_RETRIES", "4")),
             schema_strict=env.get("LLM_SCHEMA_STRICT", "1") not in ("0", "false", "False"),
+            generation_deadline_s=float(env.get("GENERATION_DEADLINE_S", "1500")),
+            rate_limit_per_minute=int(env.get("RATE_LIMIT_PER_MINUTE", "30")),
+            max_active_sessions=int(env.get("MAX_ACTIVE_SESSIONS", "50")),
         )
 
 

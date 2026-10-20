@@ -290,7 +290,11 @@ def test_render_failure_keeps_json_and_explains(tmp_path: Path, monkeypatch: pyt
     assert "program_docx" not in files and files["kit_json"] == "kit.json"
     assert not (tmp_path / DOCX_NAME).exists()
     note = FAILED_NOTE.format(title="Программа .docx", error="").split("(")[0]
-    assert any(n.startswith(note) and "шаблон повреждён" in n for n in kit.meta.generation_notes)
+    assert any(n.startswith(note) and "RuntimeError" in n for n in kit.meta.generation_notes)
+    assert not any(
+        "шаблон повреждён" in n for n in kit.meta.generation_notes
+    )  # текст исключения — не методисту
+    assert any("шаблон повреждён" in i.detail for i in kit.report.issues if i.check == "V31")
     assert any(i.check == "V31" and i.severity == Severity.ERROR for i in kit.report.issues)
     saved = Kit.model_validate_json((tmp_path / "kit.json").read_text(encoding="utf-8"))
     assert any(i.check == "V31" for i in saved.report.issues)

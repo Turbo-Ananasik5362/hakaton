@@ -83,12 +83,18 @@ class LLMResponseInvalid(LLMError):
     """Ответ так и не прошёл валидацию схемы после ремонтных попыток."""
 
 
-class GatewayError(LLMError):
-    """Шлюз вернул ошибку, которую нельзя исправить повтором."""
+class LLMNotConfigured(LLMError):
+    """Режим live без адреса шлюза или ключа: повтор не поможет, нужна настройка."""
 
-    def __init__(self, message: str, status: int | None = None) -> None:
+
+class GatewayError(LLMError):
+    """Шлюз вернул ошибку после всех повторов клиента. transient — временная (429, 5xx, обрыв, таймаут):
+    повторная волна шагов или повтор позже может помочь; иначе (401, 403, 400) нужна настройка."""
+
+    def __init__(self, message: str, status: int | None = None, transient: bool | None = None) -> None:
         super().__init__(message)
         self.status = status
+        self.transient = (status is None or status in RETRYABLE_STATUS) if transient is None else transient
 
 
 class SchemaRejected(GatewayError):
@@ -445,7 +451,7 @@ class LLMClient:
 
     def _check_live_ready(self) -> None:
         if not self.settings.base_url or not self.settings.api_key.get_secret_value():
-            raise LLMError("Режим live: не заданы OPENAI_BASE_URL или OPENAI_API_KEY.")
+            raise LLMNotConfigured("Режим live: не заданы OPENAI_BASE_URL или OPENAI_API_KEY.")
         spent = spent_today_rub(self.settings.cost_log)
         if spent >= self.settings.daily_budget_rub:
             raise BudgetExceeded(

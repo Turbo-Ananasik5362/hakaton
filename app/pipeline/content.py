@@ -23,7 +23,7 @@ import logging
 import math
 import re
 from collections import Counter
-from collections.abc import Awaitable, Callable, Iterator, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TypeVar
@@ -66,7 +66,7 @@ from app.models import (
 )
 from app.pipeline import content_apply as apply
 from app.pipeline import content_prompts as prompts
-from app.pipeline.base import Step, StepContext
+from app.pipeline.base import AgentError, Step, StepContext
 from app.pipeline.intake import request_key
 from app.pipeline.skeleton import slides_modules
 from app.skills import load_skill
@@ -74,6 +74,7 @@ from app.skills import load_skill
 logger = logging.getLogger("karkas.content")
 
 T = TypeVar("T", bound=BaseModel)
+R = TypeVar("R")
 ClientFactory = Callable[[StepContext], LLMClient]
 
 FILL_MARK = "[заполнить методисту]"
@@ -294,7 +295,7 @@ class ContentGenerator:
 
     def steps(self, kit: Kit, finished: set[str]) -> list[Step]:
         if "plan" not in finished:
-            return [Step("plan", "План генерации", self._plan)]
+            return [Step("plan", "План генерации", self._plan, uses_llm=False)]
         numbers = display_numbers(kit)
         batch: list[Step] = []
         for name, title, fn in (
@@ -336,19 +337,40 @@ class ContentGenerator:
         retry = [s for s in self._retry_steps(kit, finished) if s.name not in finished]
         if retry:
             return retry
-        for name, title, fn in (
-            ("slides", "Слайды", self._slides),
-            ("refill", "Автодобор оценочных средств", self._refill),
-            ("finalize", "Проверка полноты", self._finalize),
-            ("judge", "Смысловая проверка", self._judge),
+        for name, title, fn, uses_llm in (
+            ("slides", "Слайды", self._slides, False),
+            ("refill", "Автодобор оценочных средств", self._refill, True),
+            ("finalize", "Проверка полноты", self._finalize, False),
+            ("judge", "Смысловая проверка", self._judge, True),
         ):
             if name not in finished:
-                return [Step(name, title, fn, critical=False)]
+                return [Step(name, title, fn, critical=False, uses_llm=uses_llm)]
         return []
 
     def _retry_steps(self, kit: Kit, finished: set[str]) -> list[Step]:
         """Один повтор шагов, после которых нет результата (сбой шлюза, 429, обрезка): временная ошибка не должна
-        оставлять модуль без лекций или тестов. Повтор при исчерпанном бюджете отказывает сразу, без оплаты."""
+        оставлять модуль без лекций или тестов. Повтор при исчерпанном бюджете отказывает сразу, без оплаты.
+        Повтор, после которого результата так и нет, считается неудавшимся — заметка о пропуске остаётся."""
+        return [
+            Step(f"retry:{name}", f"{title} (повтор)", self._checked_retry(name, fn), critical=False)
+            for name, title, fn in self._missing_results(kit)
+            if name in finished
+        ]
+
+    def _checked_retry(
+        self, name: str, fn: Callable[[Kit, StepContext], Awaitable[None]]
+    ) -> Callable[[Kit, StepContext], Awaitable[None]]:
+        async def run(kit: Kit, ctx: StepContext) -> None:
+            await fn(kit, ctx)
+            if any(missing == name for missing, _, _ in self._missing_results(kit)):
+                raise AgentError("повтор тоже не дал результата")
+
+        return run
+
+    def _missing_results(
+        self, kit: Kit
+    ) -> list[tuple[str, str, Callable[[Kit, StepContext], Awaitable[None]]]]:
+        """Шаги, после которых в комплекте нет их результата: (имя шага, название, функция)."""
         numbers = display_numbers(kit)
         missing: list[tuple[str, str, Callable[[Kit, StepContext], Awaitable[None]]]] = []
         texts = kit.texts
@@ -400,11 +422,7 @@ class ContentGenerator:
                 missing.append(
                     (f"tests:{module.id}", f"Оценочные средства модуля {n}", self._bind(self._tests, module))
                 )
-        return [
-            Step(f"retry:{name}", f"{title} (повтор)", fn, critical=False)
-            for name, title, fn in missing
-            if name in finished
-        ]
+        return missing
 
     def _module_steps(self, kit: Kit, module: Module, n: str, finished: set[str]) -> list[Step]:
         steps: list[Step] = []
@@ -760,7 +778,7 @@ class ContentGenerator:
             key = self._key(kit, module.id) + (f"-{n + 1}" if n else "")
             return await self._ask_split(client, parts, make, merge, key)
 
-        drafts = await asyncio.gather(*(ask_chunk(n, chunk) for n, chunk in enumerate(chunks)))
+        drafts = await gather_or_cancel(ask_chunk(n, chunk) for n, chunk in enumerate(chunks))
         return merge(list(drafts))
 
     # ---- модули: полный режим --------------------------------------------------------------------
@@ -813,7 +831,7 @@ class ContentGenerator:
         if test is not None:
             apply.apply_questions(kit, module, test, draft.questions, quotas)
         if interview or interview_los:
-            limit = max(interview, len(interview_los), len(draft.interview))
+            limit = max(interview, len(interview_los))  # лишние вопросы модели отбрасываются
             apply.apply_interview(kit, module, draft.interview, limit, focus=interview_los)
 
     # ---- модули: экономный режим -----------------------------------------------------------------
@@ -972,6 +990,12 @@ class ContentGenerator:
     # ---- полнота (код) ---------------------------------------------------------------------------
 
     async def _finalize(self, kit: Kit, ctx: StepContext) -> None:
+        # первым делом — коды и номера актов в текстах модели: «[не подтверждено]», если их нет в реестре
+        # (сбой дальше по шагу не должен оставить неподтверждённый код без метки)
+        numbers = display_numbers(kit)
+        mark_model_texts(
+            kit, lambda text: mark_unknown_codes(strip_service_ids(text, numbers), self.registry)
+        )
         notes: list[str] = []
         for name in prompts.text_fields(kit):
             value = getattr(kit.texts, name)
@@ -999,10 +1023,6 @@ class ContentGenerator:
                     f"Литературу по теме программы подобрать не удалось — разделы списка литературы: «{FILL_MARK}»."
                 )
         kit.texts.software = software_list(kit, self.registry)
-        numbers = display_numbers(kit)
-        mark_model_texts(
-            kit, lambda text: mark_unknown_codes(strip_service_ids(text, numbers), self.registry)
-        )
         _order_final_test(kit)
         empty = [t.id for t in kit.tests if t.scope == TestScope.MODULE and not t.question_ids]
         if empty:  # модель не дала годных вопросов и автодобор не помог — пустой тест в программу не идёт
@@ -1043,6 +1063,19 @@ class ContentGenerator:
 # --------------------------------------------------------------------------------------------------
 
 
+async def gather_or_cancel(awaitables: Iterable[Awaitable[R]]) -> list[R]:
+    """Все части шага или ничего: при сбое одной части остальные отменяются (не тратят бюджет впустую — шаг
+    всё равно повторится целиком)."""
+    tasks = [asyncio.ensure_future(a) for a in awaitables]
+    try:
+        return list(await asyncio.gather(*tasks))
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
 def mark_model_texts(kit: Kit, fix: Callable[[str], str]) -> None:
     """Применяет fix ко всем текстовым полям, которые пишет модель (паспорт и тексты программы, содержание тем,
     лекции, задания, вопросы, ИА). Названия тем и РО — из каркаса, их проверяет validate."""
@@ -1068,7 +1101,11 @@ def mark_model_texts(kit: Kit, fix: Callable[[str], str]) -> None:
                 strings(slide.bullets),
                 fix(slide.notes),
             )
+    for topic in kit.topics:
+        if topic.control_form:
+            topic.control_form = fix(topic.control_form)
     for seminar in kit.seminars:
+        seminar.title = fix(seminar.title)
         seminar.situation, seminar.task, seminar.deliverable = (
             fix(seminar.situation),
             fix(seminar.task),
@@ -1090,14 +1127,16 @@ def mark_model_texts(kit: Kit, fix: Callable[[str], str]) -> None:
             strings(fa.report_requirements),
         )
         fa.pass_rule = fix(fa.pass_rule)
+        fa.form_text = fix(fa.form_text)
         if fa.expected_result:
             fa.expected_result = fix(fa.expected_result)
         for criterion in fa.criteria:
             criterion.text = fix(criterion.text)
         for item in fa.portfolio_items:
-            item.requirements = strings(item.requirements)
+            item.title, item.requirements = fix(item.title), strings(item.requirements)
         if fa.example_task is not None:
             task = fa.example_task
+            task.title = fix(task.title)
             task.description, task.environment, task.deliverable = (
                 fix(task.description),
                 fix(task.environment),

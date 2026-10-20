@@ -24,12 +24,13 @@ from typing import Any, TypeVar
 
 from app.config import now_msk
 from app.core.ids import AmbiguousReference, UnknownReference, resolve_ref
-from app.llm import BudgetExceeded, LLMError
+from app.llm import LLMError
 from app.models import Kit, SessionStatus
 from app.pipeline.base import (
     AgentError,
     InvalidTransition,
     Pipeline,
+    RateLimited,
     RequestInput,
     SessionBusy,
     Step,
@@ -38,6 +39,7 @@ from app.pipeline.base import (
     TargetError,
 )
 from app.pipeline.editing import SkeletonEdits, apply_skeleton_edits
+from app.pipeline.errors import DeadlineExceeded, ErrorKind, SkippedForOutage, classify
 from app.storage.sessions import (
     PatchOutcome,
     PatchRequest,
@@ -74,17 +76,13 @@ STATUS_TEXT = {
 
 
 def describe_error(exc: BaseException) -> tuple[str, str]:
-    """(текст для методиста, машинный код) по исключению шага."""
-    if isinstance(exc, AgentError):
-        return exc.message, exc.code
-    if isinstance(exc, BudgetExceeded):
-        return f"Дневной бюджет запросов к GigaChat исчерпан: {exc}", "budget_exceeded"
-    if isinstance(exc, LLMError):
-        return f"Сбой при обращении к GigaChat: {exc}", "llm_error"
-    return (
-        f"Внутренняя ошибка агента ({type(exc).__name__}). Подробности — в журнале сессии.",
-        "internal_error",
-    )
+    """(короткий текст для методиста, машинный код) по исключению шага — по таксономии app/pipeline/errors.py."""
+    info = classify(exc)
+    return info.message, info.code
+
+
+RETRY_AFTER_BUSY_S = 60  # сколько подождать, если все места для сессий заняты
+OUTAGE_REASON = "шлюз GigaChat не отвечал, шаг не запускался"
 
 
 SKIP_ONE = "Шаг «{title}» пропущен: {reason}"
@@ -136,6 +134,8 @@ class Orchestrator:
         pipeline: Pipeline,
         max_generating: int = 2,
         max_clarify_rounds: int = MAX_CLARIFY_ROUNDS,
+        generation_deadline_s: float | None = None,
+        max_active: int | None = None,
     ) -> None:
         if max_generating < 1:
             raise ValueError("max_generating должно быть не меньше 1")
@@ -143,6 +143,8 @@ class Orchestrator:
         self.pipeline = pipeline
         self.max_generating = max_generating
         self.max_clarify_rounds = max_clarify_rounds
+        self.generation_deadline_s = generation_deadline_s  # None — без дедлайна
+        self.max_active = max_active  # None — без ограничения числа сессий в работе
         self._loop: asyncio.AbstractEventLoop | None = None
         self._slots: asyncio.Semaphore | None = None
         self._tasks: dict[str, asyncio.Task[None]] = {}
@@ -167,6 +169,19 @@ class Orchestrator:
     def queue_position(self, session_id: str) -> int | None:
         return self._queue.index(session_id) + 1 if session_id in self._queue else None
 
+    def active_count(self) -> int:
+        """Сессии в работе: идут шаги или ждут места в очереди генерации."""
+        return sum(1 for t in self._tasks.values() if not t.done())
+
+    def _check_capacity(self) -> None:
+        if self.max_active is not None and self.active_count() >= self.max_active:
+            raise RateLimited(
+                f"Сейчас в работе {self.active_count()} сессий — это предел сервера. Повторите запрос примерно через "
+                f"{RETRY_AFTER_BUSY_S} с; уже начатые сессии продолжаются.",
+                retry_after=RETRY_AFTER_BUSY_S,
+                details={"active": self.active_count(), "limit": self.max_active},
+            )
+
     # ---- действия (их вызывает API) ---------------------------------------------------------------
 
     def get(self, session_id: str) -> SessionState:
@@ -176,6 +191,7 @@ class Orchestrator:
         self, request: RequestInput, attachments: list[tuple[str, bytes]] | None = None, wait: bool = True
     ) -> SessionState:
         self._bind_loop()
+        self._check_capacity()
         state = self.store.create(request, attachments or [])
         return await self._kick(state.id, wait)
 
@@ -217,6 +233,7 @@ class Orchestrator:
         state.approved = True
         state.status = SessionStatus.QUEUED
         state.queued_at = now_msk()
+        state.generation_started_at = None  # повтор после сбоя — новый отсчёт времени генерации
         state.error = state.error_code = None
         self.store.save(state)
         self.store.log(session_id, "approved", retry=retry)
@@ -341,19 +358,26 @@ class Orchestrator:
         except asyncio.CancelledError:
             self.store.log(session_id, "interrupted")
             raise
-        except Exception as exc:  # noqa: BLE001 — любой сбой шага превращается в состояние failed
+        except (AgentError, LLMError) as exc:  # ожидаемые: запрос, состояние, дедлайн, шлюз, бюджет, модель
+            self._fail(session_id, exc)
+        except Exception as exc:  # noqa: BLE001 — ошибка программы: сессия failed, трассировка в журнале
             self._fail(session_id, exc)
 
     def _fail(self, session_id: str, exc: BaseException) -> None:
-        message, code = describe_error(exc)
-        logger.warning("Сессия %s остановлена: %s (%s)", session_id, message, code)
+        info = classify(exc)
+        logger.warning(
+            "Сессия %s остановлена: %s (%s, %s)", session_id, info.message, info.kind.value, info.code
+        )
         state = self.store.load(session_id)
         state.status = SessionStatus.FAILED
-        state.error = message
-        state.error_code = code
+        state.error = info.full
+        state.error_code = info.code
         state.queued_at = None
         self.store.save(state)
-        self.store.log(session_id, "failed", code=code, error=message, trace=traceback.format_exc(limit=20))
+        extra = {"trace": _trace(exc)} if info.kind == ErrorKind.CODE else {}
+        self.store.log(
+            session_id, "failed", code=info.code, kind=info.kind.value, error=info.message, **extra
+        )
 
     def _ctx(self, state: SessionState) -> StepContext:
         return StepContext(
@@ -383,7 +407,8 @@ class Orchestrator:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            item.status = StepStatus.SKIPPED if isinstance(exc, StepUnavailable) else StepStatus.FAILED
+            skipped = isinstance(exc, (StepUnavailable, DeadlineExceeded, SkippedForOutage))
+            item.status = StepStatus.SKIPPED if skipped else StepStatus.FAILED
             item.error = describe_error(exc)[0]
             item.finished_at, item.seconds = now_msk(), round(time.monotonic() - started, 3)
             self.store.save(state)
@@ -467,6 +492,8 @@ class Orchestrator:
             state = self.store.load(session_id)
             state.status = SessionStatus.GENERATING
             state.queued_at = None
+            if state.generation_started_at is None:
+                state.generation_started_at = now_msk()
             self.store.save(state)
             self.store.log(session_id, "generating")
             kit = self.store.load_kit(session_id)
@@ -490,9 +517,43 @@ class Orchestrator:
         finally:
             slots.release()
 
+    def _remaining_s(self, state: SessionState) -> float | None:
+        if self.generation_deadline_s is None or state.generation_started_at is None:
+            return None
+        return self.generation_deadline_s - (now_msk() - state.generation_started_at).total_seconds()
+
+    async def _before_deadline(self, state: SessionState, work: Awaitable[T]) -> T:
+        """Шаг с вызовом модели ограничен остатком времени генерации. Прерывание безопасно: шаг меняет комплект
+        только после последнего await (контракт Step)."""
+        remaining = self._remaining_s(state)
+        if remaining is None:
+            return await work
+        minutes = round((self.generation_deadline_s or 0) / 60)
+        message = f"истекло время генерации ({minutes} мин)"
+        if remaining <= 0:
+            if asyncio.iscoroutine(work):
+                work.close()
+            raise DeadlineExceeded(message)
+        # asyncio.wait, а не wait_for: собственный TimeoutError шага (в 3.11+ это тот же класс) не должен
+        # приниматься за дедлайн
+        task = asyncio.ensure_future(work)
+        try:
+            done, _ = await asyncio.wait({task}, timeout=remaining)
+        except asyncio.CancelledError:
+            task.cancel()
+            raise
+        if task in done:
+            return task.result()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        raise DeadlineExceeded(message)
+
     async def _run_generation(self, state: SessionState, kit: Kit, ctx: StepContext) -> None:
         finished = state.finished_steps("generate")
         launched = 0
+        # «шлюз не отвечает»: в волне не прошёл ни один вызов модели, а упавшие — llm_unavailable. Тогда дальше
+        # шаги с моделью не запускаются (кроме одной повторной волны); первый успешный вызов снимает режим
+        outage: str | None = None
         while True:
             planned = self.pipeline.generation_steps(kit, set(finished))
             batch = list({s.name: s for s in planned if s.name not in finished}.values())
@@ -502,8 +563,9 @@ class Orchestrator:
             if launched > MAX_GENERATION_STEPS:
                 raise AgentError("План генерации не сходится: слишком много шагов.")
             results = await asyncio.gather(
-                *(self._run_step(state, kit, ctx, step) for step in batch), return_exceptions=True
+                *(self._run_step(state, kit, ctx, step, outage) for step in batch), return_exceptions=True
             )
+            outage = _outage_after(batch, results, outage)
             for step, result in zip(batch, results, strict=True):
                 finished.add(step.name)
                 if isinstance(result, asyncio.CancelledError):
@@ -511,13 +573,26 @@ class Orchestrator:
                 if not isinstance(result, BaseException) and step.name.startswith("retry:"):
                     _drop_skip_note(state.notes, step.title.removesuffix(RETRY_SUFFIX))  # повтор удался
                 if isinstance(result, BaseException):
+                    info = classify(result)
+                    extra = {"trace": _trace(result)} if info.kind == ErrorKind.CODE else {}
+                    self.store.log(
+                        state.id, "step_failed", step=step.name, code=info.code, kind=info.kind.value, **extra
+                    )
                     if step.critical:
                         raise result
-                    _add_skip_note(state.notes, step.title, describe_error(result)[0])
+                    if not step.name.startswith("retry:"):  # неудачный повтор: заметка о шаге уже есть
+                        _add_skip_note(state.notes, step.title, info.message)
                     self.store.save(state)
 
-    async def _run_step(self, state: SessionState, kit: Kit, ctx: StepContext, step: Step) -> None:
-        await self._timed(state, "generate", step.name, step.title, step.run(kit, ctx))
+    async def _run_step(
+        self, state: SessionState, kit: Kit, ctx: StepContext, step: Step, outage: str | None = None
+    ) -> None:
+        work = step.run(kit, ctx)
+        if step.uses_llm and outage and not step.name.startswith("retry:"):  # шлюз лёг: не ждать повторов
+            work = _refuse(work, SkippedForOutage(OUTAGE_REASON))
+        elif step.uses_llm:  # вызовы модели — только до дедлайна; код (сборка, проверка) выполняется всегда
+            work = self._before_deadline(state, work)
+        await self._timed(state, "generate", step.name, step.title, work)
         item = state.step(step.name, "generate")
         if item is not None and item.seconds is not None:
             kit.meta.timing[step.name] = item.seconds
@@ -599,3 +674,31 @@ def _surface_render_notes(notes: list[str], before: list[str], kit: Kit) -> None
     for note in kit.meta.generation_notes:
         if note not in before and note not in notes:
             notes.append(note)
+
+
+def _trace(exc: BaseException) -> str:
+    """Трассировка исключения для журнала сессии (не для методиста)."""
+    return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__, limit=20))
+
+
+async def _refuse(work: Awaitable[T], error: Exception) -> T:
+    """Шаг не запускается: корутина закрывается без выполнения, вместо результата — error."""
+    if asyncio.iscoroutine(work):
+        work.close()
+    raise error
+
+
+def _outage_after(batch: list[Step], results: list[Any], outage: str | None) -> str | None:
+    """Режим «шлюз не отвечает» после волны: включается, только если ни один шаг с моделью не прошёл, а среди
+    упавших есть llm_unavailable; любой успешный шаг с моделью его снимает (шлюз жив — один сбой не повод
+    пропускать остальное)."""
+    llm = [
+        (s, r)
+        for s, r in zip(batch, results, strict=True)
+        if s.uses_llm and not isinstance(r, SkippedForOutage)
+    ]
+    if any(not isinstance(r, BaseException) for _, r in llm):
+        return None
+    if any(isinstance(r, BaseException) and classify(r).code == "llm_unavailable" for _, r in llm):
+        return outage or "llm_unavailable"
+    return outage

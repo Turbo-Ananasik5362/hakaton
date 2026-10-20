@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import routes_v1
 from app.api.errors import error_payload, install_error_handlers
+from app.api.limits import SessionRateLimiter
 from app.api.schemas import MAX_BODY_BYTES
 from app.config import Settings, app_version, get_settings
 from app.pipeline.base import Pipeline
@@ -35,7 +36,13 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     store = store or SessionStore(settings.sessions_dir)
-    orchestrator = Orchestrator(store, pipeline or DefaultPipeline(settings), max_generating=max_generating)
+    orchestrator = Orchestrator(
+        store,
+        pipeline or DefaultPipeline(settings),
+        max_generating=max_generating,
+        generation_deadline_s=settings.generation_deadline_s,
+        max_active=settings.max_active_sessions,
+    )
     version = app_version()
 
     @asynccontextmanager
@@ -59,6 +66,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.orchestrator = orchestrator
+    app.state.session_limiter = SessionRateLimiter(settings.rate_limit_per_minute)
     app.state.settings = settings
     install_error_handlers(app)
 

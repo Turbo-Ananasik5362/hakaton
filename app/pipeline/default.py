@@ -23,7 +23,7 @@ from app.pipeline.base import PatchResult, RequestInput, Step, StepContext, Step
 from app.pipeline.content import ContentGenerator, merge_costs
 from app.pipeline.intake import run_intake
 from app.pipeline.skeleton import run_skeleton
-from app.render.bundle import FAILED_NOTE, RenderOutcome, failure_issue, render_all
+from app.render.bundle import FAILED_NOTE, RenderOutcome, error_detail, failure_issue, render_all
 from app.render.common import load_organization
 from app.render.kit_json import render_kit_json
 from app.render.report_md import write_report_md
@@ -97,7 +97,7 @@ class DefaultPipeline:
         if steps:
             return steps
         if "validate" not in finished:
-            return [Step("validate", "Самопроверка комплекта", self._validate_step)]
+            return [Step("validate", "Самопроверка комплекта", self._validate_step, uses_llm=False)]
         return []
 
     async def _validate_step(self, kit: Kit, ctx: StepContext) -> None:
@@ -139,10 +139,9 @@ class DefaultPipeline:
             outcome = render_all(kit, ctx.files_dir, self.registry, org, notes, references)
         except Exception as exc:  # noqa: BLE001 — последний рубеж: без файлов, но с комплектом в JSON
             logger.exception("Выгрузки не удались")
-            error = f"{type(exc).__name__}: {exc}"
             outcome = RenderOutcome(
-                notes=[FAILED_NOTE.format(title="Выгрузки .docx, .pptx и тестов", error=error)],
-                issues=[failure_issue("Выгрузки .docx, .pptx и тестов", error)],
+                notes=[FAILED_NOTE.format(title="Выгрузки .docx, .pptx и тестов", error=type(exc).__name__)],
+                issues=[failure_issue("Выгрузки .docx, .pptx и тестов", error_detail(exc))],
             )
         for note in outcome.notes:
             _add_note(kit, note)

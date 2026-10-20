@@ -172,15 +172,17 @@ def summary_line(kit: Kit, notes: Sequence[str] = (), see: str = "см. ниже
     return text
 
 
-def api_message(kit: Kit, notes: Sequence[str] = ()) -> str:
+def api_message(kit: Kit, notes: Sequence[str] = (), has_report_md: bool = True) -> str:
     """Для поля message ответа done: итог автопроверки, главное замечание и где подробности."""
     text = summary_line(kit, notes, see="см. отчёт")
     errors = [i for i in _open(kit) if i.severity == Severity.ERROR]
     if errors:
         first = errors[0].message.strip()
         text += f" Главное: {first[:160]}{'…' if len(first) > 160 else ''}"
-    if kit.report is not None:
+    if kit.report is not None and has_report_md:
         text += " Подробный отчёт — файл report.md (files.report_md)."
+    elif kit.report is not None:
+        text += " Подробный отчёт — в поле report и файле report.json."
     return text
 
 

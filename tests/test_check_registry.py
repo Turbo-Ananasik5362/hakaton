@@ -133,3 +133,39 @@ def test_broken_records_are_reported(tmp_path: Path) -> None:
     ):
         assert expected in text, expected
     assert not result.ok
+
+
+def test_reference_only_norm_with_empty_applies_to(tmp_path: Path) -> None:
+    """Справочная запись (152-ФЗ): applies_to пуст — не ошибка, если есть пояснение; без него — предупреждение."""
+    base = {
+        "kind": "federal_law",
+        "title": "Закон",
+        "status": "verified",
+        "source_url": "https://example.org",
+        "checked_at": "2026-01-15",
+    }
+    write(
+        tmp_path,
+        "norms.json",
+        [
+            {**base, "id": "ref", "applies_to": [], "note": "справочная запись"},
+            {**base, "id": "bare", "applies_to": []},
+            {**base, "id": "bad", "applies_to": ["school"]},
+        ],
+    )
+    result = check_registry(tmp_path, TODAY)
+    assert not any("/ref" in e for e in result.errors + result.warnings)
+    assert any("/bare" in w and "applies_to пуст" in w for w in result.warnings)
+    assert any("/bad" in e for e in result.errors)
+
+
+def test_real_registry_recognizes_personal_data_law() -> None:
+    from app.core.registry import default_registry
+    from app.core.validate import mark_unknown_codes
+
+    registry = default_registry()
+    assert registry.norm("fz152") is not None
+    text = "Обезличивание данных по Федеральному закону № 152-ФЗ."
+    assert mark_unknown_codes(text, registry) == text
+    for ptype in ("pk", "pk_internship", "dop"):  # в нормативную базу программ не включается сам
+        assert "fz152" not in [n.id for n in registry.norms_for(ptype, dot=True, include_letters=True)]

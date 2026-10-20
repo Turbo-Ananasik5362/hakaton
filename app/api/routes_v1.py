@@ -59,6 +59,13 @@ def _orchestrator(request: Request) -> Orchestrator:
     return request.app.state.orchestrator
 
 
+def _limit_new_session(request: Request) -> None:
+    """Не больше N новых сессий в минуту с адреса (app/api/limits.py); сверх — 429 с Retry-After."""
+    limiter = getattr(request.app.state, "session_limiter", None)
+    if limiter is not None:
+        limiter.check(request.client.host if request.client else "unknown")
+
+
 def _respond(orch: Orchestrator, state: SessionState) -> JSONResponse:
     kit = orch.store.load_kit(state.id)
     return JSONResponse(session_payload(state, kit, orch.queue_position(state.id)))
@@ -71,6 +78,7 @@ async def create_session(
     wait: bool = Query(True, description="Ждать вопросов, каркаса или (при auto_approve) готового комплекта"),
 ) -> JSONResponse:
     orch = _orchestrator(request)
+    _limit_new_session(request)
     request_input, files = to_request_input(body, auto_approve=body.auto_approve)
     state = await orch.create(request_input, files, wait=wait)
     return _respond(orch, state)
@@ -145,6 +153,7 @@ async def get_file(session_id: str, name: str, request: Request) -> FileResponse
 )
 async def run(body: RunIn, request: Request) -> JSONResponse:
     orch = _orchestrator(request)
+    _limit_new_session(request)
     request_input, files = to_request_input(body, auto_approve=True)
     state = await orch.create(request_input, files, wait=True)
     return _respond(orch, state)

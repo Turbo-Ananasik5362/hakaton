@@ -73,6 +73,7 @@ class Step:
     title: str  # для методиста: «Содержание модуля 2»
     run: StepFn
     critical: bool = True  # False: сбой шага записывается в отчёт, генерация продолжается
+    uses_llm: bool = True  # False: чистый код (план, слайды, сборка, проверка) — выполняется и после дедлайна
 
 
 @dataclass
@@ -183,6 +184,16 @@ class InvalidTransition(AgentError):
     """Действие не подходит к текущему состоянию сессии (например, утвердить каркас до уточнений)."""
 
     code = "invalid_state"
+
+
+class RateLimited(AgentError):
+    """Слишком много новых сессий с одного адреса или сессий в работе. retry_after — через сколько секунд повторить."""
+
+    code = "rate_limited"
+
+    def __init__(self, message: str, retry_after: int, details: Any = None) -> None:
+        super().__init__(message, details)
+        self.retry_after = retry_after
 
 
 class TargetError(AgentError):

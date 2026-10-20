@@ -33,6 +33,7 @@ from app.models import (
 )
 from app.pipeline.base import RequestInput, StepContext
 from app.pipeline.request_rules import (
+    MAX_TEST_QUESTIONS,
     TYPE_TITLES,
     RequestFacts,
     domain_patterns,
@@ -343,7 +344,10 @@ def build_spec(
         portfolio_items_count=facts.portfolio_items,
         required_topics=_requirements(draft.required_topics, text) if draft else [],
         constraints=constraints,
-        outputs=Outputs(test_questions=facts.test_questions, slides_scope=_slides(facts, draft, text)),
+        outputs=Outputs(
+            test_questions=min(facts.test_questions, MAX_TEST_QUESTIONS) if facts.test_questions else None,
+            slides_scope=_slides(facts, draft, text),
+        ),
         reference=reference,
     )
 

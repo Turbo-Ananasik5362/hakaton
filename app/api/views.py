@@ -122,7 +122,11 @@ def status_message(
     if status == SessionStatus.PATCHING:
         return "Выполняется точечная правка."
     if status == SessionStatus.DONE:
-        text = api_message(kit, state.notes) if kit is not None else "Комплект готов."
+        text = (
+            api_message(kit, state.notes, "report_md" in state.files)
+            if kit is not None
+            else "Комплект готов."
+        )
         if state.notes:
             text += " Список пропущенного — также в notes."
         if state.last_patch is not None and not state.last_patch.ok:

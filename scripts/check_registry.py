@@ -106,8 +106,14 @@ def check_norms(registry: Registry, today: date, result: CheckResult) -> None:
         _check_status(where, norm, today, result)
         if norm.kind not in NORM_KINDS:
             result.errors.append(f"{where}: kind {norm.kind!r} не из {sorted(NORM_KINDS)}")
-        if not set(norm.applies_to) <= {"pk", "dop"} or not norm.applies_to:
+        if not set(norm.applies_to) <= {"pk", "dop"}:
             result.errors.append(f"{where}: applies_to должен быть из pk, dop ({norm.applies_to})")
+        if not norm.applies_to and not norm.note:
+            # пустой applies_to — справочная запись (упоминание в тексте подтверждено, в нормативную базу программ
+            # не включается); без пояснения это скорее опечатка
+            result.warnings.append(
+                f"{where}: applies_to пуст и нет note — справочная запись или забыли тип программы?"
+            )
         for link in ("replaces", "replaced_by"):
             target = getattr(norm, link)
             if target and target not in ids:

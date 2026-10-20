@@ -20,6 +20,7 @@ from app.pipeline.base import (
     InvalidTransition,
     NotFound,
     PayloadTooLarge,
+    RateLimited,
     SessionBusy,
     StepUnavailable,
     TargetError,
@@ -32,6 +33,7 @@ logger = logging.getLogger("karkas.api")
 # Порядок важен: подклассы раньше базовых.
 _HTTP_STATUS: list[tuple[type[AgentError], int]] = [
     (NotFound, 404),
+    (RateLimited, 429),
     (SessionBusy, 409),
     (InvalidTransition, 409),
     (PayloadTooLarge, 413),
@@ -114,7 +116,10 @@ async def _agent_error(request: Request, exc: AgentError) -> JSONResponse:
     if status >= 500:
         logger.error("Ошибка %s на %s: %s (%s)", exc.code, request.url.path, exc.message, exc.details)
         return JSONResponse(error_payload(exc.code, exc.message), status_code=status)
-    return JSONResponse(error_payload(exc.code, exc.message, exc.details), status_code=status)
+    headers = {"Retry-After": str(exc.retry_after)} if isinstance(exc, RateLimited) else None
+    return JSONResponse(
+        error_payload(exc.code, exc.message, exc.details), status_code=status, headers=headers
+    )
 
 
 async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:

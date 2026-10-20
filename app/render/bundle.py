@@ -76,12 +76,12 @@ def render_all(
             run()
         except Exception as exc:  # noqa: BLE001 — сбой одной выгрузки не лишает методиста остальных
             logger.exception("Выгрузка «%s» не удалась", title)
-            error = f"{type(exc).__name__}: {exc}"
             for name in names:
                 (out_dir / name).unlink(missing_ok=True)
             outcome.files = {k: v for k, v in outcome.files.items() if v not in names}
-            outcome.notes.append(FAILED_NOTE.format(title=title, error=error))
-            outcome.issues.append(failure_issue(title, error))
+            # методисту — только вид ошибки; текст исключения (могут быть пути сервера) — в отчёт разработчику
+            outcome.notes.append(FAILED_NOTE.format(title=title, error=type(exc).__name__))
+            outcome.issues.append(failure_issue(title, error_detail(exc)))
     if any(i.severity == Severity.ERROR for i in outcome.issues) and not any(
         n.startswith(title) for title, _, _ in steps for n in outcome.notes
     ):
@@ -136,6 +136,10 @@ def _tests(kit: Kit, out_dir: Path, outcome: RenderOutcome) -> None:
         outcome.files[key] = name
         written[label] = out_dir / name
     outcome.issues += verify_tests(written, count)
+
+
+def error_detail(exc: BaseException) -> str:
+    return f"{type(exc).__name__}: {str(exc)[:300]}"
 
 
 def failure_issue(title: str, error: str) -> Issue:

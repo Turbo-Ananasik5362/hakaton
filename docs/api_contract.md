@@ -91,10 +91,19 @@
 Всегда JSON: `{"status": "error", "error": {"code": "...", "message": "понятный текст", "details": ...}}`.
 `400 invalid_input` (битое вложение), `404 session_not_found` / `file_not_found`, `409 invalid_state` / `session_busy`,
 `413 payload_too_large`, `415 unsupported_attachment` (нужны .docx, .pdf, .txt), `422 invalid_request` (поля запроса),
-`422 unknown_target` / `hours_conflict`. Ошибка внутри шага агента не даёт 500: сессия переходит в `failed`,
-код — в `error.code` сессии: `step_unavailable` (шаг ещё не подключён), `llm_error` (сбой шлюза), `budget_exceeded`
-(дневной предохранитель), `interrupted` (сессия прервана перезапуском сервера и не продолжена — старше 2 ч),
-`internal_error`. Неподдерживаемое или битое вложение запрос не отклоняет: файл пропускается, причина — в
+`422 unknown_target` / `hours_conflict`, `429 rate_limited` (больше `RATE_LIMIT_PER_MINUTE` новых сессий в минуту
+с одного адреса или больше `MAX_ACTIVE_SESSIONS` сессий в работе; заголовок `Retry-After` — через сколько секунд
+повторить). Ошибка внутри шага агента не даёт 500: сессия переходит в `failed`, код — в `error.code` сессии, в
+`error.message` — что случилось и что делать (таксономия — `app/pipeline/errors.py`):
+- временные: `llm_rate_limited` (шлюз перегружен, 429), `llm_unavailable` (5xx, обрыв, таймаут);
+- бюджет: `budget_exceeded` (дневной предохранитель);
+- модель: `llm_bad_answer` (ответ не по схеме после ремонта), `llm_truncated` (не уместился даже после дробления),
+  `llm_bad_request` (шлюз не принял запрос шага, 400/422);
+- настройка: `llm_rejected` (шлюз отклонил ключ, 401/403), `llm_not_configured` (нет адреса/ключа, кеша или фикстуры);
+- время: `deadline_exceeded` (истекло `GENERATION_DEADLINE_S`; обычно не ведёт к `failed` — недостающее
+  пропускается, комплект собирается из готового, пропущенное — в `notes`);
+- прочие: `step_unavailable` (шаг ещё не подключён), `interrupted` (прервана перезапуском и не продолжена — старше
+  2 ч), `internal_error` (ошибка программы; трассировка — в журнале сессии `data/sessions/<id>/log.jsonl`). Неподдерживаемое или битое вложение запрос не отклоняет: файл пропускается, причина — в
 `skeleton.assumptions` (формат определяется по содержимому: PDF с расширением .docx будет прочитан как PDF).
 
 ### Файлы (`files` в ответе `done`)

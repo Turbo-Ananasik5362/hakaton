@@ -21,8 +21,13 @@ pkill -f "uvicorn app.main:app" 2>/dev/null || true
 sleep 1
 LLM_MODE=live nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > logs/server.log 2>&1 &
 sleep 4
-if curl -fsS http://127.0.0.1:8000/health; then
-  echo; echo "OK: сервер поднят, коммит $(git rev-parse --short HEAD)"
+if health=$(curl -fsS http://127.0.0.1:8000/health); then
+  echo "$health"
+  echo "OK: сервер поднят, коммит $(git rev-parse --short HEAD)"
+  case "$health" in
+    *'"llm_ready":true'*) ;;
+    *) echo "ВНИМАНИЕ: llm_ready=false — сервер не ходит в GigaChat (нет OPENAI_BASE_URL / OPENAI_API_KEY в окружении?)." ;;
+  esac
 else
   echo "Сервер не ответил на /health — последние строки лога:"; tail -n 40 logs/server.log; exit 1
 fi

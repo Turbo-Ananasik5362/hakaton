@@ -39,6 +39,9 @@ import httpx  # noqa: E402
 
 from app.config import DEFAULT_MODEL, Settings, now_msk  # noqa: E402
 from app.llm import estimate_cost, spent_today_rub  # noqa: E402
+from app.render.bundle import NO_SLIDES_NOTE, NO_TESTS_NOTE  # noqa: E402
+
+NO_MATERIAL_NOTES = (NO_SLIDES_NOTE, NO_TESTS_NOTE.split("(")[0])
 
 API = "/api/v1"
 NIGHT_UNTIL_HOUR = 10  # 00:00–10:00 МСК — бюджет утреннего автопрогона
@@ -297,6 +300,8 @@ def _save_kit(client: httpx.Client, body: dict[str, Any], out: Path, log: Transc
         else:
             log.limitations.append(f"Файл {name} ({key}) не скачан: HTTP {response.status_code}.")
     for note in body.get("notes") or []:
+        if note.startswith(NO_MATERIAL_NOTES):  # нет лекций или тестов по замыслу программы — не недоделка
+            continue
         log.limitations.append(note)
     skipped = [
         s for s in (body.get("progress") or {}).get("steps", []) if s.get("status") in ("skipped", "failed")

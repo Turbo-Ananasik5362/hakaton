@@ -85,6 +85,7 @@ class SessionState(BaseModel):
     progress: list[StepProgress] = Field(default_factory=list)
     files: dict[str, str] = Field(default_factory=dict)  # ключ выгрузки → имя файла в files/
     queued_at: datetime | None = None
+    generation_started_at: datetime | None = None  # отсчёт дедлайна генерации (переживает перезапуск сервера)
     error: str | None = None  # понятный текст для методиста
     error_code: str | None = None
     notes: list[str] = Field(default_factory=list)  # пропущенные шаги и прочее, что надо знать

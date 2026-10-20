@@ -231,7 +231,8 @@ def session_of(kit: Kit, topic: Topic) -> int | None:
 
 def apply_lectures(kit: Kit, module: Module, drafts: Sequence[LectureDraft]) -> list[str]:
     topics = lecture_topics(kit, module)
-    all_los = [o.id for o in kit.outcomes]
+    # пункт плана может раскрывать только РО своего модуля: ссылка на чужой РО завысила бы покрытие
+    module_los = list(dict.fromkeys(lo for t in kit.topics_of(module.id) for lo in t.lo_ids))
     alloc = IdAllocator(kit)
     created: list[str] = []
     for topic, draft in match_to_topics(drafts, topics, lambda d: d.topic_ids):
@@ -240,7 +241,7 @@ def apply_lectures(kit: Kit, module: Module, drafts: Sequence[LectureDraft]) -> 
             title = clean_item(item.title)
             if not title:
                 continue
-            los = valid_los(item.lo_ids, all_los) or list(topic.lo_ids)
+            los = valid_los(item.lo_ids, module_los) or list(topic.lo_ids)
             plan.append(PlanItem(title=title, theses=clean_items(item.theses, MAX_THESES), lo_ids=los))
         glossary: list[GlossaryItem] = []
         seen: set[str] = set()
