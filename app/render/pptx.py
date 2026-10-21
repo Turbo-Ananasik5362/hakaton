@@ -72,13 +72,20 @@ def render_pptx(kit: Kit, path: Path) -> int | None:
     counter = 0
     for lecture, slides in decks:
         module = modules.get(lecture.module_id)
-        label = f"Модуль {numbers.get(lecture.module_id, '')}. {module.title}" if module is not None else ""
+        number = numbers.get(lecture.module_id, "")
+        if module is None:
+            label = ""
+        else:  # вводное занятие ДОП — без номера («Модуль 0» в программе нет)
+            label = module.title if number in ("", "0") else f"Модуль {number}. {module.title}"
         session = f" · занятие {lecture.session_no}" if lecture.session_no else ""
         for idx, slide in enumerate(slides):
             counter += 1
             footer = f"{kit.program.title} · {lecture.title}"
             if idx == 0:
-                _title_slide(prs, slide, kit.program.title, f"{label}{session}", lecture.goal)
+                plan = [p.title for p in lecture.plan] or [
+                    b for b in slide.bullets if not b.startswith("Цель:")
+                ]
+                _title_slide(prs, slide, kit.program.title, f"{label}{session}", lecture.goal, plan)
             else:
                 _content_slide(prs, slide)
             _decorate(prs.slides[-1], footer, f"{counter} / {total}")
@@ -126,19 +133,22 @@ def _place(shape, left, top, width, height) -> None:  # noqa: ANN001
     shape.left, shape.top, shape.width, shape.height = left, top, width, height
 
 
-def _title_slide(prs, slide: Slide, program: str, module: str, goal: str) -> None:  # noqa: ANN001
+def _title_slide(prs, slide: Slide, program: str, module: str, goal: str, plan: list[str]) -> None:  # noqa: ANN001
     page = prs.slides.add_slide(prs.slide_layouts[LAYOUT_TITLE])
     title, subtitle = page.shapes.title, page.placeholders[1]
-    _place(title, LEFT, Inches(2.0), TEXT_W, Inches(1.8))
+    _place(title, LEFT, Inches(1.2), TEXT_W, Inches(1.8))
     _set_text(title, slide.title, 36, True, TITLE_COLOR)
     title.text_frame.vertical_anchor = MSO_ANCHOR.BOTTOM
-    _place(subtitle, LEFT, Inches(4.0), TEXT_W, Inches(1.6))
+    _place(subtitle, LEFT, Inches(3.2), TEXT_W, Inches(3.5))
     frame = subtitle.text_frame
     frame.clear()
     frame.word_wrap = True
     lines = [(program, 20, MUTED_COLOR), (module, 18, MUTED_COLOR)]
     if goal:
         lines.append((f"Цель: {goal}", 16, TEXT_COLOR))
+    if plan:  # план лекции — на самом слайде, а не только в заметках
+        lines.append(("План лекции:", 16, TEXT_COLOR))
+        lines += [(f"{n}. {item}", 15, TEXT_COLOR) for n, item in enumerate(plan[:6], start=1)]
     first = True
     for text, size, color in lines:
         if not text:

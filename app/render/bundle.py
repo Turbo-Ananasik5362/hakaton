@@ -101,7 +101,10 @@ def _program(
     references: Sequence[str],
     outcome: RenderOutcome,
 ) -> None:
-    report = build_report(kit, notes, references, for_docx=True)  # сбой отчёта гасит только .docx
+    # заметки «слайдов / тестов нет» известны до выгрузок — приложение-отчёт в .docx должно их видеть
+    report = build_report(
+        kit, [*notes, *material_notes(kit)], references, for_docx=True
+    )  # сбой гасит только .docx
     name, issues = render_program_docx(kit, out_dir, registry, org, report)
     outcome.files["program_docx"] = name
     outcome.issues += issues
@@ -118,13 +121,23 @@ def _slides(kit: Kit, out_dir: Path, outcome: RenderOutcome) -> None:
     outcome.issues += verify_pptx(path, expected)
 
 
-def _tests(kit: Kit, out_dir: Path, outcome: RenderOutcome) -> None:
-    count = len(question_bank(kit))
-    if not count:
+def material_notes(kit: Kit) -> list[str]:
+    """Почему каких-то выгрузок не будет: нет лекций со слайдами, нет тестовых вопросов."""
+    notes: list[str] = []
+    if not deck_lectures(kit):
+        notes.append(NO_SLIDES_NOTE)
+    if not question_bank(kit):
         forms = sorted({(m.control_form or "").strip() for m in kit.modules if m.control_form}) or [
             "не задан"
         ]
-        outcome.notes.append(NO_TESTS_NOTE.format(forms=", ".join(forms).lower()))
+        notes.append(NO_TESTS_NOTE.format(forms=", ".join(forms).lower()))
+    return notes
+
+
+def _tests(kit: Kit, out_dir: Path, outcome: RenderOutcome) -> None:
+    count = len(question_bank(kit))
+    if not count:
+        outcome.notes += [n for n in material_notes(kit) if n != NO_SLIDES_NOTE]
         return
     written: dict[str, Path] = {}
     for key, label, name, fn in (

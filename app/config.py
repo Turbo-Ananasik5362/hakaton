@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 ROOT = Path(__file__).resolve().parent.parent
 MSK = dt.timezone(dt.timedelta(hours=3))
@@ -38,6 +39,68 @@ LLM_MODES = ("auto", "mock", "live", "replay")  # auto — live при зада�
 APP_VERSION = "0.5.0"
 
 
+class GenerationLimits(BaseModel):
+    """Пороги и лимиты генерации, которые могут понадобиться при переносе на другой шлюз, бюджет или шаблон.
+    Значения по умолчанию — те, с которыми агент проверен; переопределяются переменными окружения (LIMIT_ENV)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    questions_per_lo: int = Field(
+        default=2, ge=1
+    )  # тестовых вопросов на РО, который модуль раскрывает первым
+    min_interview_per_module: int = Field(default=3, ge=1)  # вопросов собеседования на модуль, не меньше
+    max_test_questions: int = Field(default=100, ge=1)  # итоговый тест из запроса — не больше
+    max_questions_per_call: int = Field(default=20, ge=1)  # вопросов в одном ответе модели (больше — частями)
+    test_pass_threshold: float = Field(default=70.0, gt=0, le=100)  # тест пройден: % верных ответов
+    seminar_pass_share: float = Field(default=0.6, gt=0, le=1)  # задание зачтено: доля от суммы баллов
+    fa_pass_share: float = Field(default=0.6, gt=0, le=1)  # итоговая аттестация: доля от суммы баллов
+    budget_margin: float = Field(default=1.5, ge=1)  # полный режим, если остаток ≥ оценка × запас
+    literature_max_candidates: int = Field(
+        default=6, ge=0
+    )  # изданий вне каталога от модели — рассматривается
+    literature_max_unverified: int = Field(default=2, ge=0)  # «[не подтверждено]» на подраздел, не больше
+    literature_max_main: int = Field(default=5, ge=1)  # изданий в основной литературе
+    literature_max_additional: int = Field(default=6, ge=1)  # в дополнительной
+    literature_max_internet: int = Field(default=6, ge=1)  # интернет-ресурсов
+
+    def literature_per_section(self) -> dict[str, int]:
+        return {
+            "main": self.literature_max_main,
+            "additional": self.literature_max_additional,
+            "internet": self.literature_max_internet,
+        }
+
+
+DEFAULT_LIMITS = GenerationLimits()
+
+# поле GenerationLimits → переменная окружения
+LIMIT_ENV: dict[str, str] = {
+    "questions_per_lo": "QUESTIONS_PER_LO",
+    "min_interview_per_module": "MIN_INTERVIEW_PER_MODULE",
+    "max_test_questions": "MAX_TEST_QUESTIONS",
+    "max_questions_per_call": "MAX_QUESTIONS_PER_CALL",
+    "test_pass_threshold": "TEST_PASS_THRESHOLD",
+    "seminar_pass_share": "SEMINAR_PASS_SHARE",
+    "fa_pass_share": "FA_PASS_SHARE",
+    "budget_margin": "BUDGET_MARGIN",
+    "literature_max_candidates": "LITERATURE_MAX_CANDIDATES",
+    "literature_max_unverified": "LITERATURE_MAX_UNVERIFIED",
+    "literature_max_main": "LITERATURE_MAX_MAIN",
+    "literature_max_additional": "LITERATURE_MAX_ADDITIONAL",
+    "literature_max_internet": "LITERATURE_MAX_INTERNET",
+}
+
+
+def limits_from_env(env: Mapping[str, str]) -> GenerationLimits:
+    """Лимиты из окружения: заданные переменные перекрывают значения по умолчанию, неверные — понятная ошибка."""
+    values = {name: env[var] for name, var in LIMIT_ENV.items() if env.get(var, "").strip()}
+    try:
+        return GenerationLimits(**values)
+    except ValidationError as exc:
+        bad = ", ".join(sorted({LIMIT_ENV.get(str(e["loc"][0]), str(e["loc"][0])) for e in exc.errors()}))
+        raise ValueError(f"Неверное значение переменной окружения: {bad}") from None
+
+
 class Settings(BaseModel):
     llm_mode: LLMMode = "mock"  # действующий режим
     llm_mode_requested: str = ""  # как задано в LLM_MODE (auto / mock / live / replay); пусто — задан в коде
@@ -54,12 +117,19 @@ class Settings(BaseModel):
     generation_deadline_s: float = Field(default=1500.0, gt=0)  # 25 мин на генерацию комплекта одной сессии
     rate_limit_per_minute: int = Field(default=30, ge=1)  # новых сессий в минуту с одного адреса
     max_active_sessions: int = Field(default=50, ge=1)  # сессий в работе одновременно (идут и ждут в очереди)
+    max_generating_sessions: int = Field(
+        default=2, ge=1
+    )  # генерируются одновременно (ВМ: 2 ядра), остальные ждут
+    limits: GenerationLimits = DEFAULT_LIMITS
     cache_dir: Path = ROOT / "cache" / "llm"
     cost_log: Path = ROOT / "logs" / "llm_cost.jsonl"
     fixtures_dir: Path = ROOT / "tests" / "fixtures" / "llm"
     sessions_dir: Path = ROOT / "data" / "sessions"
     registry_dir: Path = ROOT / "data" / "registry"
     organization_file: Path = ROOT / "data" / "organization.json"  # шапка организации для .docx
+    cost_tag: str = (
+        ""  # метка строк журнала расходов (scripts/run_open_query.py считает расход своего прогона)
+    )
 
     @property
     def gateway_configured(self) -> bool:
@@ -118,6 +188,8 @@ class Settings(BaseModel):
             generation_deadline_s=float(env.get("GENERATION_DEADLINE_S", "1500")),
             rate_limit_per_minute=int(env.get("RATE_LIMIT_PER_MINUTE", "30")),
             max_active_sessions=int(env.get("MAX_ACTIVE_SESSIONS", "50")),
+            max_generating_sessions=int(env.get("MAX_GENERATING_SESSIONS", "2")),
+            limits=limits_from_env(env),
         )
 
 

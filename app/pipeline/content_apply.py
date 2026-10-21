@@ -13,6 +13,7 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from typing import TypeVar
 
+from app.config import DEFAULT_LIMITS
 from app.core.ids import IdAllocator
 from app.core.validate import FREE_HOURS_RE, HOURS_PATTERN
 from app.models import (
@@ -52,8 +53,8 @@ MAX_THESES = 5
 MAX_GLOSSARY = 8
 MAX_STEPS = 8
 MAX_CRITERIA = 6
-SEMINAR_PASS_SHARE = 0.6
-FA_PASS_SHARE = 0.6
+SEMINAR_PASS_SHARE = DEFAULT_LIMITS.seminar_pass_share  # по умолчанию; генератор передаёт Settings.limits
+FA_PASS_SHARE = DEFAULT_LIMITS.fa_pass_share
 ANON_SENTENCE = (
     "Используются только обезличенные данные: без ФИО, телефонов, адресов, номеров документов, карт и счетов."
 )
@@ -76,8 +77,13 @@ CYR_TO_LAT = str.maketrans("ТОСМ", "TOCM")  # кириллица, похож
 # --------------------------------------------------------------------------------------------------
 
 
+# «ltrace, ltrace, ltrace» — сбой генерации; только слова из букв от 3 символов: «[0, 0, 0]», «print(1, 1, 1)» — код
+REPEAT_RE = re.compile(r"(?<![\w\[(])([^\W\d_]{3,})(?:\s*,\s*\1\b){2,}", re.I)
+
+
 def clean(text: str | None) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip())
+    value = re.sub(r"\s+", " ", (text or "").strip())
+    return REPEAT_RE.sub(r"\1", value)
 
 
 def has_hours(text: str) -> bool:
@@ -229,13 +235,27 @@ def session_of(kit: Kit, topic: Topic) -> int | None:
     return None
 
 
-def apply_lectures(kit: Kit, module: Module, drafts: Sequence[LectureDraft]) -> list[str]:
-    topics = lecture_topics(kit, module)
+def apply_lectures(
+    kit: Kit, module: Module, drafts: Sequence[LectureDraft], only: Sequence[str] | None = None
+) -> list[str]:
+    """Лекции к темам с часами теории (only — при доборе: только темы без лекции)."""
+    topics = [t for t in lecture_topics(kit, module) if only is None or t.id in set(only)]
     # пункт плана может раскрывать только РО своего модуля: ссылка на чужой РО завысила бы покрытие
     module_los = list(dict.fromkeys(lo for t in kit.topics_of(module.id) for lo in t.lo_ids))
     alloc = IdAllocator(kit)
     created: list[str] = []
-    for topic, draft in match_to_topics(drafts, topics, lambda d: d.topic_ids):
+    pairs = match_to_topics(drafts, topics, lambda d: d.topic_ids)
+    # модель иногда объединяет несколько тем в одну лекцию (topic_ids: [T2.1, T2.2, T2.3]) — лекция покрывает все
+    # свои темы, которые не заняты другой лекцией, а не только первую (иначе у остальных нет лекции, V20)
+    wanted = {t.id for t in topics}
+    claimed = {topic.id for topic, _ in pairs} | {tid for lec in kit.lectures for tid in lec.topic_ids}
+    for topic, draft in pairs:
+        extra = [
+            tid
+            for tid in dict.fromkeys(norm_id(x) for x in draft.topic_ids)
+            if tid in wanted and tid not in claimed
+        ]
+        claimed |= set(extra)
         plan: list[PlanItem] = []
         for item in draft.plan[:MAX_PLAN]:
             title = clean_item(item.title)
@@ -253,7 +273,7 @@ def apply_lectures(kit: Kit, module: Module, drafts: Sequence[LectureDraft]) -> 
         lecture = Lecture(
             id=alloc.lecture(module.id),
             module_id=module.id,
-            topic_ids=[topic.id],
+            topic_ids=[topic.id, *extra],
             session_no=session_of(kit, topic),
             title=topic.title,  # заголовок лекции = тема учебного плана (проверка V20)
             goal=clean_prose(draft.goal),
@@ -293,7 +313,11 @@ def _threshold(wanted: float | None, total: float, share: float) -> float | None
 
 
 def apply_seminars(
-    kit: Kit, module: Module, drafts: Sequence[SeminarDraft], only: Sequence[str] | None = None
+    kit: Kit,
+    module: Module,
+    drafts: Sequence[SeminarDraft],
+    only: Sequence[str] | None = None,
+    pass_share: float = SEMINAR_PASS_SHARE,
 ) -> list[str]:
     """Задания к темам с практикой модуля (only — при доборе: только темы без задания)."""
     alloc = IdAllocator(kit)
@@ -315,7 +339,7 @@ def apply_seminars(
             steps=clean_items(draft.steps, MAX_STEPS),
             deliverable=clean_prose(draft.deliverable),
             criteria=criteria,
-            pass_threshold=_threshold(draft.pass_threshold, total, SEMINAR_PASS_SHARE),
+            pass_threshold=_threshold(draft.pass_threshold, total, pass_share),
         )
         kit.seminars.append(seminar)
         created.append(seminar.id)
@@ -480,13 +504,16 @@ def apply_interview(
 # --------------------------------------------------------------------------------------------------
 
 
-def apply_final_attestation(kit: Kit, draft: FinalAttestationDraft) -> None:
+def apply_final_attestation(
+    kit: Kit, draft: FinalAttestationDraft, pass_share: float = FA_PASS_SHARE
+) -> None:
     """Форма и часы ИА — из каркаса (код); модель пишет требования, критерии и процедуру."""
     request = kit.request
     fa = kit.final_attestation or FinalAttestation(form=request.fa_form or FAForm.ZACHET)
     alloc = IdAllocator(kit)
     all_los = [o.id for o in kit.outcomes]
-    fa.form_text = fa.form_text or clean_prose(draft.form_text)
+    # описание формы ИА — своими словами модели; текст из запроса (каркас) — только если модель не дала своего
+    fa.form_text = clean_prose(draft.form_text) or fa.form_text
     fa.lo_ids = valid_los(draft.lo_ids, all_los) or all_los
     fa.requirements = clean_items(draft.requirements, 8)
     if fa.form == FAForm.PORTFOLIO:
@@ -518,7 +545,9 @@ def apply_final_attestation(kit: Kit, draft: FinalAttestationDraft) -> None:
     total = sum(c.max_points for c in fa.criteria)
     fa.pass_rule = clean_prose(draft.pass_rule)
     if not fa.pass_rule and total > 0:
-        fa.pass_rule = f"«Зачтено» — не меньше {_fmt(_threshold(None, total, FA_PASS_SHARE) or 0)} баллов из {_fmt(total)}."
+        fa.pass_rule = (
+            f"«Зачтено» — не меньше {_fmt(_threshold(None, total, pass_share) or 0)} баллов из {_fmt(total)}."
+        )
     fa.procedure = clean_items(draft.procedure, 8)
     kit.final_attestation = fa
 

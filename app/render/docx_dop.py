@@ -255,7 +255,8 @@ def _explanatory_note(w: DocWriter, kit: Kit, tables: ProgramTables, registry: R
     w.label_value("Категория обучающихся", audience.category)
     if audience.age_or_grade:
         w.label_value("Возраст (классы)", audience.age_or_grade)
-    w.label_value("Входной уровень", audience.entry_level or "")
+    if audience.entry_level:
+        w.label_value("Входной уровень", audience.entry_level)
     requirements = kit.texts.audience_requirements.strip() or (audience.requirements or "").strip()
     if requirements:
         w.para(requirements)
@@ -440,9 +441,11 @@ def _assessment(w: DocWriter, kit: Kit, tables: ProgramTables) -> None:
     w.text_cell(table, last, 1, (fa.expected_result or tables.fa_title) if fa is not None else FILL_MARK)
     w.text_cell(table, last, 2, "Комиссия по критериям итоговой аттестации")
     w.after_table()
-    criteria = list(dict.fromkeys(c.text for s in kit.seminars for c in s.criteria))[:8]
-    w.subhead("Критерии проверки практических работ")
-    w.bullets(criteria)
+    criteria = list(dict.fromkeys(c.text for s in kit.seminars for c in s.criteria))
+    w.subhead("Основные критерии проверки практических работ")
+    w.bullets(criteria[:8])
+    if len(criteria) > 8 or kit.seminars:
+        w.para("Критерии и баллы по каждому заданию — в Приложении № 1.", first_line=False)
     w.subhead("Итоговая аттестация")
     text = f"Форма — {tables.fa_title.lower()}, {hours_phrase(tables.fa_hours)}."
     if fa is not None and fa.pass_rule:

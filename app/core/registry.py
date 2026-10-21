@@ -102,6 +102,21 @@ def _surname_tokens(author: str) -> set[str]:
     return {token for token in _tokens(author) if len(token) > 2}
 
 
+SURNAME_MATCH_RATIO = 0.8
+"""Фамилии с опечаткой («Лубанович» и «Любанович») считаются одной: модель ошибается в транслитерации."""
+
+
+def _surnames_match(wanted: set[str], item: set[str]) -> bool:
+    if wanted & item:
+        return True
+    return any(SequenceMatcher(None, a, b).ratio() >= SURNAME_MATCH_RATIO for a in wanted for b in item)
+
+
+def title_similarity(wanted_title: str, item_title: str) -> float:
+    """Похожесть названий изданий (0…1) — для поиска в каталоге и отсева дублей."""
+    return _title_similarity(wanted_title, item_title)
+
+
 def _main_title(title: str) -> str:
     """Основное заглавие без подзаголовка и сведений об издании (до «:» или «. »)."""
     head = re.split(r":|\.\s|\s[—–-]\s", title, maxsplit=1)[0]
@@ -189,7 +204,7 @@ class Registry(InMemoryRegistry):
         for item in self._literature:
             if wanted_author is not None:
                 item_author = _surname_tokens(item.authors[0]) if item.authors else set()
-                if not wanted_author & item_author:
+                if not _surnames_match(wanted_author, item_author):
                     continue
             score = _title_similarity(title, item.title)
             if score > best_score:

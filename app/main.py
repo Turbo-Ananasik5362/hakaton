@@ -25,21 +25,19 @@ from app.storage.sessions import SessionStore
 
 logger = logging.getLogger("karkas")
 
-MAX_GENERATING_SESSIONS = 2  # ВМ: 2 ядра, 4 ГБ (docs/ARCHITECTURE.md §6.4)
-
 
 def create_app(
     settings: Settings | None = None,
     pipeline: Pipeline | None = None,
     store: SessionStore | None = None,
-    max_generating: int = MAX_GENERATING_SESSIONS,
+    max_generating: int | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     store = store or SessionStore(settings.sessions_dir)
     orchestrator = Orchestrator(
         store,
         pipeline or DefaultPipeline(settings),
-        max_generating=max_generating,
+        max_generating=max_generating or settings.max_generating_sessions,  # ВМ: 2 ядра, 4 ГБ (§6.4)
         generation_deadline_s=settings.generation_deadline_s,
         max_active=settings.max_active_sessions,
     )

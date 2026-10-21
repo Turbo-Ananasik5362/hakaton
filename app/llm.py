@@ -512,6 +512,10 @@ class LLMClient:
 
     def _append_cost_log(self, record: CallRecord) -> None:
         row = {"ts": now_msk().isoformat(timespec="seconds"), **asdict(record)}
+        if (
+            self.settings.cost_tag
+        ):  # метка прогона: его расход отделяется от параллельных прогонов в общем журнале
+            row["tag"] = self.settings.cost_tag
         log = self.settings.cost_log
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as fh:

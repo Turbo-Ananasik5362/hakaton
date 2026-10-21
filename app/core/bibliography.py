@@ -14,24 +14,37 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from app.config import DEFAULT_LIMITS
 from app.core.ids import IdAllocator
-from app.core.registry import Registry, is_verified
+from app.core.registry import Registry, is_verified, title_similarity
 from app.core.registry_api import LiteratureRecord, ToolRecord, fold_yo, name_pattern, normalize_text
 from app.core.validate import isbn_valid
-from app.models import BookCandidate, CatalogPick, Kit, Source, SourceKind, SourceSection, Verification
+from app.models import (
+    BookCandidate,
+    CatalogPick,
+    Kit,
+    ProgramType,
+    Source,
+    SourceKind,
+    SourceSection,
+    Verification,
+)
 
 MAX_SHORTLIST = 30
 MAX_TOOL_DOCS = 8
-MAX_UNVERIFIED_PER_SECTION = 2
-MAX_CANDIDATES = 6  # больше кандидатов от модели не рассматривается (§2.4)
+# По умолчанию — из Settings.limits (app/config.py); генератор передаёт настроенные значения в build_sources
+MAX_UNVERIFIED_PER_SECTION = DEFAULT_LIMITS.literature_max_unverified
+MAX_CANDIDATES = (
+    DEFAULT_LIMITS.literature_max_candidates
+)  # больше кандидатов от модели не рассматривается (§2.4)
 MAX_SOURCE_AGE_YEARS = 15  # как в проверке V23: старше — «слишком старое для учебной программы»
 MIN_PER_SECTION = {SourceSection.MAIN: 2, SourceSection.ADDITIONAL: 1, SourceSection.INTERNET: 1}
-MAX_PER_SECTION = {SourceSection.MAIN: 5, SourceSection.ADDITIONAL: 6, SourceSection.INTERNET: 6}
+MAX_PER_SECTION = {SourceSection(k): v for k, v in DEFAULT_LIMITS.literature_per_section().items()}
 BOOK_SECTIONS = (SourceSection.MAIN, SourceSection.ADDITIONAL)
 
 Status = Literal["catalog", "unverified", "rejected"]
@@ -42,6 +55,8 @@ Status = Literal["catalog", "unverified", "rejected"]
 # --------------------------------------------------------------------------------------------------
 
 
+CATALOG_KEY_RE = re.compile(r"^(lit|doc):(\S+)$")
+DUPLICATE_TITLE_RATIO = 0.85  # кандидат с названием как у выбранного издания из каталога — дубль
 REJECTED_NOTE_PREFIX = "Модель предложила источник"  # заметки об отброшенных кандидатах (не для .docx)
 
 
@@ -114,15 +129,31 @@ def blocked_service(kit: Kit, registry: Registry, text: str) -> str | None:
     return blocked[0] if blocked else None
 
 
+HIGHER_ED_RE = re.compile(r"для\s+(?:студентов\s+)?вуз|бакалавр|магистр|высш\w+\s+(?:учебн|образован)", re.I)
+
+
+def _level_fits(kit: Kit, record: LiteratureRecord) -> bool:
+    """Для школьников (ДОП с возрастом / классами) — без вузовских учебников."""
+    school = kit.program.type == ProgramType.DOP and bool(kit.program.audience.age_or_grade)
+    return not (school and HIGHER_ED_RE.search(f"{record.title} {' '.join(record.tags)}"))
+
+
 def shortlist(kit: Kit, registry: Registry, limit: int = MAX_SHORTLIST) -> list[ShortlistItem]:
     tools = mentioned_tools(kit, registry)
     books = registry.literature_for_tags(_query_tags(kit), limit=max(0, limit - len(tools)) + 10)
-    books = [b for b in books if blocked_service(kit, registry, b.title) is None][
+    books = [b for b in books if blocked_service(kit, registry, b.title) is None and _level_fits(kit, b)][
         : max(0, limit - len(tools))
     ]
     items = [ShortlistItem(f"lit:{record.id}", record) for record in books]
     items += [ShortlistItem(f"doc:{tool.id}", tool) for tool in tools]
     return items
+
+
+def matches_title(kit: Kit, item: ShortlistItem) -> bool:
+    """Тег издания — слово из названия программы («python» в «Первые шаги в Python»): самое надёжное попадание."""
+    words = set(normalize_text(kit.program.title).split())
+    tags = getattr(item.record, "tags", []) or []
+    return any(normalize_text(tag) in words for tag in tags)
 
 
 def on_topic(kit: Kit, item: ShortlistItem) -> bool:
@@ -247,9 +278,12 @@ def _book_section(section: SourceSection) -> SourceSection:
 
 
 class _Collector:
-    def __init__(self, kit: Kit, alloc: IdAllocator) -> None:
+    def __init__(
+        self, kit: Kit, alloc: IdAllocator, max_per_section: Mapping[SourceSection, int] | None = None
+    ) -> None:
         self.kit = kit
         self.alloc = alloc
+        self.max_per_section = max_per_section  # None — значения модуля MAX_PER_SECTION
         self.topic_ids = {t.id for t in kit.topics}
         self.sources: list[Source] = []
         self.used: set[str] = set()  # ключи шорт-листа / ID каталога
@@ -258,7 +292,8 @@ class _Collector:
         return sum(1 for s in self.sources if s.section == section)
 
     def full(self, section: SourceSection) -> bool:
-        return self.count(section) >= MAX_PER_SECTION.get(section, 6)
+        limits = self.max_per_section if self.max_per_section is not None else MAX_PER_SECTION
+        return self.count(section) >= limits.get(section, 6)
 
     def add_item(self, item: ShortlistItem, section: SourceSection, topic_ids: Iterable[str] = ()) -> bool:
         target = SourceSection.INTERNET if item.is_doc else _book_section(section)
@@ -279,10 +314,17 @@ def build_sources(
     picks: Iterable[CatalogPick],
     candidates: Iterable[BookCandidate],
     current_year: int,
+    max_candidates: int | None = None,
+    max_unverified: int | None = None,
+    max_per_section: Mapping[str, int] | None = None,
 ) -> LiteratureResult:
-    """Выбор модели + проверенные кандидаты → источники комплекта (ID выдаёт код)."""
+    """Выбор модели + проверенные кандидаты → источники комплекта (ID выдаёт код). Лимиты — из Settings.limits;
+    не заданы — значения модуля (MAX_CANDIDATES, MAX_UNVERIFIED_PER_SECTION, MAX_PER_SECTION)."""
     result = LiteratureResult()
-    collector = _Collector(kit, IdAllocator(kit))
+    per_section = {SourceSection(k): v for k, v in max_per_section.items()} if max_per_section else None
+    max_candidates = MAX_CANDIDATES if max_candidates is None else max_candidates
+    max_unverified = MAX_UNVERIFIED_PER_SECTION if max_unverified is None else max_unverified
+    collector = _Collector(kit, IdAllocator(kit), per_section)
     by_key = {item.key: item for item in items}
     by_key |= {item.key.split(":", 1)[1]: item for item in items}  # модель может ответить ID без префикса
 
@@ -292,7 +334,23 @@ def build_sources(
             collector.add_item(item, pick.section)
 
     unverified_count: dict[SourceSection, int] = {}
-    for candidate in list(candidates)[:MAX_CANDIDATES]:
+    for candidate in list(candidates)[:max_candidates]:
+        url = (candidate.url or "").strip()
+        key = CATALOG_KEY_RE.match(url)
+        if (
+            key
+        ):  # модель записала в адрес ключ каталога («lit:…», «doc:…») — это выбор из каталога, а не ссылка
+            item = by_key.get(url) or by_key.get(key.group(2))
+            if item is not None:
+                collector.add_item(item, candidate.section, candidate.topic_ids)
+            continue
+        if url and not url.lower().startswith(("http://", "https://")):
+            candidate = candidate.model_copy(update={"url": None})  # не адрес — в документ не пойдёт
+        if any(
+            s.registry_id and title_similarity(candidate.title, s.title) >= DUPLICATE_TITLE_RATIO
+            for s in collector.sources
+        ):
+            continue  # то же издание уже выбрано из каталога (модель повторила его кандидатом)
         verdict = check_candidate(candidate, registry, current_year)
         service = blocked_service(kit, registry, candidate.title)
         if service is not None:
@@ -321,7 +379,7 @@ def build_sources(
             if not candidate.publisher and candidate.url
             else _book_section(candidate.section)
         )
-        if unverified_count.get(section, 0) >= MAX_UNVERIFIED_PER_SECTION or collector.full(section):
+        if unverified_count.get(section, 0) >= max_unverified or collector.full(section):
             result.log.append(
                 {**entry, "status": "dropped", "reasons": ["лимит неподтверждённых в подразделе"]}
             )

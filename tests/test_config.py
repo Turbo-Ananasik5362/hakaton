@@ -82,3 +82,30 @@ def test_git_commit_reads_head_and_packed_refs(tmp_path: Path) -> None:
     assert git_commit(tmp_path) == "abcdef1"
     assert git_commit(tmp_path / "nowhere") == ""
     assert app_version().startswith("0.")
+
+
+def test_generation_limits_come_from_environment(env: pytest.MonkeyPatch) -> None:
+    """Пороги генерации — из окружения; без переменных — проверенные значения по умолчанию."""
+    from app.config import DEFAULT_LIMITS
+    from app.pipeline import content
+    from app.pipeline.default import DefaultPipeline
+    from tests.validate_kits import make_pk_kit
+
+    assert Settings.from_env(env_file=None).limits == DEFAULT_LIMITS
+    env.setenv("QUESTIONS_PER_LO", "3")
+    env.setenv("BUDGET_MARGIN", "2")
+    env.setenv("LITERATURE_MAX_MAIN", "3")
+    settings = Settings.from_env(env_file=None)
+    assert settings.limits.questions_per_lo == 3 and settings.limits.literature_per_section()["main"] == 3
+    generator = DefaultPipeline(settings.model_copy(update={"llm_mode": "mock"})).content
+    assert generator.limits.budget_margin == 2
+    kit = make_pk_kit()
+    quotas = content.question_quotas(kit, generator.limits)
+    assert max(n for q in quotas.values() for n in q.values()) == 3
+    assert content.choose_mode(10, 5, 15, generator.limits.budget_margin)[0].value == "economy"  # 15 < 10 × 2
+
+
+def test_invalid_limit_is_reported_by_name(env: pytest.MonkeyPatch) -> None:
+    env.setenv("FA_PASS_SHARE", "1.5")
+    with pytest.raises(ValueError, match="FA_PASS_SHARE"):
+        Settings.from_env(env_file=None)

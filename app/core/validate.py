@@ -1269,6 +1269,48 @@ def _form_text_claims(kit: Kit) -> list[Finding]:
     return out
 
 
+CLASSROOM_RE = re.compile(
+    r"лекци\w*|учебн\w+\s+аудитори\w*|аудиторн\w+\s+заняти\w*|мастер-класс\w*|теоретическ\w+\s+заняти\w*",
+    re.I,
+)
+
+
+def _internship_text_claims(kit: Kit) -> list[Finding]:
+    """Стажировка без аудиторных часов (ЛК = ПР = ЛБ = 0), а тексты обещают лекции, аудитории, мастер-классы."""
+    if kit.program.type != ProgramType.PK_INTERNSHIP or kit.program_hours().contact > EPS:
+        return []
+    texts = kit.texts
+    fields = [
+        ("форма обучения (1.7)", texts.form_description),
+        ("организация образовательного процесса (3.3)", texts.org_process),
+        ("материально-техническое обеспечение (3.1)", " ".join(texts.mto)),
+    ]
+    out: list[Finding] = []
+    for where, text in fields:
+        text = text or ""
+        match = next(  # «без аудиторных занятий», «лекции не проводятся» — не обещание, а отрицание
+            (
+                m
+                for m in CLASSROOM_RE.finditer(text)
+                if not FORM_NEGATION_RE.search(text[max(0, m.start() - 40) : m.start()])
+                and not re.match(r"\s*не\s", text[m.end() : m.end() + 20])
+            ),
+            None,
+        )
+        if match:
+            out.append(
+                Finding(
+                    WARNING,
+                    f"{where}: «{_short(match.group(0), 30)}» — у стажировки нет аудиторных занятий (все часы — "
+                    "самостоятельная работа на рабочем месте); текст расходится с учебным планом.",
+                    detail="internship text mentions classroom work",
+                    fix_by=FixBy.LLM,
+                    refs=("G2",),
+                )
+            )
+    return out
+
+
 def check_v10(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     """Разбивка «очно / с ДОТ»: задана, когда есть ДОТ, и сходится в каждой строке."""
     names = _Names(kit)
@@ -1325,6 +1367,7 @@ def check_v10(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                 )
     if not (form.dot or form.eo):
         out += _form_text_claims(kit)
+    out += _internship_text_claims(kit)
     if not form.dot and total.distance > EPS:
         out.append(
             Finding(
@@ -1998,7 +2041,8 @@ def check_v18(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             problems.append(f"вариантов ответа {len(filled)}, нужно не меньше {ctx.min_question_options}")
         if len(filled) < len(options):
             problems.append("есть пустой вариант ответа")
-        if len({normalize_text(o) for o in filled}) < len(filled):
+        # без снятия знаков: «print(5 + 3)» и «print(5) + 3» — разные варианты (код)
+        if len({" ".join(o.lower().split()) for o in filled}) < len(filled):
             problems.append("варианты ответа повторяются")
         if not question.correct:
             problems.append("не указан правильный ответ")
@@ -4058,6 +4102,7 @@ def check_v43(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                         refs=("K13", "Q5.9b"),
                     )
                 )
+    out += _outcome_spread(kit, names)
     for topic in topics:
         seen: dict[str, str] = {}
         for items in topic.content.values():
@@ -4092,6 +4137,29 @@ def check_v43(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                     )
                 )
     return _cap(out, ctx)
+
+
+def _outcome_spread(kit: Kit, names: _Names) -> list[Finding]:
+    """Один РО раскрывается в темах трёх и более модулей (и не меньше половины модулей) — содержание модулей
+    повторяется, у них нет своих результатов (живой прогон 20.10: РО в 5 модулях из 6)."""
+    modules_total = len(kit.modules)
+    out: list[Finding] = []
+    for outcome in kit.outcomes:
+        modules = list(dict.fromkeys(t.module_id for t in kit.topics if outcome.id in t.lo_ids))
+        if len(modules) >= 3 and len(modules) * 2 >= modules_total:
+            out.append(
+                Finding(
+                    WARNING,
+                    f"{names(outcome.id)} раскрывается в темах {len(modules)} модулей из {modules_total} "
+                    f"({_list(names(m) for m in modules)}): содержание модулей повторяется. Оставьте результат в одном-двух "
+                    "модулях, у остальных — свои результаты.",
+                    [outcome.id, *modules],
+                    f"outcome in {len(modules)} modules",
+                    FixBy.HUMAN,
+                    refs=("K13", "Q5.9b"),
+                )
+            )
+    return out
 
 
 def check_v44(kit: Kit, ctx: ValidationContext) -> list[Finding]:

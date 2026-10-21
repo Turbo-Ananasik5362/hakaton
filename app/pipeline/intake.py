@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from app.config import DEFAULT_LIMITS
 from app.core.reference import extract_text, parse_reference, reference_outline
 from app.llm import LLMClient, LLMError
 from app.models import (
@@ -283,6 +284,7 @@ def build_spec(
     draft: IntakeDraft | None,
     reference: ParsedReference | None,
     notes: list[str] | None = None,
+    max_test_questions: int = MAX_TEST_QUESTIONS,
 ) -> RequestSpec:
     notes = list(notes or [])
     if draft is not None:
@@ -345,7 +347,7 @@ def build_spec(
         required_topics=_requirements(draft.required_topics, text) if draft else [],
         constraints=constraints,
         outputs=Outputs(
-            test_questions=min(facts.test_questions, MAX_TEST_QUESTIONS) if facts.test_questions else None,
+            test_questions=min(facts.test_questions, max_test_questions) if facts.test_questions else None,
             slides_scope=_slides(facts, draft, text),
         ),
         reference=reference,
@@ -375,7 +377,8 @@ def build_spec(
 async def run_intake(request: RequestInput, ctx: StepContext, llm: LLMClient | None) -> RequestSpec:
     digest = read_attachments(request, ctx)
     text = request_text(request, digest)
-    facts = extract_facts(text)
+    limits = llm.settings.limits if llm is not None else DEFAULT_LIMITS
+    facts = extract_facts(text, limits.max_test_questions)
     draft: IntakeDraft | None = None
     notes: list[str] = list(request.notes)
     if llm is not None:
@@ -384,4 +387,4 @@ async def run_intake(request: RequestInput, ctx: StepContext, llm: LLMClient | N
         except LLMError as exc:
             logger.warning("intake: модель недоступна, разбор только правилами: %s", exc)
             notes.append("Смысловой разбор запроса моделью не выполнен — параметры взяты только по правилам.")
-    return build_spec(text, facts, draft, digest.reference, notes)
+    return build_spec(text, facts, draft, digest.reference, notes, limits.max_test_questions)

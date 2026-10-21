@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import os
 import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable, Iterator, Sequence
@@ -30,7 +31,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.config import Settings, now_msk
+from app.config import DEFAULT_LIMITS, GenerationLimits, Settings, now_msk
 from app.core import bibliography
 from app.core.ids import IdAllocator, display_numbers
 from app.core.registry import Registry
@@ -43,6 +44,7 @@ from app.core.validate import (
 )
 from app.llm import LLMClient, TruncatedResponse, estimate_cost
 from app.models import (
+    CatalogPick,
     FAForm,
     FinalAttestationDraft,
     GenerationMode,
@@ -58,6 +60,7 @@ from app.models import (
     ProgramType,
     SeminarsDraft,
     Slide,
+    SourceSection,
     StepCost,
     Test,
     TestScope,
@@ -79,16 +82,17 @@ ClientFactory = Callable[[StepContext], LLMClient]
 
 FILL_MARK = "[заполнить методисту]"
 SUMMARY_SLIDE_TITLE = "Итоги лекции"
-SUMMARY_SLIDE_NOTES = "Подведите итоги: что слушатели теперь умеют и какие вопросы остались."
-BUDGET_MARGIN = 1.5
-QUESTIONS_PER_LO = 2
-MIN_INTERVIEW_PER_MODULE = 3
-TEST_PASS_THRESHOLD = 70.0  # % верных ответов
+SUMMARY_SLIDE_NOTES = "Подведите итоги: что теперь получается и какие вопросы остались; ответьте на вопросы."
+# Пороги по умолчанию — из Settings.limits (app/config.py: GenerationLimits, переменные окружения в README)
+BUDGET_MARGIN = DEFAULT_LIMITS.budget_margin
+QUESTIONS_PER_LO = DEFAULT_LIMITS.questions_per_lo
+MIN_INTERVIEW_PER_MODULE = DEFAULT_LIMITS.min_interview_per_module
+TEST_PASS_THRESHOLD = DEFAULT_LIMITS.test_pass_threshold  # % верных ответов
 REFILL_SHARE = 0.1  # автодобор — около 10 % вызовов (§7.3)
 TOKENS_PER_QUESTION = 110
 MAX_QUESTIONS_PER_CALL = (
-    20  # больше в один ответ не помещается (4 варианта + пояснение ≈ 110 токенов на вопрос)
-)
+    DEFAULT_LIMITS.max_questions_per_call
+)  # больше в один ответ не помещается (4 варианта + пояснение ≈ 110 токенов на вопрос)
 MAX_SPLIT_DEPTH = 2
 # Добор отличается от исходного запроса и текстом: иначе ключ кеша совпадёт и вернётся тот же негодный ответ
 # (живой прогон 20.10: тест модуля 1 с повторяющимися вариантами дважды пришёл из кеша)
@@ -142,7 +146,7 @@ def _lo_owner(kit: Kit) -> dict[str, str]:
     return owner
 
 
-def question_quotas(kit: Kit) -> dict[str, dict[str, int]]:
+def question_quotas(kit: Kit, limits: GenerationLimits = DEFAULT_LIMITS) -> dict[str, dict[str, int]]:
     """Модуль → {РО: сколько тестовых вопросов}. Считает код. Число из запроса (итоговый тест) распределяется по РО
     поровну. Иначе у каждого модуля свой тест: QUESTIONS_PER_LO на РО, которые модуль раскрывает первым, и по одному
     на РО, которые он развивает после предыдущих модулей (иначе модуль, продолжающий тему, остаётся без теста).
@@ -162,14 +166,16 @@ def question_quotas(kit: Kit) -> dict[str, dict[str, int]]:
         if is_interview_module(kit, module):
             continue
         for lo in prompts.module_outcome_ids(kit, module):
-            quotas.setdefault(module.id, {})[lo] = QUESTIONS_PER_LO if owner.get(lo) == module.id else 1
+            quotas.setdefault(module.id, {})[lo] = (
+                limits.questions_per_lo if owner.get(lo) == module.id else 1
+            )
     return quotas
 
 
-def interview_quota(kit: Kit, module: Module) -> int:
+def interview_quota(kit: Kit, module: Module, limits: GenerationLimits = DEFAULT_LIMITS) -> int:
     if not is_interview_module(kit, module):
         return 0
-    return max(MIN_INTERVIEW_PER_MODULE, len(prompts.module_outcome_ids(kit, module)))
+    return max(limits.min_interview_per_module, len(prompts.module_outcome_ids(kit, module)))
 
 
 def module_test(kit: Kit, module: Module) -> Test | None:
@@ -183,10 +189,12 @@ def module_test(kit: Kit, module: Module) -> Test | None:
 # --------------------------------------------------------------------------------------------------
 
 
-def planned_calls(kit: Kit, mode: GenerationMode) -> list[tuple[str, int, int, int]]:
+def planned_calls(
+    kit: Kit, mode: GenerationMode, limits: GenerationLimits = DEFAULT_LIMITS
+) -> list[tuple[str, int, int, int]]:
     """(шаг, вызовов, видимый вход, выход) — по размеру каркаса."""
     modules = kit.modules_sorted()
-    quotas = question_quotas(kit)
+    quotas = question_quotas(kit, limits)
     calls: list[tuple[str, int, int, int]] = []
 
     def add(step: str, count: int, out: int | None = None) -> None:
@@ -198,7 +206,7 @@ def planned_calls(kit: Kit, mode: GenerationMode) -> list[tuple[str, int, int, i
         add(step, 1)
     per_module_out: dict[str, int] = {}
     for module in modules:
-        count = sum(quotas.get(module.id, {}).values()) + interview_quota(kit, module)
+        count = sum(quotas.get(module.id, {}).values()) + interview_quota(kit, module, limits)
         per_module_out[module.id] = max(CALL_TOKENS["tests"][1], TOKENS_PER_QUESTION * count) if count else 0
     if mode == GenerationMode.ECONOMY:
         # один вызов на модуль: вход — общий, выход — сумма того, что нужно модулю
@@ -217,8 +225,10 @@ def planned_calls(kit: Kit, mode: GenerationMode) -> list[tuple[str, int, int, i
     return calls
 
 
-def estimate_rub(kit: Kit, mode: GenerationMode, model: str) -> float:
-    total = sum(estimate_cost(n, inp, out, model) for _, n, inp, out in planned_calls(kit, mode))
+def estimate_rub(
+    kit: Kit, mode: GenerationMode, model: str, limits: GenerationLimits = DEFAULT_LIMITS
+) -> float:
+    total = sum(estimate_cost(n, inp, out, model) for _, n, inp, out in planned_calls(kit, mode, limits))
     return round(total * (1 + REFILL_SHARE), 2)
 
 
@@ -231,10 +241,12 @@ WAVES = (
 )
 
 
-def estimate_seconds(kit: Kit, mode: GenerationMode, concurrency: int) -> float:
+def estimate_seconds(
+    kit: Kit, mode: GenerationMode, concurrency: int, limits: GenerationLimits = DEFAULT_LIMITS
+) -> float:
     """Время генерации содержания: волны §7.6 по очереди, внутри волны — не больше concurrency вызовов сразу;
     автодобор — около 10 % второй волны."""
-    calls = planned_calls(kit, mode)
+    calls = planned_calls(kit, mode, limits)
     total = 0.0
     for n, steps in enumerate(WAVES):
         durations = [
@@ -250,14 +262,16 @@ def estimate_seconds(kit: Kit, mode: GenerationMode, concurrency: int) -> float:
     return round(total, 1)
 
 
-def choose_mode(full: float, economy: float, remaining: float) -> tuple[GenerationMode, str | None]:
-    """Полный режим, если остатка хватает с запасом × 1,5; иначе экономный (один вызов на модуль)."""
-    if remaining >= full * BUDGET_MARGIN:
+def choose_mode(
+    full: float, economy: float, remaining: float, margin: float = BUDGET_MARGIN
+) -> tuple[GenerationMode, str | None]:
+    """Полный режим, если остатка хватает с запасом × margin (по умолчанию 1,5); иначе экономный."""
+    if remaining >= full * margin:
         return GenerationMode.FULL, None
     if remaining >= economy:
         return GenerationMode.ECONOMY, (
             f"Остаток суточного бюджета модели ({remaining:.2f} ₽) меньше оценки полного режима с запасом "
-            f"({full:.2f} ₽ × {BUDGET_MARGIN:g}) — содержание собрано в экономном режиме: один вызов модели на модуль."
+            f"({full:.2f} ₽ × {margin:g}) — содержание собрано в экономном режиме: один вызов модели на модуль."
         )
     return GenerationMode.ECONOMY, (
         f"Остаток суточного бюджета модели ({remaining:.2f} ₽) меньше оценки даже экономного режима ({economy:.2f} ₽): "
@@ -287,6 +301,7 @@ class ContentGenerator:
         budget_fn: Callable[[], float] | None = None,
     ) -> None:
         self.settings = settings
+        self.limits = settings.limits  # пороги и лимиты генерации (переменные окружения — README)
         self.registry = registry
         self.client_factory = client_factory
         self.budget_fn = budget_fn
@@ -381,7 +396,7 @@ class ContentGenerator:
         if not any(s.section.value != "normative" for s in kit.sources):
             missing.append(("literature", "Литература", self._literature))
         economy = kit.meta.generation_mode == GenerationMode.ECONOMY
-        quotas = question_quotas(kit)
+        quotas = question_quotas(kit, self.limits)
         for module in kit.modules_sorted():
             n = numbers.get(module.id, "")
             topics = kit.topics_of(module.id)
@@ -418,7 +433,7 @@ class ContentGenerator:
             has_tests = any(q.topic_id in topic_ids for q in kit.questions) or any(
                 iq.module_id == module.id for iq in kit.interview_questions
             )
-            if (quotas.get(module.id) or interview_quota(kit, module)) and not has_tests:
+            if (quotas.get(module.id) or interview_quota(kit, module, self.limits)) and not has_tests:
                 missing.append(
                     (f"tests:{module.id}", f"Оценочные средства модуля {n}", self._bind(self._tests, module))
                 )
@@ -433,7 +448,10 @@ class ContentGenerator:
                 "tests",
                 f"{'Вопросы собеседования' if is_interview_module(kit, module) else 'Тестовые вопросы'} модуля {n}",
                 self._tests,
-                bool(question_quotas(kit).get(module.id) or interview_quota(kit, module)),
+                bool(
+                    question_quotas(kit, self.limits).get(module.id)
+                    or interview_quota(kit, module, self.limits)
+                ),
             ),
         ]
         for kind, title, fn, needed in wanted:
@@ -529,17 +547,17 @@ class ContentGenerator:
     async def _plan(self, kit: Kit, ctx: StepContext) -> None:
         client = self.client_factory(ctx)
         model = self.settings.default_model
-        full = estimate_rub(kit, GenerationMode.FULL, model)
-        economy = estimate_rub(kit, GenerationMode.ECONOMY, model)
+        full = estimate_rub(kit, GenerationMode.FULL, model, self.limits)
+        economy = estimate_rub(kit, GenerationMode.ECONOMY, model, self.limits)
         remaining = self.remaining_budget(client)
-        mode, note = choose_mode(full, economy, remaining)
+        mode, note = choose_mode(full, economy, remaining, self.limits.budget_margin)
         kit.meta.generation_mode = mode
         kit.meta.llm_mode = self.settings.llm_mode
         kit.meta.budget = {
             "estimate_full_rub": full,
             "estimate_economy_rub": economy,
             "remaining_rub": round(remaining, 2) if math.isfinite(remaining) else -1.0,
-            "estimate_seconds": estimate_seconds(kit, mode, self.settings.concurrency),
+            "estimate_seconds": estimate_seconds(kit, mode, self.settings.concurrency, self.limits),
         }
         if note and note not in kit.meta.generation_notes:
             kit.meta.generation_notes.append(note)
@@ -551,12 +569,12 @@ class ContentGenerator:
                         id=alloc.test(),
                         title="Итоговый тест",
                         scope=TestScope.FINAL,
-                        pass_threshold=TEST_PASS_THRESHOLD,
+                        pass_threshold=self.limits.test_pass_threshold,
                     )
                 )
         else:
             numbers = display_numbers(kit)
-            quotas = question_quotas(kit)
+            quotas = question_quotas(kit, self.limits)
             for module in kit.modules_sorted():
                 if quotas.get(module.id) and module_test(kit, module) is None:
                     kit.tests.append(
@@ -565,7 +583,7 @@ class ContentGenerator:
                             title=f"Тест по модулю {numbers.get(module.id, '')}",
                             scope=TestScope.MODULE,
                             module_id=module.id,
-                            pass_threshold=TEST_PASS_THRESHOLD,
+                            pass_threshold=self.limits.test_pass_threshold,
                         )
                     )
         logger.info(
@@ -601,7 +619,7 @@ class ContentGenerator:
             draft = await self._ask(
                 client, _Call("final_attestation", values, FinalAttestationDraft, self._key(kit))
             )
-            apply.apply_final_attestation(kit, draft)  # type: ignore[arg-type]
+            apply.apply_final_attestation(kit, draft, self.limits.fa_pass_share)  # type: ignore[arg-type]
 
     async def _literature(self, kit: Kit, ctx: StepContext) -> None:
         client = self.client_factory(ctx)
@@ -627,7 +645,15 @@ class ContentGenerator:
         self, kit: Kit, items: list[bibliography.ShortlistItem], draft: LiteratureDraft
     ) -> None:
         result = bibliography.build_sources(
-            kit, self.registry, items, draft.selected, draft.candidates, now_msk().year
+            kit,
+            self.registry,
+            items,
+            with_book_sections(kit, items, draft.selected),
+            draft.candidates,
+            now_msk().year,
+            max_candidates=self.limits.literature_max_candidates,
+            max_unverified=self.limits.literature_max_unverified,
+            max_per_section=self.limits.literature_per_section(),
         )
         kit.sources = [s for s in kit.sources if s.section.value == "normative"] + result.sources
         kit.meta.literature_checks = dict(
@@ -647,9 +673,10 @@ class ContentGenerator:
     ) -> dict[str, str]:
         topics = [t for t in kit.topics_of(module.id) if t.id in set(topic_ids)]
         los = list(dict.fromkeys(lo for t in topics for lo in t.lo_ids))
+        earlier = prompts.earlier_topics(kit, module)
         return {
             "program": prompts.describe_program(kit, self.registry),
-            "module": prompts.module_label(kit, module),
+            "module": prompts.module_label(kit, module) + (f"\n{earlier}" if earlier else ""),
             "topics": prompts.describe_topics(kit, topics, content_kinds),
             "outcomes": prompts.describe_outcomes(kit, los),
         }
@@ -668,7 +695,9 @@ class ContentGenerator:
             self._key(kit, module.id),
         )
 
-    async def _draft_lectures(self, kit: Kit, module: Module, client: LLMClient) -> LecturesDraft:
+    async def _draft_lectures(
+        self, kit: Kit, module: Module, client: LLMClient, topic_ids: Sequence[str] | None = None
+    ) -> LecturesDraft:
         def make(part: Sequence[str], key: str) -> _Call:
             return _Call(
                 "lectures", self._module_values(kit, module, part, (WorkKind.LK,)), LecturesDraft, key
@@ -676,10 +705,10 @@ class ContentGenerator:
 
         return await self._ask_split(  # type: ignore[return-value]
             client,
-            [t.id for t in apply.lecture_topics(kit, module)],
+            list(topic_ids) if topic_ids is not None else [t.id for t in apply.lecture_topics(kit, module)],
             make,
             lambda ds: LecturesDraft(lectures=[x for d in ds for x in d.lectures]),  # type: ignore[attr-defined]
-            self._key(kit, module.id),
+            self._key(kit, module.id if topic_ids is None else f"{module.id}-refill-lectures"),
         )
 
     async def _draft_seminars(
@@ -754,9 +783,9 @@ class ContentGenerator:
         chunks: list[dict[str, int]] = []
         for lo, count in quotas.items():
             while count > 0:
-                if not chunks or sum(chunks[-1].values()) >= MAX_QUESTIONS_PER_CALL:
+                if not chunks or sum(chunks[-1].values()) >= self.limits.max_questions_per_call:
                     chunks.append({})
-                take = min(count, MAX_QUESTIONS_PER_CALL - sum(chunks[-1].values()))
+                take = min(count, self.limits.max_questions_per_call - sum(chunks[-1].values()))
                 chunks[-1][lo] = chunks[-1].get(lo, 0) + take
                 count -= take
         chunks = chunks or [{}]
@@ -767,10 +796,18 @@ class ContentGenerator:
                 interview=[x for d in drafts for x in d.interview],  # type: ignore[attr-defined]
             )
 
+        # модуль только с собеседованием: части — РО модуля, чтобы обрезанный ответ можно было разделить
+        interview_parts = prompts.module_outcome_ids(kit, module) if interview and not quotas else []
+
         async def ask_chunk(n: int, chunk: dict[str, int]) -> BaseModel:
-            parts = list(chunk) or ["-"]
+            parts = list(chunk) or interview_parts or ["-"]
 
             def make(part: Sequence[str], key: str) -> _Call:
+                if not chunk and interview_parts and len(part) < len(parts):
+                    share = max(
+                        1, math.ceil(interview * len(part) / len(parts))
+                    )  # доля вопросов собеседования
+                    return self._tests_call(kit, module, {}, share, "tests", key, interview_los=list(part))
                 part_quotas = {lo: chunk[lo] for lo in part if lo in chunk}
                 part_interview = interview if n == 0 and part[0] == parts[0] else 0
                 return self._tests_call(kit, module, part_quotas, part_interview, "tests", key)
@@ -799,12 +836,12 @@ class ContentGenerator:
         client = self.client_factory(ctx)
         with self._costed(kit, client):
             draft = await self._draft_seminars(kit, module, client)
-            apply.apply_seminars(kit, module, draft.seminars)
+            apply.apply_seminars(kit, module, draft.seminars, pass_share=self.limits.seminar_pass_share)
 
     async def _tests(self, kit: Kit, module: Module, ctx: StepContext) -> None:
         client = self.client_factory(ctx)
-        quotas = question_quotas(kit).get(module.id, {})
-        interview = interview_quota(kit, module)
+        quotas = question_quotas(kit, self.limits).get(module.id, {})
+        interview = interview_quota(kit, module, self.limits)
         with self._costed(kit, client):
             draft = await self._draft_tests(kit, module, client, quotas, interview)
             self._apply_tests(kit, module, draft, quotas, interview)
@@ -825,7 +862,7 @@ class ContentGenerator:
                 title=f"Тест по модулю {display_numbers(kit).get(module.id, '')}",
                 scope=TestScope.MODULE,
                 module_id=module.id,
-                pass_threshold=TEST_PASS_THRESHOLD,
+                pass_threshold=self.limits.test_pass_threshold,
             )
             kit.tests.append(test)
         if test is not None:
@@ -839,8 +876,8 @@ class ContentGenerator:
     async def _module_pack(self, kit: Kit, module: Module, ctx: StepContext) -> None:
         client = self.client_factory(ctx)
         topics = kit.topics_of(module.id)
-        quotas = question_quotas(kit).get(module.id, {})
-        interview = interview_quota(kit, module)
+        quotas = question_quotas(kit, self.limits).get(module.id, {})
+        interview = interview_quota(kit, module, self.limits)
         values = self._module_values(kit, module, [t.id for t in topics])
         values["tasks"] = self._tests_call(kit, module, quotas, interview, "module_pack", "").values["quotas"]
         values["requirements"] = prompts.describe_required_seminars(kit)
@@ -867,7 +904,7 @@ class ContentGenerator:
             if has_lectures:
                 apply.apply_lectures(kit, module, lectures)
             if has_practice:
-                apply.apply_seminars(kit, module, seminars)
+                apply.apply_seminars(kit, module, seminars, pass_share=self.limits.seminar_pass_share)
             self._apply_tests(kit, module, tests, quotas, interview)
 
     # ---- слайды (код) ----------------------------------------------------------------------------
@@ -890,14 +927,14 @@ class ContentGenerator:
         topic_module = {t.id: t.module_id for t in kit.topics}
         have = Counter((topic_module.get(q.topic_id), lo) for q in kit.questions for lo in q.lo_ids)
         final_size = bool(kit.request.outputs.test_questions)
-        all_quotas = question_quotas(kit)
+        all_quotas = question_quotas(kit, self.limits)
         for module_id, quotas in all_quotas.items():
             for lo, count in quotas.items():
                 got = sum(n for (_, x), n in have.items() if x == lo) if final_size else have[(module_id, lo)]
                 if count > got:
                     need.setdefault(module_id, {})[lo] = count - got
         for coverage in coverage_matrix(kit):
-            gap = QUESTIONS_PER_LO - len(coverage.assessment_ids)
+            gap = self.limits.questions_per_lo - len(coverage.assessment_ids)
             if gap > 0 and coverage.lo_id in owner:  # РО без тем проверяет V15 — вопросы не к чему привязать
                 current = need.setdefault(owner[coverage.lo_id], {})
                 current[coverage.lo_id] = max(current.get(coverage.lo_id, 0), gap)
@@ -919,7 +956,37 @@ class ContentGenerator:
                         trimmed[lo] = take
                         room -= take
                 need[module.id] = trimmed
+        for module in kit.modules_sorted():  # собеседование: вопросов не меньше нормы модуля (V22)
+            gap = self._interview_gap(kit, module, all_quotas)
+            if gap > 0:
+                current = need.setdefault(module.id, {})
+                for lo in prompts.module_outcome_ids(kit, module)[:gap]:
+                    current.setdefault(lo, 1)
         return {mid: wanted for mid, wanted in need.items() if wanted and mid in modules}
+
+    def _interview_gap(
+        self, kit: Kit, module: Module, quotas: dict[str, dict[str, int]] | None = None
+    ) -> int:
+        """Сколько вопросов собеседования не хватает модулю до нормы (модуль только с собеседованием)."""
+        quotas = question_quotas(kit, self.limits) if quotas is None else quotas
+        if not is_interview_module(kit, module) or quotas.get(module.id):
+            return 0
+        have = sum(1 for iq in kit.interview_questions if iq.module_id == module.id)
+        return max(0, interview_quota(kit, module, self.limits) - have)
+
+    @staticmethod
+    def lecture_gaps(kit: Kit) -> dict[str, list[str]]:
+        """Модуль → темы с часами теории без плана лекции (V20), если у модуля есть другие лекции: модуль совсем без
+        лекций повторяется целиком (повторная волна), а здесь — добор пропущенных моделью тем."""
+        covered = {tid for lec in kit.lectures for tid in lec.topic_ids}
+        gaps: dict[str, list[str]] = {}
+        for module in kit.modules_sorted():
+            if not any(lec.module_id == module.id for lec in kit.lectures):
+                continue
+            missing = [t.id for t in apply.lecture_topics(kit, module) if t.id not in covered]
+            if missing:
+                gaps[module.id] = missing
+        return gaps
 
     @staticmethod
     def seminar_gaps(kit: Kit) -> dict[str, list[str]]:
@@ -934,21 +1001,30 @@ class ContentGenerator:
 
     async def _refill(self, kit: Kit, ctx: StepContext) -> None:
         """Автодобор, один раунд: недостающее по refill_needs — в модулях с собеседованием вопросами собеседования,
-        иначе тестовыми вопросами."""
+        иначе тестовыми вопросами; темы с практикой без задания; темы с теорией без лекции."""
         needs = self.refill_needs(kit)
         seminar_gaps = self.seminar_gaps(kit)
-        if not needs and not seminar_gaps:
+        lecture_gaps = self.lecture_gaps(kit)
+        if not needs and not seminar_gaps and not lecture_gaps:
             return
         modules = {m.id: m for m in kit.modules}
         seminar_gaps = {mid: topics for mid, topics in seminar_gaps.items() if mid in modules}
+        lecture_gaps = {mid: topics for mid, topics in lecture_gaps.items() if mid in modules}
         jobs: list[tuple[Module, dict[str, int], list[str], _Call]] = []
         for module_id, wanted in needs.items():
             module = modules[module_id]
             key = self._key(kit, f"{module_id}-refill")
-            if is_interview_module(kit, module) and not question_quotas(kit).get(module_id):
+            if is_interview_module(kit, module) and not question_quotas(kit, self.limits).get(module_id):
                 los = list(wanted)
                 call = self._tests_call(
-                    kit, module, {}, 0, "refill", key, interview_los=los, note=REFILL_NOTE
+                    kit,
+                    module,
+                    {},
+                    self._interview_gap(kit, module),
+                    "refill",
+                    key,
+                    interview_los=los,
+                    note=REFILL_NOTE,
                 )
                 jobs.append((module, {}, los, call))
             else:
@@ -963,29 +1039,54 @@ class ContentGenerator:
         client = self.client_factory(ctx)
         with self._costed(kit, client):
             seminar_modules = [modules[mid] for mid in seminar_gaps]
+            lecture_modules = [modules[mid] for mid in lecture_gaps]
             results = await asyncio.gather(
                 *(self._ask(client, call) for *_, call in jobs),
                 *(
                     self._draft_seminars(kit, m, client, seminar_gaps[m.id], REFILL_SEMINAR_NOTE)
                     for m in seminar_modules
                 ),
+                *(self._draft_lectures(kit, m, client, lecture_gaps[m.id]) for m in lecture_modules),
                 return_exceptions=True,
             )
-            answers, seminar_answers = results[: len(jobs)], results[len(jobs) :]
+            answers = results[: len(jobs)]
+            seminar_answers = results[len(jobs) : len(jobs) + len(seminar_modules)]
+            lecture_answers = results[len(jobs) + len(seminar_modules) :]
+            for module, answer in zip(lecture_modules, lecture_answers, strict=True):
+                if isinstance(answer, asyncio.CancelledError):
+                    raise answer
+                if isinstance(answer, BaseException):
+                    logger.warning("Добор лекций для %s не выполнен: %s", module.id, answer)
+                    continue
+                created = set(
+                    apply.apply_lectures(kit, module, answer.lectures, only=lecture_gaps[module.id])
+                )  # type: ignore[union-attr]
+                for lecture in slides_lectures(
+                    kit
+                ):  # слайды к добранной лекции, если её занятие или модуль в запросе
+                    if lecture.id in created and lecture.slides is None:
+                        lecture.slides = build_slides(kit, lecture)
             for module, answer in zip(seminar_modules, seminar_answers, strict=True):
                 if isinstance(answer, asyncio.CancelledError):
                     raise answer
                 if isinstance(answer, BaseException):
                     logger.warning("Добор заданий для %s не выполнен: %s", module.id, answer)
                     continue
-                apply.apply_seminars(kit, module, answer.seminars, only=seminar_gaps[module.id])  # type: ignore[union-attr]
+                apply.apply_seminars(
+                    kit,
+                    module,
+                    answer.seminars,
+                    only=seminar_gaps[module.id],
+                    pass_share=self.limits.seminar_pass_share,
+                )  # type: ignore[union-attr]
             for (module, quotas, los, _), answer in zip(jobs, answers, strict=True):
                 if isinstance(answer, asyncio.CancelledError):
                     raise answer
                 if isinstance(answer, BaseException):  # автодобор не должен ронять уже собранный комплект
                     logger.warning("Автодобор для %s не выполнен: %s", module.id, answer)
                     continue
-                self._apply_tests(kit, module, answer, quotas, 0, interview_los=los)  # type: ignore[arg-type]
+                gap = self._interview_gap(kit, module) if los else 0
+                self._apply_tests(kit, module, answer, quotas, gap, interview_los=los)  # type: ignore[arg-type]
 
     # ---- полнота (код) ---------------------------------------------------------------------------
 
@@ -1061,6 +1162,29 @@ class ContentGenerator:
 # --------------------------------------------------------------------------------------------------
 # Тексты, написанные моделью: обход для проверки кодов ПС/ТФ и номеров актов
 # --------------------------------------------------------------------------------------------------
+
+
+BOOKS_PER_EMPTY_SECTION = 2
+
+
+def with_book_sections(
+    kit: Kit, items: Sequence[bibliography.ShortlistItem], picks: Sequence[CatalogPick]
+) -> list[CatalogPick]:
+    """Основная и дополнительная литература — разделы шаблона (V12): если модель не выбрала в раздел ни одного
+    издания, он дополняется проверенными изданиями каталога по темам программы (код, без модели)."""
+    picks = list(picks)
+    chosen = {p.catalog_id.strip() for p in picks}
+    books = [i for i in items if not i.is_doc and i.key not in chosen]
+    free = [i for i in books if bibliography.matches_title(kit, i)] or [
+        i for i in books if bibliography.on_topic(kit, i)
+    ]
+    for section in (SourceSection.MAIN, SourceSection.ADDITIONAL):
+        if any(p.section == section for p in picks):
+            continue
+        for item in free[:BOOKS_PER_EMPTY_SECTION]:
+            picks.append(CatalogPick(catalog_id=item.key, section=section))
+        free = free[BOOKS_PER_EMPTY_SECTION:]
+    return picks
 
 
 async def gather_or_cancel(awaitables: Iterable[Awaitable[R]]) -> list[R]:
@@ -1249,10 +1373,22 @@ def build_slides(kit: Kit, lecture) -> list[Slide]:  # noqa: ANN001
     return slides
 
 
+def _same_word(a: str, b: str) -> bool:
+    """«Тип» и «типы», «Цикл» и «циклы»: общее начало без окончания (не короче 3 букв)."""
+    a, b = a.lower().strip(".,:;"), b.lower().strip(".,:;")
+    common = len(os.path.commonprefix([a, b]))
+    return common >= 3 and common >= min(len(a), len(b)) - 1
+
+
 def _term_line(term: str, definition: str) -> str:
     """«pandas — pandas — библиотека…» → «pandas — библиотека…»: модель часто повторяет термин в определении."""
     head = definition.strip()
     if head.lower().startswith(term.strip().lower()):
+        return head
+    # «типы данных» и «Тип данных — это…»: определение уже начинается с термина в другой форме
+    if re.match(r"^[^—–:]{1,40}\s[—–]\s", head) and _same_word(
+        head.split()[0], term.split()[0] if term.split() else ""
+    ):
         return head
     return f"{term} — {head}"
 

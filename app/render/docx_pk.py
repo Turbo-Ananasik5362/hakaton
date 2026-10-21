@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -233,13 +234,22 @@ def _section_1(w: DocWriter, kit: Kit, tables: ProgramTables, registry: Registry
 
     w.heading(SUB["1.6"])
     audience = program.audience
-    requirements = (
-        kit.texts.audience_requirements.strip()
-        or (audience.requirements or "").strip()
-        or "К освоению программы допускаются лица, имеющие среднее профессиональное и (или) высшее образование, "
+    # круг лиц для ДПП задан законом (ч. 3 ст. 76 273-ФЗ) — формулировка всегда; уточнения модели — после неё
+    w.para(
+        "К освоению программы допускаются лица, имеющие среднее профессиональное и (или) высшее образование, "
         "а также лица, получающие среднее профессиональное и (или) высшее образование."
     )
-    w.para(requirements)
+    extra = kit.texts.audience_requirements.strip() or (audience.requirements or "").strip()
+    if extra and "получающ" not in extra.lower():
+        w.para(extra)
+    elif extra:  # модель сама пересказала формулировку закона — без повтора, только уточнения после неё
+        rest = [
+            s
+            for s in re.split(r"(?<=[.!?])\s+", extra)
+            if "получающ" not in s.lower() and "имеющ" not in s.lower()
+        ]
+        if rest:
+            w.para(" ".join(rest))
     if audience.category:
         w.label_value("Категория слушателей", audience.category)
     if audience.entry_level:

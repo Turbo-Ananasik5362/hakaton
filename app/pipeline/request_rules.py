@@ -12,6 +12,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from app.config import DEFAULT_LIMITS
 from app.models import FAForm, ProgramType, RequestSpec, SlidesScope, StudyFormKind
 
 FLAGS = re.IGNORECASE | re.UNICODE
@@ -267,11 +268,19 @@ def _sentence(text: str, pos: int) -> str:
     return text[start:end].strip()
 
 
-def extract_facts(text: str) -> RequestFacts:
+def extract_facts(text: str, max_test_questions: int | None = None) -> RequestFacts:
     norm = normalize(text)
     facts = RequestFacts()
     scan = _Scanner(norm)
     _numbers(scan, facts, norm)
+    cap = MAX_TEST_QUESTIONS if max_test_questions is None else max_test_questions  # Settings.limits
+    if facts.test_questions and facts.test_questions > cap:
+        facts.notes.append(
+            f"Итоговый тест на {facts.test_questions} вопросов — слишком большой для одной программы и дневного бюджета "
+            f"модели: собран тест на {cap} вопросов. Если нужно больше, добавьте их банком вопросов "
+            "в системе дистанционного обучения."
+        )
+        facts.test_questions = cap
     facts.mentions = scan.mentions
     _program_type(facts, norm)
     _audience(facts, norm)
@@ -340,13 +349,6 @@ def _numbers(scan: _Scanner, facts: RequestFacts, norm: str) -> None:
     tq = scan.find("test_questions", rf"тест\w*{_END}{{0,40}}?\b(?:на|из|в)\s+{NUM}\s+(?:вопрос|задани)")
     tq += scan.find("test_questions", rf"{NUM}\s+вопрос\w*{_END}{{0,25}}?тест")
     facts.test_questions = int(tq[0].value) if tq else None
-    if facts.test_questions and facts.test_questions > MAX_TEST_QUESTIONS:
-        facts.notes.append(
-            f"Итоговый тест на {facts.test_questions} вопросов — слишком большой для одной программы и дневного бюджета "
-            f"модели: собран тест на {MAX_TEST_QUESTIONS} вопросов. Если нужно больше, добавьте их банком вопросов "
-            "в системе дистанционного обучения."
-        )
-        facts.test_questions = MAX_TEST_QUESTIONS
     pf = scan.find("portfolio_items", rf"портфолио{_END}{{0,20}}?\bиз\s+{NUM}\s+\w+")
     facts.portfolio_items = int(pf[0].value) if pf else None
 
@@ -848,7 +850,7 @@ def domain_patterns(raw: list[str], domain: str | None) -> list[str]:
 # Противоречия, которые видит код
 # --------------------------------------------------------------------------------------------------
 
-MAX_TEST_QUESTIONS = 100  # больше — ≈ 5 и более вызовов модели только на тест; сверх объёма — в банк СДО
+MAX_TEST_QUESTIONS = DEFAULT_LIMITS.max_test_questions  # больше — ≈ 5 и более вызовов модели только на тест
 MIN_WEEKLY_HOURS = 1.5  # меньше — срок и объём явно не согласованы («16 часов за 3 месяца»)
 MAX_WEEKLY_HOURS = 48.0  # больше невозможно даже при полной загрузке шесть дней в неделю
 SESSION_TOLERANCE = 1e-6

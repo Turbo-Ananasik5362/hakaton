@@ -223,7 +223,8 @@ def build_report(
     doc.sections.append(_copying(kit, references, for_docx))
     doc.sections.append(_judge(kit, for_docx))
     doc.sections.append(_skipped_section(kit, notes, for_docx))
-    doc.sections.append(_cost(kit))
+    if not for_docx:  # стоимость вызовов модели и токены — для команды, не для программы на утверждение
+        doc.sections.append(_cost(kit))
     if files:
         doc.sections.append(_exports(kit, files))
     if for_docx:

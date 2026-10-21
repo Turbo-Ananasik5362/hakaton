@@ -54,6 +54,13 @@ def module_label(kit: Kit, module: Module) -> str:
     return f"Модуль {number} «{module.title}» ({module.id}){control}"
 
 
+def audience_word(kit: Kit) -> str:
+    """Как называть обучающихся в текстах: ученики (школьники), обучающиеся (ДОП), слушатели (ДПП)."""
+    if kit.program.type == ProgramType.DOP:
+        return "ученики" if kit.program.audience.age_or_grade else "обучающиеся"
+    return "слушатели"
+
+
 def describe_program(kit: Kit, registry: Registry | None = None) -> str:
     """Паспорт и ограничения запроса — общие для всех навыков."""
     program = kit.program
@@ -62,17 +69,21 @@ def describe_program(kit: Kit, registry: Registry | None = None) -> str:
     if program.goal:
         lines.append(f"Цель: {program.goal}")
     who = ", ".join(x for x in (audience.category, audience.age_or_grade) if x)
-    lines.append(f"Слушатели: {who or 'не указаны'}.")
+    word = audience_word(kit)
+    lines.append(f"Аудитория: {who or 'не указана'}. В текстах называй их «{word}».")
     if audience.entry_level:
         lines.append(f"Что уже умеют: {audience.entry_level}.")
     if audience.domain:
-        lines.append(
-            f"Профессиональная среда слушателей: {audience.domain} — примеры и ситуации бери из неё."
-        )
+        lines.append(f"Профессиональная среда: {audience.domain} — примеры и ситуации бери из неё.")
     lines.append(f"Форма обучения: {form_title(program.form)}.")
+    if program.type == ProgramType.PK_INTERNSHIP and kit.program_hours().contact <= 0:
+        lines.append(
+            "Аудиторных занятий нет: все часы — самостоятельная работа стажёра на рабочем месте или стенде по заданиям "
+            "руководителя стажировки (никаких лекций, практических занятий и аудиторий)."
+        )
     constraints = kit.request.constraints
     if constraints.no_programming:
-        lines.append("Программирование слушателям не требуется: никаких заданий на написание кода.")
+        lines.append("Программирование не требуется: никаких заданий на написание кода.")
     if constraints.ru_services_only:
         allowed = (
             [s.name for s in registry.ai_services() if s.available_in_ru] if registry is not None else []
@@ -175,7 +186,7 @@ def describe_modules(kit: Kit) -> str:
 
 FA_RULES: dict[FAForm, str] = {
     FAForm.PROJECT_DEFENSE: (
-        "Защита проекта: requirements — 4–6 требований к проекту; expected_result — что сдаёт слушатель; "
+        "Защита проекта: requirements — 4–6 требований к проекту; expected_result — что сдаёт обучающийся; "
         "example_task — пример темы проекта (title, description, deliverable)."
     ),
     FAForm.PORTFOLIO: (
@@ -194,7 +205,7 @@ FA_RULES: dict[FAForm, str] = {
         "Итоговое тестирование: requirements — как проводится тест (число попыток, время, порог); вопросы теста "
         "готовит отдельный шаг, сюда их не пиши."
     ),
-    FAForm.ZACHET: "Зачёт: requirements — что слушатель выполняет на зачёте; example_task — пример задания.",
+    FAForm.ZACHET: "Зачёт: requirements — что обучающийся выполняет на зачёте; example_task — пример задания.",
     FAForm.OTHER: "Форма — как в запросе: requirements, пример задания и критерии под эту форму.",
 }
 
@@ -221,3 +232,20 @@ def describe_fa(kit: Kit) -> str:
         "процедуры; lo_ids — проверяемые результаты из списка."
     )
     return "\n".join(lines)
+
+
+MAX_EARLIER_TOPICS = 30
+
+
+def earlier_topics(kit: Kit, module: Module) -> str:
+    """Темы предыдущих модулей — что обучающиеся уже изучили к началу модуля (задания и примеры опираются только
+    на изученное)."""
+    numbers = display_numbers(kit)
+    earlier: list[str] = []
+    for other in kit.modules_sorted():
+        if other.id == module.id:
+            break
+        earlier += [f"{numbers.get(t.id, '')} {t.title}" for t in kit.topics_of(other.id)]
+    if not earlier:
+        return "Это первый модуль: обучающиеся начинают с его первой темы."
+    return "Уже изучено в предыдущих модулях: " + "; ".join(earlier[-MAX_EARLIER_TOPICS:]) + "."

@@ -10,3 +10,4 @@ cache/
 logs/
 eval/runs/
 data/sessions/
+.DS_Store

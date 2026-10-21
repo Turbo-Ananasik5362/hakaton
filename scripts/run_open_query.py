@@ -25,6 +25,7 @@ import json
 import logging
 import sys
 import time
+import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -303,8 +304,14 @@ def _save_kit(client: httpx.Client, body: dict[str, Any], out: Path, log: Transc
         if note.startswith(NO_MATERIAL_NOTES):  # нет лекций или тестов по замыслу программы — не недоделка
             continue
         log.limitations.append(note)
-    skipped = [
-        s for s in (body.get("progress") or {}).get("steps", []) if s.get("status") in ("skipped", "failed")
+    steps = (body.get("progress") or {}).get("steps", [])
+    retried = {
+        s["name"].removeprefix("retry:")
+        for s in steps
+        if s["name"].startswith("retry:") and s.get("status") == "done"
+    }
+    skipped = [  # упавший шаг, чей повтор прошёл, — не ограничение комплекта
+        s for s in steps if s.get("status") in ("skipped", "failed") and s["name"] not in retried
     ]
     for step in skipped:
         text = f"Шаг «{step['title']}» не выполнен: {step.get('error') or step['status']}."
@@ -329,7 +336,11 @@ def _save_kit(client: httpx.Client, body: dict[str, Any], out: Path, log: Transc
 # --------------------------------------------------------------------------------------------------
 
 
-def cost_summary(log_path: Path, since: str, mode: str, remote: bool, progress: list[dict[str, Any]]) -> dict:
+def cost_summary(
+    log_path: Path, since: str, mode: str, remote: bool, progress: list[dict[str, Any]], tag: str = ""
+) -> dict:
+    """Расход прогона по общему журналу: строки с меткой прогона (tag) — параллельные прогоны и сервер пишут в тот же
+    журнал; без метки — все строки начиная с since."""
     by_step: dict[str, dict[str, float]] = {}
     if log_path.is_file() and not remote:
         for line in log_path.read_text(encoding="utf-8").splitlines():
@@ -337,7 +348,7 @@ def cost_summary(log_path: Path, since: str, mode: str, remote: bool, progress: 
                 row = json.loads(line)
             except ValueError:
                 continue
-            if str(row.get("ts", "")) < since:
+            if str(row.get("ts", "")) < since or (tag and row.get("tag") != tag):
                 continue
             step = by_step.setdefault(
                 row.get("step") or "?",
@@ -431,6 +442,7 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out if args.out.is_absolute() else ROOT / args.out
     out.mkdir(parents=True, exist_ok=True)
     since = now_msk().isoformat(timespec="seconds")
+    run_tag = f"run:{query['id']}:{uuid.uuid4().hex[:8]}"
     log = Transcript(query=query, mode=mode, transport=args.url or "in-process")
 
     if remote:
@@ -442,13 +454,16 @@ def main(argv: list[str] | None = None) -> int:
 
         from app.main import create_app
 
-        settings = settings.model_copy(update={"sessions_dir": out / ".sessions"})
+        settings = settings.model_copy(update={"sessions_dir": out / ".sessions", "cost_tag": run_tag})
         with TestClient(create_app(settings=settings)) as client:
             code = run_scenario(client, query, out, log, args.timeout)
 
     transcript = log.to_json()
     _write(out / "transcript.json", transcript)
-    _write(out / "cost.json", cost_summary(settings.cost_log, since, mode, remote, log.last_progress))
+    _write(
+        out / "cost.json",
+        cost_summary(settings.cost_log, since, mode, remote, log.last_progress, "" if remote else run_tag),
+    )
 
     cost = json.loads((out / "cost.json").read_text(encoding="utf-8"))
     asked = len(transcript["questions"])

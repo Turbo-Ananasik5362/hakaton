@@ -31,7 +31,7 @@ from app.core.hours import (
 from app.core.ids import IdAllocator, display_label
 from app.core.registry import Registry
 from app.core.validate import EXPECTATION_RE
-from app.llm import LLMClient, TruncatedResponse
+from app.llm import LLMClient, LLMError, TruncatedResponse
 from app.models import (
     Audience,
     Competency,
@@ -307,18 +307,59 @@ def describe_reference(spec: RequestSpec) -> str:
     )
 
 
+def draft_problem(draft: SkeletonDraft, ptype: ProgramType | None = None, has_functions: bool = False) -> str:
+    """Что мешает собрать каркас из ответа модели (пусто — ответ годится). Текст уходит модели при повторе.
+    Для ПК (has_functions — модели передан список трудовых функций) — ещё компетенции без функции или без
+    результата «практический опыт» (V25, V17)."""
+    topics = [t for m in draft.modules for t in m.topics]
+    if not draft.modules or not topics:
+        return "нужны модули (modules) и в каждом — темы (topics); в ответе их нет."
+    if not any(c.outcomes for c in draft.competencies):
+        return (
+            "у компетенций пустой список outcomes, а темы ссылаются на результаты обучения через lo_keys. "
+            "У каждой компетенции заполни outcomes: 2–4 результата (знать / уметь / владеть) с key вида c1_lo1 — "
+            "теми самыми, на которые ссылаются темы."
+        )
+    if ptype in PK_TYPES:
+        problems: list[str] = []
+        if has_functions:
+            no_tf = [c.title[:60] for c in draft.competencies if not c.tf_ids]
+            if no_tf:
+                problems.append(
+                    f"у компетенций {'; '.join(f'«{t}»' for t in no_tf)} нет трудовых функций — у каждой компетенции "
+                    "укажи в tf_ids 1–3 функции из переданного списка"
+                )
+        no_master = [
+            c.title[:60]
+            for c in draft.competencies
+            if c.outcomes and not any(o.kind == OutcomeKind.MASTER for o in c.outcomes)
+        ]
+        if no_master:
+            problems.append(
+                f"у компетенций {'; '.join(f'«{t}»' for t in no_master)} нет результата вида master (практический опыт) — "
+                "добавь по одному"
+            )
+        if problems:
+            return "; ".join(problems) + "."
+    return ""
+
+
 async def ask_llm(
     spec: RequestSpec,
     constraints: HoursConstraints,
     options: list[LaborFunctionOption],
     llm: LLMClient,
     compact: bool = False,
+    correction: str = "",
 ) -> SkeletonDraft:
     skill = load_skill("skeleton")
+    structure = describe_structure(spec, constraints, compact)
+    if correction:  # другой текст — другой ключ кеша: тот же негодный ответ не вернётся
+        structure += f"\n\nВНИМАНИЕ, исправь предыдущий ответ: {correction}"
     messages = skill.messages(
         request=spec.raw_text or "(текст запроса пуст)",
         params=describe_request(spec, constraints),
-        structure=describe_structure(spec, constraints, compact),
+        structure=structure,
         functions=describe_functions(options, spec.program_type or ProgramType.PK),
         reference=describe_reference(spec),
     )
@@ -391,7 +432,7 @@ def _key(text: str | None) -> str:
 # модуль, который модель иногда заводит под итоговую аттестацию («Итоговая аттестация», «Итоговая аттестация и …»,
 # «Экзамен»), — её часы и описание ведёт программа; «Итоговый проект» и «Подготовка к экзамену» — обычные модули
 FA_MODULE_RE = re.compile(
-    r"^\s*(?:итогов\w*\s+(?:аттестаци|экзамен|зач[её]т|контрол)\w*|(?:экзамен|зач[её]т)\w*\s*$)",
+    r"^\s*(?:итогов\w*\s+(?:аттестаци|экзамен|зач[её]т|контрол)\w*|итогов\w*\s+тест\w*\s*$|(?:экзамен|зач[её]т)\w*\s*$)",
     re.IGNORECASE,
 )
 
@@ -488,6 +529,13 @@ def build_skeleton(
     for md in draft.modules:
         title = _title(md.title)
         topic_drafts = [t for t in md.topics if _clean(t.title)]
+        fa_topics = [t for t in topic_drafts if FA_MODULE_RE.search(_title(t.title))]
+        if fa_topics and len(fa_topics) < len(topic_drafts):  # «Итоговый тест» темой: ИА считается отдельно
+            notes.append(
+                f"Тема «{_title(fa_topics[0].title)}» не включена: итоговая аттестация проводится отдельно и считается "
+                "программой."
+            )
+            topic_drafts = [t for t in topic_drafts if t not in fa_topics]
         if FA_MODULE_RE.search(title):
             notes.append(
                 f"Модуль «{title}» не включён: итоговая аттестация проводится отдельно и считается программой."
@@ -497,8 +545,14 @@ def build_skeleton(
             notes.append(f"Модуль «{title}» без тем не включён в каркас.")
             continue
         mid = alloc.module()
-        # вводное занятие — только в ДОП и только первым модулем
-        intro = ptype == ProgramType.DOP and not modules and md.kind == ModuleKind.INTRO
+        # вводное занятие (без номера, темы 0.N) — только первый модуль ДОП из одной темы: содержательный модуль
+        # из нескольких тем, названный моделью вводным, нумеруется как обычный (живой прогон 20.10)
+        intro = (
+            ptype == ProgramType.DOP
+            and not modules
+            and md.kind == ModuleKind.INTRO
+            and len(topic_drafts) <= 1
+        )
         kind = ModuleKind.INTRO if intro else ModuleKind.REGULAR
         control = _clean(md.control_form) or (
             INTERNSHIP_CONTROL if ptype == ProgramType.PK_INTERNSHIP else None
@@ -766,11 +820,13 @@ async def run_skeleton(
         raise AgentError("Не задан объём программы в часах — каркас построить нельзя.")
     constraints = constraints_from_request(final, final.program_type or ProgramType.PK)
     options = labor_function_options(final, registry)
+    compact = False
     try:
         draft = await ask_llm(final, constraints, options, llm)
     except TruncatedResponse:
         # ответ упёрся в max_tokens (большая программа): один повтор с компактной структурой
         logger.warning("skeleton: ответ обрезан — повтор с компактной структурой")
+        compact = True
         try:
             draft = await ask_llm(final, constraints, options, llm, compact=True)
         except TruncatedResponse as exc:
@@ -779,6 +835,20 @@ async def run_skeleton(
                 "уменьшите детализацию или объём программы."
             ) from exc
         final.assumptions.append("Каркас собран в компактном виде: полный ответ модели не уместился в лимит.")
+    problem = draft_problem(draft, final.program_type, bool(options))
+    if problem:  # ответ по схеме, но с изъяном: один повтор с указанием, что исправить
+        logger.warning("skeleton: непригодный ответ (%s) — повтор с исправлением", problem)
+        fatal = bool(draft_problem(draft))  # без модулей, тем или результатов обучения каркас не собрать
+        try:
+            retry = await ask_llm(final, constraints, options, llm, compact=compact, correction=problem)
+        except LLMError as exc:
+            if fatal:
+                raise
+            # повтор — улучшение, а не условие: исходный каркас собирается (V17 / V25 останутся в отчёте)
+            logger.warning("skeleton: повтор с исправлением не удался (%s) — исходный каркас", exc)
+        else:
+            if not draft_problem(retry) or fatal:  # повтор хуже исходного (пустые модули) — оставить исходный
+                draft = retry
     kit = assemble(final, draft, options, registry, validate_fn)
     kit.meta.llm_mode = llm.settings.llm_mode
     return kit

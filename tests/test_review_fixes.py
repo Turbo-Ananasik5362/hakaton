@@ -20,6 +20,7 @@ from app.models import (
     Kit,
     LectureDraft,
     PlanItemDraft,
+    SkeletonDraft,
     Source,
     SourceKind,
     SourceSection,
@@ -260,3 +261,405 @@ def test_material_absence_notes_are_not_limitations() -> None:
 
     assert NO_SLIDES_NOTE.startswith(NO_MATERIAL_NOTES)
     assert NO_TESTS_NOTE.format(forms="собеседование").startswith(NO_MATERIAL_NOTES)
+
+
+# --------------------------------------------------------------------------------------------------
+# Живой прогон 20.10: каркас без результатов обучения, тема с теорией без лекции
+# --------------------------------------------------------------------------------------------------
+
+
+def _skeleton_draft() -> SkeletonDraft:
+    import json
+
+    data = json.loads(
+        (Path(__file__).parent / "fixtures" / "llm" / "skeleton" / "abc33f5e259a5fbe.json").read_text()
+    )
+    return SkeletonDraft.model_validate({k: v for k, v in data.items() if not k.startswith("_")})
+
+
+def test_skeleton_without_outcomes_is_asked_again_with_correction() -> None:
+    from types import SimpleNamespace
+
+    from app.pipeline import skeleton
+    from tests.intake_queries import OPEN
+
+    good = _skeleton_draft()
+    bad = good.model_copy(deep=True)
+    for comp in bad.competencies:
+        comp.outcomes = []
+    assert "outcomes" in skeleton.draft_problem(bad) and skeleton.draft_problem(good) == ""
+
+    calls: list[str] = []
+
+    class FakeLLM:
+        settings = SimpleNamespace(llm_mode="mock")
+
+        async def complete_json(self, step, model, messages, schema, **kwargs):  # noqa: ANN001, ANN003, ANN201
+            calls.append(messages[-1]["content"])
+            return bad if len(calls) == 1 else good
+
+    from app.models import ProgramType, RequestSpec
+    from app.pipeline.default import DefaultPipeline
+
+    spec = RequestSpec(raw_text=OPEN[3]["request"], program_type=ProgramType.PK, total_hours=72)
+    pipeline = DefaultPipeline(Settings(llm_mode="mock"))
+    kit = asyncio.run(
+        skeleton.run_skeleton(
+            spec, None, FakeLLM(), pipeline.registry, lambda k, w: pipeline.validate(k, w, None, "skeleton")
+        )
+    )
+    assert len(calls) == 2 and "ВНИМАНИЕ, исправь предыдущий ответ" in calls[1] and "outcomes" in calls[1]
+    assert kit.outcomes
+
+
+def test_topics_without_lecture_are_refilled_only_where_missing() -> None:
+    kit = load(3)
+    module = next(m for m in kit.modules_sorted() if len(apply.lecture_topics(kit, m)) >= 2)
+    topics = apply.lecture_topics(kit, module)
+    dropped = topics[-1].id
+    kit.lectures = [lec for lec in kit.lectures if dropped not in lec.topic_ids]
+    gaps = content.ContentGenerator.lecture_gaps(kit)
+    assert gaps == {module.id: [dropped]}
+    before = len(kit.lectures)
+    drafts = [
+        LectureDraft(topic_ids=[t.id], title=t.title, plan=[PlanItemDraft(title="Раздел", theses=["Тезис"])])
+        for t in topics
+    ]
+    created = apply.apply_lectures(kit, module, drafts, only=gaps[module.id])
+    assert len(created) == 1 and len(kit.lectures) == before + 1
+    assert content.ContentGenerator.lecture_gaps(kit) == {}
+
+
+# --------------------------------------------------------------------------------------------------
+# Живой прогон 20.10, запрос 1: литература, вводный модуль, слайды, отчёт в программе
+# --------------------------------------------------------------------------------------------------
+
+
+def test_catalog_key_in_url_and_misspelled_author_do_not_make_duplicates() -> None:
+    from app.core import bibliography
+    from app.models import BookCandidate
+
+    registry = default_registry()
+    record = registry.literature("python_lubanovic_2021")
+    assert registry.find_literature(record.title, ["Лубанович Б."]).id == record.id  # опечатка в фамилии
+    kit = load(1)
+    items = [bibliography.ShortlistItem(f"lit:{record.id}", record)]
+    result = bibliography.build_sources(
+        kit,
+        registry,
+        items,
+        picks=[],
+        candidates=[
+            BookCandidate(
+                title="Простой Python",
+                authors=["Лубанович Б."],
+                url="lit:python_lubanovic_2021",
+                section=SourceSection.MAIN,
+            ),
+            BookCandidate(title=record.title, authors=["Лубанович"], section=SourceSection.ADDITIONAL),
+            BookCandidate(
+                title="Книга со странным адресом",
+                publisher="Питер",
+                year=2024,
+                url="ftp-ключ",
+                section=SourceSection.ADDITIONAL,
+            ),
+        ],
+        current_year=2026,
+    )
+    titles = [s.title for s in result.sources]
+    assert titles.count(record.title) == 1  # ключ каталога и дубль кандидатом — одна запись из каталога
+    assert all(not (s.url or "").startswith(("lit:", "doc:", "ftp")) for s in result.sources)
+
+
+def test_multi_topic_first_module_is_not_an_unnumbered_intro() -> None:
+    from app.models import ModuleKind
+    from app.pipeline import skeleton
+
+    draft = _skeleton_draft()
+    draft.modules[0].kind = ModuleKind.INTRO
+    assert len(draft.modules[0].topics) > 1
+    from app.models import ProgramType, RequestSpec
+
+    spec = RequestSpec(raw_text="ДОП", program_type=ProgramType.DOP, total_hours=16)
+    final = skeleton.finalize_spec(spec)
+    kit = skeleton.assemble(final, draft, [], default_registry(), lambda k, w: None)  # type: ignore[arg-type]
+    assert kit.modules_sorted()[0].kind == ModuleKind.REGULAR
+
+
+def test_term_is_not_repeated_on_summary_slide() -> None:
+    assert (
+        content._term_line("типы данных", "Тип данных — это вид значения.")
+        == "Тип данных — это вид значения."
+    )
+    assert content._term_line("цикл", "повторение действий") == "цикл — повторение действий"
+
+
+def test_title_slide_shows_lecture_plan(tmp_path: Path) -> None:
+    from pptx import Presentation
+
+    from app.render.pptx import render_pptx
+
+    kit = load(1)
+    render_pptx(kit, tmp_path / "s.pptx")
+    first = list(Presentation(str(tmp_path / "s.pptx")).slides)[0]
+    text = "\n".join(sh.text_frame.text for sh in first.shapes if sh.has_text_frame)
+    lecture = content.slides_lectures(kit)[0]
+    assert "План лекции:" in text and all(item.title in text for item in lecture.plan[:5])
+
+
+def test_program_appendix_has_no_cost_section() -> None:
+    from app.render.report_md import build_report
+
+    kit = load(3)
+    assert "Стоимость и время" in [s.title for s in build_report(kit).sections]
+    assert "Стоимость и время" not in [s.title for s in build_report(kit, for_docx=True).sections]
+
+
+# --------------------------------------------------------------------------------------------------
+# Живой прогон 20.10, запрос 5: тексты стажировки, РО во многих модулях, 1.6, заметки в .docx, повторы
+# --------------------------------------------------------------------------------------------------
+
+
+def test_internship_texts_promising_lectures_are_flagged() -> None:
+    from app.core.validate import ValidationContext, validate
+
+    kit = load(5)
+    kit.texts.form_description = (
+        "Обучение проходит на базе учебных аудиторий: занятия включают лекции и практику."
+    )
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V10"]).issues
+    assert any("у стажировки нет аудиторных занятий" in i.message for i in issues)
+    kit.texts.form_description = (
+        "Стажёр выполняет задания на рабочем месте под руководством руководителя стажировки."
+    )
+    kit.texts.org_process = ""
+    kit.texts.mto = ["Рабочее место с доступом к стенду"]
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V10"]).issues
+    assert not any("аудиторных занятий" in i.message for i in issues)
+
+
+def test_outcome_spread_over_many_modules_is_flagged() -> None:
+    from app.core.validate import ValidationContext, validate
+
+    kit = load(5)
+    lo = kit.outcomes[0].id
+    for topic in kit.topics:  # один РО — в темах всех модулей
+        if lo not in topic.lo_ids:
+            topic.lo_ids.append(lo)
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V43"]).issues
+    assert any("раскрывается в темах" in i.message and lo in i.target_ids for i in issues)
+
+
+def test_pk_requirements_always_name_those_still_studying(tmp_path: Path) -> None:
+    import docx
+
+    from app.render.common import load_organization
+    from app.render.docx_pk import SUB
+    from app.render.program import render_program_docx
+
+    kit = load(5)
+    kit.texts.audience_requirements = "Системные администраторы с опытом работы от года."
+    name, _ = render_program_docx(
+        kit, tmp_path, default_registry(), load_organization(Settings().organization_file)
+    )
+    texts = [p.text for p in docx.Document(str(tmp_path / name)).paragraphs]
+    section = texts[texts.index(SUB["1.6"]) : texts.index(SUB["1.7"])]
+    assert any("получающие среднее профессиональное" in t for t in section)
+    assert any("опытом работы от года" in t for t in section)
+
+
+def test_docx_appendix_knows_about_missing_slides_and_tests(tmp_path: Path) -> None:
+    import docx
+
+    from app.render.bundle import NO_SLIDES_NOTE, render_all
+    from app.render.common import load_organization
+
+    kit = load(5)  # стажировка: нет лекций и тестов
+    render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
+    text = "\n".join(p.text for p in docx.Document(str(tmp_path / "program.docx")).paragraphs)
+    assert NO_SLIDES_NOTE in text and "Тестовых вопросов в комплекте нет" in text
+    assert "Ничего не пропущено" not in text
+
+
+def test_repeated_words_from_generation_glitch_are_collapsed() -> None:
+    assert apply.clean("strace, ltrace, ltrace, ltrace, ltrace и gdb") == "strace, ltrace и gdb"
+    assert apply.clean("Python, Java, Python") == "Python, Java, Python"  # обычный перечень не трогаем
+
+
+def test_prompt_inputs_name_audience_and_internship_without_classes() -> None:
+    from app.pipeline import content_prompts as prompts
+
+    school, internship, pk = load(1), load(5), load(3)
+    assert prompts.audience_word(school) == "ученики" and prompts.audience_word(pk) == "слушатели"
+    assert "«ученики»" in prompts.describe_program(school)
+    assert "Аудиторных занятий нет" in prompts.describe_program(internship)
+    assert "Аудиторных занятий нет" not in prompts.describe_program(pk)
+    second = pk.modules_sorted()[1]
+    earlier = prompts.earlier_topics(pk, second)
+    first_topic = pk.topics_of(pk.modules_sorted()[0].id)[0]
+    assert earlier.startswith("Уже изучено") and first_topic.title in earlier
+    assert prompts.earlier_topics(pk, pk.modules_sorted()[0]).startswith("Это первый модуль")
+
+
+def test_final_test_topic_is_not_part_of_the_plan() -> None:
+    from app.models import ProgramType, RequestSpec
+    from app.pipeline import skeleton
+
+    draft = _skeleton_draft()
+    module = draft.modules[-1]
+    module.topics.append(module.topics[0].model_copy(update={"key": "t_fin", "title": "Итоговый тест"}))
+    final = skeleton.finalize_spec(RequestSpec(raw_text="ПК", program_type=ProgramType.PK, total_hours=72))
+    kit = skeleton.assemble(final, draft, [], default_registry(), lambda k, w: None)  # type: ignore[arg-type]
+    assert not any(t.title == "Итоговый тест" for t in kit.topics)
+    assert any("«Итоговый тест» не включена" in a for a in kit.request.assumptions)
+
+
+def test_code_options_differing_only_in_brackets_are_not_duplicates() -> None:
+    from app.core.validate import ValidationContext, validate
+
+    kit = load(1)
+    question = kit.questions[0]
+    question.options = ["print(5 + 3)", "x = 5 + 3", "print(5) + 3", "5 + 3"]
+    question.correct = [0]
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V18"]).issues
+    assert not any("повторяются" in i.message and question.id in i.target_ids for i in issues)
+    question.options = ["print(5 + 3)", "Print(5 + 3)", "x", "y"]
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V18"]).issues
+    assert any("повторяются" in i.message for i in issues)
+
+
+def test_one_lecture_for_several_topics_covers_them_all() -> None:
+    kit = load(3)
+    module = next(m for m in kit.modules_sorted() if len(apply.lecture_topics(kit, m)) >= 3)
+    topics = apply.lecture_topics(kit, module)
+    kit.lectures = [lec for lec in kit.lectures if lec.module_id != module.id]
+    merged = LectureDraft(
+        topic_ids=[t.id for t in topics],
+        title="Всё сразу",
+        plan=[PlanItemDraft(title="Раздел", theses=["Тезис"])],
+    )
+    apply.apply_lectures(kit, module, [merged])
+    assert content.ContentGenerator.lecture_gaps(kit) == {}
+    assert next(lec for lec in kit.lectures if lec.module_id == module.id).topic_ids == [t.id for t in topics]
+
+
+def test_interview_only_module_request_can_be_split(tmp_path: Path) -> None:
+    from app.llm import TruncatedResponse
+
+    kit = load(5)
+    module = kit.modules_sorted()[0]
+    generator = DefaultPipeline(Settings(llm_mode="mock")).content
+    seen: list[str] = []
+
+    async def fake_ask(client, call):  # noqa: ANN001, ANN202
+        seen.append(call.fixture_key)
+        if len(seen) == 1:
+            raise TruncatedResponse("tests", {"completion_tokens": 4000})
+        return TestsDraft(interview=[])
+
+    generator._ask = fake_ask  # type: ignore[method-assign]
+    asyncio.run(generator._draft_tests(kit, module, None, {}, 4))  # type: ignore[arg-type]
+    assert (
+        len(seen) == 3 and seen[1].endswith("-a") and seen[2].endswith("-b")
+    )  # обрезан → две половины по РО
+
+
+def test_pk_skeleton_without_function_or_practical_experience_is_corrected() -> None:
+    from app.models import OutcomeKind, ProgramType
+    from app.pipeline import skeleton
+
+    draft = _skeleton_draft()
+    for comp in draft.competencies:
+        comp.tf_ids = comp.tf_ids or ["06.015:C/11.6"]
+        if not any(o.kind == OutcomeKind.MASTER for o in comp.outcomes):
+            comp.outcomes[0].kind = OutcomeKind.MASTER
+    assert skeleton.draft_problem(draft, ProgramType.PK, has_functions=True) == ""
+    draft.competencies[0].tf_ids = []
+    for outcome in draft.competencies[-1].outcomes:
+        outcome.kind = OutcomeKind.KNOW
+    problem = skeleton.draft_problem(draft, ProgramType.PK, has_functions=True)
+    assert "нет трудовых функций" in problem and "практический опыт" in problem
+    assert skeleton.draft_problem(draft, ProgramType.DOP) == ""  # у общеразвивающей нет ТФ и опыта
+
+
+def test_negated_classroom_mentions_are_not_flagged() -> None:
+    from app.core.validate import ValidationContext, validate
+
+    kit = load(5)
+    kit.texts.form_description = (
+        "Стажировка без аудиторных занятий: лекции не проводятся, работа — на рабочем месте."
+    )
+    kit.texts.org_process = ""
+    kit.texts.mto = ["Рабочее место"]
+    issues = validate(kit, ValidationContext(registry=default_registry()), only=["V10"]).issues
+    assert not any("аудиторных занятий" in i.message for i in issues)
+
+
+def test_interview_module_is_topped_up_to_norm() -> None:
+    kit = load(5)
+    module = kit.modules_sorted()[0]
+    generator = DefaultPipeline(Settings(llm_mode="mock")).content
+    quota = content.interview_quota(kit, module, generator.limits)
+    kit.interview_questions = [iq for iq in kit.interview_questions if iq.module_id != module.id][:] + [
+        iq for iq in kit.interview_questions if iq.module_id == module.id
+    ][: quota - 1]
+    needs = generator.refill_needs(kit)
+    assert module.id in needs and generator._interview_gap(kit, module) == 1
+
+
+def test_empty_book_sections_are_filled_from_catalog_by_title() -> None:
+    from app.core import bibliography
+    from app.models import CatalogPick
+
+    kit = load(1)
+    items = bibliography.shortlist(kit, default_registry())
+    picks = content.with_book_sections(
+        kit, items, [CatalogPick(catalog_id=items[0].key, section=SourceSection.MAIN)]
+    )
+    sections = [p.section for p in picks]
+    assert (
+        SourceSection.ADDITIONAL in sections and sections.count(SourceSection.MAIN) == 1
+    )  # основную не трогаем
+    added = [p.catalog_id for p in picks[1:]]
+    assert all(bibliography.matches_title(kit, next(i for i in items if i.key == key)) for key in added)
+
+
+def test_failed_skeleton_retry_keeps_usable_draft() -> None:
+    """Повтор каркаса — улучшение, а не условие: сбой повторного вызова не роняет сессию, если исходный каркас
+    собирается (без практического опыта — только предупреждение V17)."""
+    from types import SimpleNamespace
+
+    from app.llm import GatewayError
+    from app.models import OutcomeKind, ProgramType, RequestSpec
+    from app.pipeline import skeleton
+    from tests.intake_queries import OPEN
+
+    draft = _skeleton_draft()
+    for comp in draft.competencies:
+        for outcome in comp.outcomes:
+            if outcome.kind == OutcomeKind.MASTER:
+                outcome.kind = OutcomeKind.CAN  # изъян, который просит повтора, но не мешает сборке
+    calls: list[int] = []
+
+    class FlakyLLM:
+        settings = SimpleNamespace(llm_mode="mock")
+
+        async def complete_json(self, step, model, messages, schema, **kwargs):  # noqa: ANN001, ANN003, ANN201
+            calls.append(1)
+            if len(calls) > 1:
+                raise GatewayError("Шлюз недоступен: ReadTimeout")
+            return draft
+
+    spec = RequestSpec(raw_text=OPEN[3]["request"], program_type=ProgramType.PK, total_hours=72)
+    pipeline = DefaultPipeline(Settings(llm_mode="mock"))
+    kit = asyncio.run(
+        skeleton.run_skeleton(
+            spec, None, FlakyLLM(), pipeline.registry, lambda k, w: pipeline.validate(k, w, None, "skeleton")
+        )
+    )
+    assert len(calls) == 2 and kit.outcomes  # повтор был, упал, каркас собран из исходного
+
+
+def test_repeat_cleanup_does_not_touch_code() -> None:
+    assert apply.clean("[0, 0, 0]") == "[0, 0, 0]" and apply.clean("print(1, 1, 1)") == "print(1, 1, 1)"
