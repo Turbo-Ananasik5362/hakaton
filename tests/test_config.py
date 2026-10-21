@@ -84,6 +84,21 @@ def test_git_commit_reads_head_and_packed_refs(tmp_path: Path) -> None:
     assert app_version().startswith("0.")
 
 
+def test_version_in_docker_image_comes_from_build_arg(tmp_path: Path) -> None:
+    """В образе нет .git: коммит берётся из APP_COMMIT (--build-arg GIT_COMMIT); .git, если есть, важнее."""
+    from app.config import APP_VERSION
+
+    no_git = tmp_path / "image"
+    assert app_version(no_git, {"APP_COMMIT": "9ebdd5e"}) == f"{APP_VERSION}+9ebdd5e"
+    assert app_version(no_git, {"APP_COMMIT": " 9ebdd5e\n; rm"}) == f"{APP_VERSION}+9ebdd5erm"
+    assert app_version(no_git, {"APP_COMMIT": ""}) == APP_VERSION
+    assert app_version(no_git, {}) == APP_VERSION
+    git = tmp_path / ".git"
+    git.mkdir()
+    (git / "HEAD").write_text("abcdef1234567\n", encoding="utf-8")
+    assert app_version(tmp_path, {"APP_COMMIT": "9ebdd5e"}) == f"{APP_VERSION}+abcdef1"
+
+
 def test_generation_limits_come_from_environment(env: pytest.MonkeyPatch) -> None:
     """Пороги генерации — из окружения; без переменных — проверенные значения по умолчанию."""
     from app.config import DEFAULT_LIMITS

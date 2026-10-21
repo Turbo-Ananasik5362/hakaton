@@ -214,8 +214,11 @@ def git_commit(root: Path = ROOT) -> str:
         return ""
 
 
-def app_version() -> str:
-    commit = git_commit()
+def app_version(root: Path = ROOT, env: Mapping[str, str] | None = None) -> str:
+    """Версия для /health: «0.5.0+<коммит>». Коммит — из .git; в образе Docker .git нет, и коммит передаётся
+    при сборке (--build-arg GIT_COMMIT → переменная APP_COMMIT)."""
+    env = os.environ if env is None else env
+    commit = git_commit(root) or "".join(c for c in env.get("APP_COMMIT", "") if c.isalnum())[:12]
     return f"{APP_VERSION}+{commit}" if commit else APP_VERSION
 
 

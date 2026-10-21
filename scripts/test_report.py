@@ -92,6 +92,11 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
         "pydantic-модель комплекта, стабильные ID и связи между объектами",
         ("test_models.py", "test_ids.py"),
     ),
+    "Развёртывание": (
+        "Dockerfile, .dockerignore и docker-compose.yml без сборки образа: пути COPY, пользователь без root, команда "
+        "запуска и порт как в README и на ВМ, HEALTHCHECK на /health, тома для данных сервера; docs/deploy.md",
+        ("test_deploy.py",),
+    ),
     "Инженерная гигиена": (
         "этот отчёт, scripts/check.sh и CI; в коде нет маркеров незавершённой работы",
         ("test_check.py",),

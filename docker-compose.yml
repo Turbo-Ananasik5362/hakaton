@@ -1,0 +1,37 @@
+# Сервер «Каркас» в Docker. Подробно: docs/deploy.md, «Способ 2 — Docker».
+#
+#   GIT_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+#   curl -s http://127.0.0.1:8000/health
+#
+# Ключи шлюза и параметры — из .env в корне проекта (файл необязательный: без него сервер работает в режиме mock).
+# Необязательный env_file (required: false) поддерживается в Docker Compose 2.24 и новее.
+# Сессии, кеш ответов модели и журнал расходов лежат в томах и переживают пересборку образа.
+# Имя проекта задано явно: тома называются karkas_sessions, karkas_llm-cache, karkas_logs в любой папке.
+name: karkas
+
+services:
+  karkas:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    image: karkas:latest
+    # порт открыт для всей сети; на компьютере с ключами шлюза в .env, чтобы чужие не тратили общий бюджет,
+    # пишите "127.0.0.1:8000:8000"
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - sessions:/app/data/sessions
+      - llm-cache:/app/cache
+      - logs:/app/logs
+    restart: unless-stopped
+    # при остановке сервер сохраняет состояние фоновых сессий, после старта они продолжаются
+    stop_grace_period: 30s
+
+volumes:
+  sessions:
+  llm-cache:
+  logs:

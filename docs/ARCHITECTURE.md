@@ -683,6 +683,9 @@ app/storage/sessions.py   data/sessions/<id>/: state.json, kit.json, files/, log
 тяжёлых зависимостей нет. Кеш LLM (`cache/llm/`) и сессии (`data/sessions/`) не удаляются при выкладке —
 повторный автопрогон тех же запросов при неизменных промптах бесплатен.
 
+Запуск на ВМ, в Docker (`Dockerfile`, `docker-compose.yml`: `python:3.10-slim`, пользователь без root, сессии,
+кеш и журналы — в томах) и локально, проверка после выкладки и откат — `docs/deploy.md`.
+
 ### 6.5. Веб-интерфейс
 
 FastAPI + Jinja2 + немного vanilla JS, без сборщиков, на русском, для методиста без ИТ-фона:
