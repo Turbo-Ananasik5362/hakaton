@@ -10,12 +10,14 @@ from app.core.validate import ValidationContext
 from app.models import (
     HoursRow,
     Kit,
+    MethodistWarning,
     Module,
     OutcomeKind,
     ParsedReference,
     ProgramType,
     TFRef,
     TopicRequirement,
+    WarningType,
     WorkKind,
 )
 from tests.validate_kits import make_dop_kit, make_internship_kit, make_pk_kit
@@ -237,8 +239,10 @@ def m_v45(kit: Kit, ctx: ValidationContext) -> None:  # в приложенно�
     kit.request.reference = load_reference("bsa_248_sample.json")
 
 
-def m_v46(kit: Kit, ctx: ValidationContext) -> None:  # ожидание трудоустройства без предупреждения
-    kit.request.raw_text += " Нужно, чтобы после курса слушатели могли пойти работать в эту сферу."
+def m_v46(kit: Kit, ctx: ValidationContext) -> None:  # предупреждение без цифр и вариантов решения
+    ctx.extra_warnings.append(
+        MethodistWarning(type=WarningType.SCHEDULE_TIGHT, text="Срок обучения не сходится с нагрузкой.")
+    )
 
 
 MUTATIONS: dict[str, tuple[Callable[[], Kit], Mutation]] = {

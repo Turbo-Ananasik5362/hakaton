@@ -1,0 +1,70 @@
+<section class="report" aria-labelledby="report-title">
+  <h1 id="report-title">{{ doc.title }}</h1>
+  <p class="status status-{{ status_key }}" role="status">
+    <span class="badge"><span aria-hidden="true">{{ status_icon }}</span> {{ status_label }}</span>
+    <span>{{ doc.summary }}</span>
+  </p>
+  {% for section in doc.sections %}
+  <section class="part{% if section.title == 'Предупреждения методисту' %} methodist-warnings{% endif %}">
+    <h2>{{ section.title }}</h2>
+    {% set counter = namespace(advice=0) %}
+    {% for block in section.blocks %}
+      {% if block.block == "para" %}
+    <p>{{ block.text }}</p>
+      {% elif block.block == "bullets" %}
+    <ul>
+      {% for item in block.items %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+      {% elif block.block == "advice" %}
+        {% set counter.advice = counter.advice + 1 %}
+        {% set info = block.kind in info_warnings %}
+    <article class="advice{% if info %} info{% endif %}">
+      <div class="kind">{{ "Для сведения" if info else "Нужно решение" }}</div>
+      <h3><span class="num">{{ counter.advice }}.</span> {{ block.title }}</h3>
+      <p>{{ block.text }}</p>
+        {% if block.figures %}
+      <table class="figures">
+        <caption class="visually-hidden">Цифры</caption>
+        <tbody>
+          {% for label, value in block.figures %}
+          <tr><th scope="row">{{ label }}</th><td>{{ value }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+        {% endif %}
+      <p class="options-title">Варианты решения</p>
+      <ol class="options">
+        {% for option in block.options %}
+        <li>{{ option }}</li>
+        {% endfor %}
+      </ol>
+    </article>
+      {% elif block.block == "table" %}
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>{% for head in block.header %}<th scope="col">{{ head }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in block.rows %}
+            {% set tone = block.tones[loop.index0] if block.tones and loop.index0 < block.tones|length else "" %}
+          <tr>
+            {% for cell in row %}
+              {% if loop.last and tone %}
+            <td class="tone tone-{{ tone }}"><span aria-hidden="true">{{ tone_icons[tone] }}</span> {{ cell }}</td>
+              {% else %}
+            <td>{{ cell }}</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+      {% endif %}
+    {% endfor %}
+  </section>
+  {% endfor %}
+</section>

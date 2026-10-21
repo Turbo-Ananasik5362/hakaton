@@ -126,7 +126,13 @@ def preview_rebalance(kit: Kit, locked: dict[str, HoursRow], scope: HoursScope =
 
 def conflict_details(result: SolverResult) -> list[dict[str, object]]:
     return [
-        {"code": c.code, "message": c.message, "target_ids": [str(k) for k in c.details.get("keys", [])]}
+        {
+            "code": c.code,
+            "title": c.title,
+            "message": c.message,
+            "options": list(c.options),
+            "target_ids": [str(k) for k in c.details.get("keys", [])],
+        }
         for c in result.conflicts
     ]
 

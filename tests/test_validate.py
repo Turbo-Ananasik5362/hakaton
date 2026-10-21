@@ -118,11 +118,21 @@ def test_only_runs_selected_checks() -> None:
 def test_report_snapshot_and_coverage() -> None:
     kit = make_pk_kit()
     report = run(kit)
-    assert report.hours["TOTAL"].total == kit.program_hours().total
+    hours = report.hours
+    assert hours is not None and hours.matches and hours.total == kit.total_hours()
+    assert hours.topics == kit.program_hours().total and hours.final_attestation == kit.fa_hours()
+    assert hours.contact == kit.program_hours().contact and hours.srs == kit.program_hours().srs
+    levels = [line.level for line in hours.lines]
+    assert levels.count("module") == len(kit.modules) and levels.count("topic") == len(kit.topics)
+    assert levels[-2:] == ["final_attestation", "total"] and hours.lines[-1].total == kit.total_hours()
     assert {c.lo_id for c in report.coverage} == {o.id for o in kit.outcomes}
     lo23 = next(c for c in report.coverage if c.lo_id == "LO2.3")
     assert "T2.2" in lo23.topic_ids and len(lo23.assessment_ids) >= 2
-    assert sum(report.sources.values()) == len(kit.sources)
+    assert lo23.status == "ok" and lo23.text and sum(lo23.by_kind.values()) == len(lo23.assessment_ids)
+    sources = report.sources
+    assert sources is not None and sources.total == len(kit.sources)
+    assert sources.confirmed + sources.unverified == sources.total == sum(sources.by_verification.values())
+    assert report.copying is not None and report.copying.references == 0  # образца нет — сравнивать не с чем
 
 
 def test_norm_replaced_warning_only_for_pk() -> None:

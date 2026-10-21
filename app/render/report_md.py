@@ -1,50 +1,61 @@
-"""Отчёт автопроверки для методиста: report.md и приложение «Отчёт автопроверки» в программе .docx.
+"""Отчёт автопроверки для методиста: report.md, приложение «Отчёт автопроверки» в программе .docx и раздел
+в веб-интерфейсе (app/web/report_page.py).
 
-Отчёт строится один раз (build_report) как набор разделов из абзацев, списков и таблиц; render_report_md
-и app/render/report_docx.py только раскладывают его. Пишется человеческим языком: итог одной фразой, что
-исправить и как, предупреждения с цифрами и вариантами решения. Всё — из Kit и его отчёта проверки, без LLM.
+Отчёт строится один раз (build_report) как набор разделов из абзацев, списков, таблиц и карточек предупреждений;
+render_report_md, app/render/report_docx.py и app/web/ только раскладывают его. Числа — из ValidationReport
+(report.json); если сводок там нет (комплект прежней версии), они считаются по Kit. Пишется человеческим языком:
+итог одной фразой, предупреждения методисту с цифрами и вариантами решения, что исправить и как. Без LLM.
 """
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
+from app.core import methodist_warnings as mw
 from app.core.bibliography import REJECTED_NOTE_PREFIX
 from app.core.hours import fmt_hours, plural
 from app.core.ids import display_numbers
-from app.core.validate import ValidationContext, copy_stats, coverage_matrix, section_status
+from app.core.validate import (
+    ValidationContext,
+    copy_summary,
+    coverage_matrix,
+    hours_summary,
+    section_status,
+    source_summary,
+)
 from app.models import (
+    CopySummary,
     FixBy,
     GenerationMode,
+    HoursRow,
+    HoursSummary,
     Issue,
     Kit,
+    LOCoverage,
+    MethodistWarning,
     ProgramType,
     ReportStatus,
     Severity,
     Verification,
-    WarningType,
 )
 from app.pipeline.content import JUDGE_TEXTS
 
 REPORT_MD_NAME = "report.md"
 MAX_LISTED = 25  # больше замечаний одного вида — сводной строкой
 HOURS_CHECKS = {f"V{n:02d}" for n in range(1, 12)}
+SAMPLE_CHECK = "V45"  # ошибки приложенного образца: в программу не переносятся, к комплекту не относятся
+COPY_CHECK = "V42"
+SAMPLE_QUOTE_RE = re.compile(r"\s*\(«[^»]*»\)")  # цитата образца в замечании о совпадении
 
 FIX_HINTS = {
     FixBy.CODE: "повторите сборку; если замечание останется — это сбой программы, сообщите разработчикам",
     FixBy.LLM: "перегенерируйте этот фрагмент точечной правкой или поправьте текст вручную",
     FixBy.HUMAN: "нужно решение методиста: поправьте текст или параметры запроса и пересоберите комплект",
-}
-WARNING_HINTS = {
-    WarningType.REFERENCE_ERRORS: "в программу эти ошибки не перенесены; при желании сообщите автору образца",
-    WarningType.EXPECTATION_GAP: "обсудите с заказчиком: увеличить объём программы или уточнить ожидаемый результат",
-    WarningType.SCHEDULE_TIGHT: "варианты: увеличить срок, увеличить нагрузку в день или сократить объём",
-    WarningType.NORM_REPLACED: "в программе указан действующий акт — ничего делать не нужно, только учесть в ТЗ",
-    WarningType.UNVERIFIED_SOURCES: "сверьте издания с каталогом библиотеки или замените их на проверенные",
-    WarningType.CONSTRAINT_CONFLICT: "решите, какое требование важнее, и поправьте запрос или каркас",
 }
 STEP_TITLES = {
     "intake": "Разбор запроса",
@@ -62,6 +73,36 @@ STEP_TITLES = {
     "literature": "Литература",
     "judge": "Смысловая проверка",
 }
+COVERAGE_TEXT = {
+    "ok": "в порядке",
+    "single": "одно оценочное средство",
+    "unassessed": "не проверяется",
+    "no_topic": "нет темы",
+}
+ASSESSMENT_NAMES = {
+    "test_questions": "вопросы теста",
+    "seminars": "задания",
+    "interview": "собеседование",
+    "final_attestation": "итоговая аттестация",
+}
+VERIFICATION_NAMES = {
+    Verification.REGISTRY: "реестр нормативных актов и профстандартов",
+    Verification.CATALOG: "каталог проверенных изданий",
+    Verification.ONLINE: "онлайн-сверка",
+}
+OK, WARN, ERROR = "ok", "warn", "error"  # тон строки таблицы: цвет итоговой колонки в интерфейсе
+WARNINGS_INTRO = (
+    "Здесь — ситуации, где нужно решение методиста или заказчика: агент нашёл их сам по общим правилам. "
+    "У каждого предупреждения — цифры и варианты решения."
+)
+NO_WARNINGS = (
+    "Предупреждений нет: срок и нагрузка сходятся, источники подтверждены, требования запроса совместимы."
+)
+FULL_VERSION_NOTE = (
+    "Полная версия отчёта — файл report.md: в ней дословные формулировки замечаний к образцу, цитаты приложенного "
+    "образца, комментарии смысловой проверки, отброшенные источники и стоимость сборки. В программу они не "
+    "включаются."
+)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -72,11 +113,13 @@ STEP_TITLES = {
 @dataclass
 class Para:
     text: str
+    block: ClassVar[str] = "para"
 
 
 @dataclass
 class Bullets:
     items: list[str]
+    block: ClassVar[str] = "bullets"
 
 
 @dataclass
@@ -84,9 +127,25 @@ class Table:
     header: list[str]
     rows: list[list[str]]
     weights: list[int]  # доли ширины колонок для .docx
+    tones: list[str] = field(
+        default_factory=list
+    )  # по строке: ok / warn / error / "" — цвет последней колонки
+    block: ClassVar[str] = "table"
 
 
-Block = Para | Bullets | Table
+@dataclass
+class Advice:
+    """Предупреждение методисту: заголовок, что не так (с цифрами), главные цифры, варианты решения."""
+
+    kind: str  # вид предупреждения (WarningType.value) — для оформления
+    title: str
+    text: str
+    figures: list[tuple[str, str]]
+    options: list[str]
+    block: ClassVar[str] = "advice"
+
+
+Block = Para | Bullets | Table | Advice
 
 
 @dataclass
@@ -108,14 +167,6 @@ class ReportDoc:
 # --------------------------------------------------------------------------------------------------
 
 
-SAMPLE_CHECK = "V45"  # ошибки приложенного образца: в программу не переносятся, к комплекту не относятся
-QUOTES_SAMPLE = {"V42", SAMPLE_CHECK}  # замечания с цитатами образца — только в report.md
-FULL_VERSION_NOTE = (
-    "Полная версия отчёта — файл report.md: в ней дословные формулировки замечаний к образцу, цитаты приложенного "
-    "образца, комментарии смысловой проверки и отброшенные источники. В программу они не включаются."
-)
-
-
 def _open(kit: Kit) -> list[Issue]:
     """Открытые замечания к самому комплекту (без ошибок приложенного образца)."""
     if kit.report is None:
@@ -127,20 +178,26 @@ def _sample_issues(kit: Kit) -> list[Issue]:
     return [i for i in kit.report.issues if i.check == SAMPLE_CHECK] if kit.report is not None else []
 
 
-def _methodist_warnings(kit: Kit, for_docx: bool = False) -> list:  # noqa: ANN202
-    """Предупреждения методисту, кроме ошибок образца (у них свой раздел). В .docx нет и предупреждения об
-    утративших силу актах из запроса: номера отменённых актов в тексте программы не нужны."""
-    if kit.report is None:
-        return []
-    skip = {WarningType.REFERENCE_ERRORS} | ({WarningType.NORM_REPLACED} if for_docx else set())
-    return [w for w in kit.report.warnings_for_methodist if w.type not in skip]
+def _warnings(kit: Kit) -> list[MethodistWarning]:
+    return mw.ordered(kit.report.warnings_for_methodist) if kit.report is not None else []
 
 
-def _counts(kit: Kit) -> tuple[int, int]:
+def _counts(kit: Kit) -> tuple[int, int, int]:
+    """(ошибки, предупреждения методисту, замечания автопроверки уровня «предупреждение») — как в разделе «Коротко»."""
     issues = _open(kit)
     errors = sum(1 for i in issues if i.severity == Severity.ERROR)
-    warnings = sum(1 for i in issues if i.severity == Severity.WARNING) + len(_methodist_warnings(kit))
-    return errors, warnings
+    remarks = sum(1 for i in issues if i.severity == Severity.WARNING)
+    return errors, len(_warnings(kit)), remarks
+
+
+def _warnings_phrase(methodist: int, remarks: int) -> str:
+    """«3 предупреждения методисту и 2 замечания автопроверки» — нулевые части опускаются."""
+    parts = []
+    if methodist:
+        parts.append(_n(methodist, "предупреждение", "предупреждения", "предупреждений") + " методисту")
+    if remarks:
+        parts.append(_n(remarks, "замечание", "замечания", "замечаний") + " автопроверки")
+    return " и ".join(parts)
 
 
 def _n(n: int, one: str, few: str, many: str) -> str:
@@ -148,20 +205,21 @@ def _n(n: int, one: str, few: str, many: str) -> str:
 
 
 def summary_line(kit: Kit, notes: Sequence[str] = (), see: str = "см. ниже") -> str:
-    """Итог одной фразой: «Комплект собран, ошибок нет, 3 предупреждения — см. ниже»."""
+    """Итог одной фразой: «Комплект собран, ошибок нет; 2 предупреждения методисту и 1 замечание автопроверки — см. ниже»."""
     if kit.report is None:
         return "Комплект собран, но автопроверка не выполнялась — проверьте материалы вручную."
-    errors, warnings = _counts(kit)
+    errors, methodist, remarks = _counts(kit)
+    warnings = _warnings_phrase(methodist, remarks)
     if errors:
         text = (
             f"Комплект собран, но автопроверка нашла {_n(errors, 'ошибку', 'ошибки', 'ошибок')} — их нужно исправить "
             "до утверждения программы"
         )
         if warnings:
-            text += f"; ещё {_n(warnings, 'предупреждение', 'предупреждения', 'предупреждений')}"
+            text += f"; ещё {warnings}"
         text += f" — {see}."
     elif warnings:
-        text = f"Комплект собран, ошибок нет, {_n(warnings, 'предупреждение', 'предупреждения', 'предупреждений')} — {see}."
+        text = f"Комплект собран, ошибок нет; {warnings} — {see}."
     else:
         text = "Комплект собран, ошибок и предупреждений нет."
     sample = len(_sample_issues(kit))
@@ -173,12 +231,15 @@ def summary_line(kit: Kit, notes: Sequence[str] = (), see: str = "см. ниже
 
 
 def api_message(kit: Kit, notes: Sequence[str] = (), has_report_md: bool = True) -> str:
-    """Для поля message ответа done: итог автопроверки, главное замечание и где подробности."""
+    """Для поля message ответа done: итог автопроверки, главное замечание, о чём предупреждения и где подробности."""
     text = summary_line(kit, notes, see="см. отчёт")
     errors = [i for i in _open(kit) if i.severity == Severity.ERROR]
     if errors:
         first = errors[0].message.strip()
         text += f" Главное: {first[:160]}{'…' if len(first) > 160 else ''}"
+    titles = [mw.title_of(w) for w in _warnings(kit)]
+    if titles:
+        text += f" Предупреждения методисту (с цифрами и вариантами решения): {'; '.join(titles)}."
     if kit.report is not None and has_report_md:
         text += " Подробный отчёт — файл report.md (files.report_md)."
     elif kit.report is not None:
@@ -202,12 +263,12 @@ def build_report(
     files: Sequence[str] = (),
     for_docx: bool = False,
 ) -> ReportDoc:
-    """notes — заметки сессии (пропущенные шаги); references — тексты приложенных образцов (совпадение);
-    files — имена выданных файлов (раздел о проверке выгрузок).
+    """notes — заметки сессии (пропущенные шаги); references — тексты приложенных образцов (совпадение, если
+    в отчёте проверки его ещё нет); files — имена выданных файлов (раздел о проверке выгрузок).
 
     for_docx — вариант для приложения к программе: в документ не идут тексты, которые правила не пускают в
-    программу — цитаты и числа часов приложенного образца, свободный текст модели-судьи, названия и ISBN отброшенных
-    моделью изданий. Полная версия — report.md."""
+    программу — цитаты и числа часов приложенного образца, номера утративших силу актов, свободный текст
+    модели-судьи, названия и ISBN отброшенных моделью изданий, стоимость сборки. Полная версия — report.md."""
     report = kit.report
     doc = ReportDoc(
         title=f"Отчёт автопроверки: «{kit.program.title}»",
@@ -215,7 +276,16 @@ def build_report(
         summary=summary_line(kit, notes),
     )
     doc.sections.append(_overview(kit))
-    doc.sections += _problems(kit, for_docx)
+    errors = _errors(kit)
+    if errors is not None:
+        doc.sections.append(errors)
+    doc.sections.append(_methodist(kit, for_docx))
+    remarks = _remarks(kit, for_docx)
+    if remarks is not None:
+        doc.sections.append(remarks)
+    sample = _sample(kit) if not for_docx else None
+    if sample is not None:
+        doc.sections.append(sample)
     doc.sections.append(_hours(kit))
     doc.sections.append(_coverage(kit))
     doc.sections.append(_sources(kit))
@@ -233,7 +303,9 @@ def build_report(
 
 
 def _overview(kit: Kit) -> Section:
-    errors, warnings = _counts(kit)
+    issues = _open(kit)
+    errors = sum(1 for i in issues if i.severity == Severity.ERROR)
+    remarks = sum(1 for i in issues if i.severity == Severity.WARNING)
     mode = {
         "live": "настоящая модель GigaChat",
         "mock": "заготовленные ответы (демонстрационный режим)",
@@ -244,24 +316,24 @@ def _overview(kit: Kit) -> Section:
         if kit.meta.generation_mode == GenerationMode.ECONOMY
         else "полный"
     )
-    return Section(
-        "Коротко",
-        [
-            Bullets(
-                [
-                    f"ошибки (нужно исправить до утверждения): {errors}",
-                    f"предупреждения (стоит проверить): {warnings}",
-                    f"объём: заявлено {fmt_hours(kit.program.total_hours)} ч, собрано {fmt_hours(kit.total_hours())} ч",
-                    f"модель: {mode.get(kit.meta.llm_mode, kit.meta.llm_mode)}; режим генерации — {generation}",
-                ]
-            ),
-        ],
-    )
+    lines = [
+        f"ошибки (нужно исправить до утверждения): {errors}",
+        f"предупреждения методисту (с вариантами решения): {len(_warnings(kit))}",
+        f"замечания автопроверки (стоит проверить): {remarks}",
+        f"объём: заявлено {fmt_hours(kit.program.total_hours)} ч, собрано {fmt_hours(kit.total_hours())} ч",
+        f"модель: {mode.get(kit.meta.llm_mode, kit.meta.llm_mode)}; режим генерации — {generation}",
+    ]
+    seconds = kit.report.generation_seconds if kit.report is not None else None
+    if seconds:
+        lines.append(f"время сборки комплекта после утверждения каркаса: {_duration(seconds)}")
+    return Section("Коротко", [Bullets(lines)])
 
 
-def _issue_line(issue: Issue) -> str:
-    message = issue.message.strip().rstrip(".")
-    return f"{message}. Как исправить: {FIX_HINTS[issue.fix_by]}."
+def _issue_line(issue: Issue, for_docx: bool = False) -> str:
+    message = issue.message.strip()
+    if for_docx and issue.check == COPY_CHECK:
+        message = SAMPLE_QUOTE_RE.sub("", message)  # цитаты образца — только в report.md
+    return f"{message.rstrip('.')}. Как исправить: {FIX_HINTS[issue.fix_by]}."
 
 
 def _capped(lines: list[str]) -> list[str]:
@@ -272,41 +344,64 @@ def _capped(lines: list[str]) -> list[str]:
     ]
 
 
-def _problems(kit: Kit, for_docx: bool = False) -> list[Section]:
+def _errors(kit: Kit) -> Section | None:
+    errors = [i for i in _open(kit) if i.severity == Severity.ERROR]
+    if not errors:
+        return None
+    return Section("Что нужно исправить", [Bullets(_capped([_issue_line(i) for i in errors]))])
+
+
+def _advice(warning: MethodistWarning, for_docx: bool) -> Advice:
+    """Карточка предупреждения. В программу (.docx) — program_text, если он задан, и тогда без цифр:
+    они повторяют text (с номерами утративших силу актов или числами образца)."""
+    safe = for_docx and bool(warning.program_text.strip())
+    return Advice(
+        kind=warning.type.value,
+        title=mw.title_of(warning),
+        text=(warning.program_text if safe else warning.text).strip(),
+        figures=[] if safe else [(f.label, f.value) for f in warning.figures],
+        options=mw.options_of(warning),
+    )
+
+
+def _methodist(kit: Kit, for_docx: bool) -> Section:
+    warnings = _warnings(kit)
     if kit.report is None:
-        return []
-    issues = [i for i in _open(kit) if not (for_docx and i.check in QUOTES_SAMPLE)]
-    errors = [i for i in issues if i.severity == Severity.ERROR]
-    warnings = [i for i in issues if i.severity == Severity.WARNING]
-    sections: list[Section] = []
-    if errors:
-        sections.append(Section("Что нужно исправить", [Bullets(_capped([_issue_line(i) for i in errors]))]))
-    lines = [
-        f"{w.text.strip().rstrip('.')}. Что можно сделать: {WARNING_HINTS.get(w.type, 'решение — за методистом')}."
-        for w in _methodist_warnings(kit, for_docx)
-    ]
-    lines += [_issue_line(i) for i in warnings]
-    if lines:
-        sections.append(Section("Предупреждения", [Bullets(_capped(lines))]))
+        return Section("Предупреждения методисту", [Para("Автопроверка не выполнялась.")])
+    if not warnings:
+        return Section("Предупреждения методисту", [Para(NO_WARNINGS)])
+    return Section(
+        "Предупреждения методисту", [Para(WARNINGS_INTRO), *(_advice(w, for_docx) for w in warnings)]
+    )
+
+
+def _remarks(kit: Kit, for_docx: bool) -> Section | None:
+    warnings = [i for i in _open(kit) if i.severity == Severity.WARNING]
+    if not warnings:
+        return None
+    return Section("Замечания автопроверки", [Bullets(_capped([_issue_line(i, for_docx) for i in warnings]))])
+
+
+def _sample(kit: Kit) -> Section | None:
     sample = _sample_issues(kit)
-    if sample and not for_docx:
-        sections.append(
-            Section(
-                "Ошибки приложенного образца",
-                [
-                    Para(
-                        f"В образце, приложенном к запросу, найдено {len(sample)} расхождений. В новой программе они "
-                        "исправлены — делать ничего не нужно; список пригодится автору образца."
-                    ),
-                    Bullets(_capped([i.message.strip() for i in sample])),
-                ],
-            )
-        )
-    return sections
+    if not sample:
+        return None
+    return Section(
+        "Ошибки приложенного образца",
+        [
+            Para(
+                f"В образце, приложенном к запросу, найдено {len(sample)} расхождений. В новой программе они "
+                "исправлены — делать ничего не нужно; список пригодится автору образца."
+            ),
+            Bullets(_capped([i.message.strip() for i in sample])),
+        ],
+    )
 
 
 def _hours(kit: Kit) -> Section:
-    numbers = display_numbers(kit)
+    summary = (
+        kit.report.hours if kit.report is not None and kit.report.hours is not None else hours_summary(kit)
+    )
     dop = kit.program.type == ProgramType.DOP
     header = (
         ["Уровень", "Всего", "Теория", "Практика", "Самост."]
@@ -314,29 +409,28 @@ def _hours(kit: Kit) -> Section:
         else ["Уровень", "Всего", "ЛК", "ПР", "ЛБ", "СРС"]
     )
 
-    def cells(h) -> list[str]:  # noqa: ANN001
-        values = [h.total, h.lk, h.pr + h.lb, h.srs] if dop else [h.total, h.lk, h.pr, h.lb, h.srs]
+    def cells(h: HoursRow) -> list[str]:
+        values = [h.lk, h.pr + h.lb, h.srs] if dop else [h.lk, h.pr, h.lb, h.srs]
         return [fmt_hours(v) for v in values]
 
     rows: list[list[str]] = []
-    for module in kit.modules_sorted():
-        rows.append(
-            [f"Модуль {numbers.get(module.id, '')}. {module.title}", *cells(kit.module_hours(module.id))]
-        )
-        for topic in kit.topics_of(module.id):
-            rows.append([f"   тема {numbers.get(topic.id, '')}. {topic.title}", *cells(topic.hours)])
     blank = [""] * (len(header) - 2)
-    rows.append(["Итоговая аттестация", fmt_hours(kit.fa_hours()), *blank])
-    total = kit.program_hours()
-    rows.append(["Итого", fmt_hours(kit.total_hours()), *cells(total)[1:]])
-    declared, actual = kit.program.total_hours, kit.total_hours()
-    agree = abs(declared - actual) < 1e-6
-    problems = [i for i in _open(kit) if i.check in HOURS_CHECKS]
+    for line in summary.lines:
+        if line.level == "module":
+            rows.append([f"Модуль {line.number}. {line.title}", fmt_hours(line.total), *cells(line.hours)])
+        elif line.level == "topic":
+            rows.append([f"   тема {line.number}. {line.title}", fmt_hours(line.total), *cells(line.hours)])
+        elif line.level == "final_attestation":
+            rows.append(["Итоговая аттестация", fmt_hours(line.total), *blank])
+        else:
+            rows.append(["Итого", fmt_hours(line.total), *cells(line.hours)])
+    problems = [i for i in _open(kit) if i.check in HOURS_CHECKS and i.severity != Severity.INFO]
     blocks: list[Block] = [
         Para(
-            f"Заявлено {fmt_hours(declared)} ч, по учебному плану {fmt_hours(actual)} ч — "
-            + ("сходится." if agree else "не сходится, см. «Что нужно исправить».")
+            f"Заявлено {fmt_hours(summary.declared)} ч, по учебному плану {fmt_hours(summary.total)} ч — "
+            + ("сходится." if summary.matches else "не сходится, см. «Что нужно исправить».")
         ),
+        Para(_hours_breakdown(summary, dop)),
         Table(header, rows, [5, *[1] * (len(header) - 1)]),
         Para(
             "Суммы строк, разделов и итогов, шаг 0,5 ч и календарь проверены: "
@@ -350,66 +444,95 @@ def _hours(kit: Kit) -> Section:
     return Section("Часы по уровням", blocks)
 
 
+def _hours_breakdown(summary: HoursSummary, dop: bool) -> str:
+    tail = (
+        f"самостоятельная работа — {fmt_hours(summary.srs)} ч, итоговая аттестация — "
+        f"{fmt_hours(summary.final_attestation)} ч."
+    )
+    if not summary.contact:
+        return f"Аудиторных занятий нет: {tail}"
+    word = "аудиторные занятия" if dop else "контактная работа"
+    distance = (
+        f" (из них с дистанционными технологиями — {fmt_hours(summary.distance)} ч)"
+        if summary.distance
+        else ""
+    )
+    return f"Из них {word} — {fmt_hours(summary.contact)} ч{distance}, {tail}"
+
+
+def _coverage_status(item: LOCoverage) -> str:
+    if item.status:
+        return item.status
+    if not item.topic_ids:
+        return "no_topic"
+    if not item.assessment_ids:
+        return "unassessed"
+    return "single" if len(item.assessment_ids) < 2 else "ok"
+
+
 def _coverage(kit: Kit) -> Section:
     numbers = display_numbers(kit)
     coverage = kit.report.coverage if kit.report is not None and kit.report.coverage else coverage_matrix(kit)
     outcomes = {o.id: o for o in kit.outcomes}
     rows: list[list[str]] = []
+    tones: list[str] = []
     complete = 0
     for item in coverage:
         outcome = outcomes.get(item.lo_id)
-        text = outcome.text if outcome is not None else ""
-        kinds = Counter(_assessment_kind(a) for a in item.assessment_ids)
+        text = item.text or (outcome.text if outcome is not None else "")
+        status = _coverage_status(item)
+        complete += status == "ok"
+        kinds = Counter(item.by_kind)
         listed = (
-            ", ".join(f"{name}: {count}" if name != "ИА" else name for name, count in kinds.items()) or "—"
+            ", ".join(
+                ASSESSMENT_NAMES.get(name, name) + ("" if name == "final_attestation" else f": {count}")
+                for name, count in kinds.items()
+            )
+            or "—"
         )
-        if not item.topic_ids:
-            status = "нет темы"
-        elif not item.assessment_ids:
-            status = "не проверяется"
-        elif len(item.assessment_ids) < 2:
-            status = "одно оценочное средство"
-        else:
-            status = "в порядке"
-            complete += 1
         topics = ", ".join(numbers.get(t, t) for t in item.topic_ids) or "—"
-        rows.append([f"{item.lo_id.removeprefix('LO')}. {_short(text, 90)}", topics, listed, status])
-    total = len(coverage)
+        number = numbers.get(item.lo_id, item.lo_id.removeprefix("LO"))
+        rows.append([f"{number}. {_short(text, 90)}", topics, listed, COVERAGE_TEXT[status]])
+        tones.append(OK if status == "ok" else WARN if status == "single" else ERROR)
     return Section(
         "Покрытие результатов обучения",
         [
             Para(
-                f"{complete} из {total} результатов обучения раскрыты в темах и проверяются двумя и более оценочными "
-                "средствами (вопросы теста, практические задания, вопросы собеседования, итоговая аттестация)."
+                f"{complete} из {len(coverage)} результатов обучения раскрыты в темах и проверяются двумя и более "
+                "оценочными средствами (вопросы теста, практические задания, вопросы собеседования, итоговая "
+                "аттестация)."
             ),
-            Table(["Результат обучения", "Темы", "Оценочные средства", "Итог"], rows, [6, 2, 3, 2]),
+            Table(["Результат обучения", "Темы", "Оценочные средства", "Итог"], rows, [6, 2, 3, 2], tones),
         ],
     )
 
 
-def _assessment_kind(assessment_id: str) -> str:
-    if assessment_id.startswith("Q"):
-        return "вопросы теста"
-    if assessment_id.startswith("S"):
-        return "задания"
-    if assessment_id.startswith("IQ"):
-        return "собеседование"
-    return "ИА"
-
-
 def _sources(kit: Kit) -> Section:
-    counts = Counter(s.verification for s in kit.sources)
-    confirmed = counts[Verification.REGISTRY] + counts[Verification.CATALOG] + counts[Verification.ONLINE]
-    unverified = [s for s in kit.sources if s.verification == Verification.UNVERIFIED]
-    checks = kit.meta.literature_checks
-    rejected, dropped = checks.get("rejected", 0), checks.get("dropped", 0)
+    summary = (
+        kit.report.sources
+        if kit.report is not None and kit.report.sources is not None
+        else source_summary(kit)
+    )
+    by_kind = ", ".join(
+        f"{name} — {summary.by_verification.get(v.value, 0)}"
+        for v, name in VERIFICATION_NAMES.items()
+        if summary.by_verification.get(v.value, 0)
+    )
     lines = [
-        f"подтверждено (реестр нормативки и каталог проверенных изданий): {confirmed}",
-        f"не подтверждено — в документе с пометкой «[не подтверждено]»: {len(unverified)}",
-        f"отброшено при проверке: {rejected + dropped} (не прошли проверку ISBN, издательства или года — {rejected}; "
-        f"сверх лимита неподтверждённых — {dropped})",
+        f"подтверждено: {summary.confirmed}" + (f" ({by_kind})" if by_kind else ""),
+        f"не подтверждено — в документе с пометкой «{mw.UNVERIFIED_MARK}»: {summary.unverified}",
+        f"отброшено при проверке: {summary.rejected + summary.dropped} (не прошли проверку ISBN, издательства или "
+        f"года — {summary.rejected}; сверх лимита неподтверждённых — {summary.dropped})",
     ]
     blocks: list[Block] = [Bullets(lines)]
+    if summary.by_section:
+        rows = [
+            [name, str(counts.get("confirmed", 0)), str(counts.get("unverified", 0))]
+            for name, counts in summary.by_section.items()
+        ]
+        tones = [WARN if counts.get("unverified", 0) else OK for counts in summary.by_section.values()]
+        blocks.append(Table(["Раздел", "Подтверждено", "Без подтверждения"], rows, [5, 2, 2], tones))
+    unverified = [s for s in kit.sources if s.verification == Verification.UNVERIFIED]
     if unverified:
         blocks.append(Para("Что сверить вручную (или заменить изданием из каталога):"))
         blocks.append(Bullets([s.citation for s in unverified]))
@@ -419,41 +542,52 @@ def _sources(kit: Kit) -> Section:
 def _template(kit: Kit) -> Section:
     sections = kit.report.sections if kit.report is not None and kit.report.sections else section_status(kit)
     missing = [name for name, filled in sections.items() if not filled]
-    blocks: list[Block] = [
-        Para(f"Заполнено {len(sections) - len(missing)} из {len(sections)} разделов шаблона.")
-    ]
-    if missing:
-        blocks.append(Para("Не заполнены (в документе стоит «[заполнить методисту]»):"))
-        blocks.append(Bullets(missing))
-    else:
-        blocks.append(Para("Все разделы шаблона заполнены."))
-    return Section("Полнота разделов шаблона", blocks)
+    text = f"Заполнено {len(sections) - len(missing)} из {len(sections)} разделов шаблона."
+    text += (
+        " Незаполненные помечены в документе «[заполнить методисту]»."
+        if missing
+        else " Все разделы шаблона заполнены."
+    )
+    rows = [[name, "заполнен" if filled else "не заполнен"] for name, filled in sections.items()]
+    tones = [OK if filled else ERROR for filled in sections.values()]
+    return Section(
+        "Полнота разделов шаблона", [Para(text), Table(["Раздел шаблона", "Итог"], rows, [7, 2], tones)]
+    )
+
+
+def _copy_result(kit: Kit, references: Sequence[str]) -> CopySummary:
+    stored = kit.report.copying if kit.report is not None else None
+    if stored is not None and stored.references:
+        return stored
+    if any(r and r.strip() for r in references):
+        return copy_summary(kit, references)
+    return stored or CopySummary(threshold=ValidationContext().copy_threshold)
 
 
 def _copying(kit: Kit, references: Sequence[str], for_docx: bool = False) -> Section:
-    references = [r for r in references if r and r.strip()]
-    flagged = [] if for_docx else [i for i in _open(kit) if i.check == "V42"]
-    if not references:
-        text = "Образец к запросу не приложен — сравнивать не с чем."
+    result = _copy_result(kit, references)
+    flagged = [i for i in _open(kit) if i.check == COPY_CHECK]
+    if not result.references:
+        blocks: list[Block] = [Para("Образец к запросу не приложен — сравнивать не с чем.")]
         if flagged:
-            return Section("Совпадение с образцом", [Para(text), Bullets([_issue_line(i) for i in flagged])])
-        return Section("Совпадение с образцом", [Para(text)])
-    stats = copy_stats(kit, references)
-    threshold = ValidationContext().copy_threshold
+            blocks.append(Bullets([_issue_line(i, for_docx) for i in flagged]))
+        return Section("Совпадение с образцом", blocks)
     verdict = (
         "в норме"
-        if stats.ratio <= threshold
+        if result.ratio <= result.threshold + 1e-9
         else "выше порога — перепишите совпадающие фрагменты своими словами"
     )
-    blocks: list[Block] = [
-        Para(
-            f"С приложенным образцом дословно совпадает {stats.ratio:.0%} текста комплекта (порог — {threshold:.0%}): "
-            f"{verdict}. Ошибки образца в программу не переносятся."
+    text = (
+        f"С приложенным образцом дословно совпадает {result.ratio:.0%} текста комплекта (порог — "
+        f"{result.threshold:.0%}): {verdict}."
+    )
+    if result.fields_flagged:
+        text += (
+            f" Почти дословно повторяют образец {_n(result.fields_flagged, 'фрагмент', 'фрагмента', 'фрагментов')}"
+            " — см. «Замечания автопроверки»."
         )
-    ]
-    if flagged:
-        blocks.append(Bullets([_issue_line(i) for i in flagged]))
-    return Section("Совпадение с образцом", blocks)
+    text += " Ошибки образца в программу не переносятся."
+    return Section("Совпадение с образцом", [Para(text)])
 
 
 def _judge(kit: Kit, for_docx: bool = False) -> Section:
@@ -469,10 +603,16 @@ def _judge(kit: Kit, for_docx: bool = False) -> Section:
         )
     passed = sum(1 for r in results if r.passed)
     rows = [
-        [JUDGE_TEXTS.get(r.criterion, r.criterion), "пройдено" if r.passed else "есть замечания"]
+        [r.title or JUDGE_TEXTS.get(r.criterion, r.criterion), "пройдено" if r.passed else "есть замечания"]
         + ([] if for_docx else [r.reason.strip() or "—"])  # свободный текст модели — только в report.md
         for r in results
     ]
+    tones = [OK if r.passed else WARN for r in results]
+    table = (
+        Table(["Критерий", "Итог"], rows, [7, 2], tones)
+        if for_docx
+        else Table(["Критерий", "Комментарий", "Итог"], [[r[0], r[2], r[1]] for r in rows], [5, 6, 2], tones)
+    )
     return Section(
         "Смысловая проверка",
         [
@@ -480,9 +620,7 @@ def _judge(kit: Kit, for_docx: bool = False) -> Section:
                 f"Эксперт-модель проверила то, что нельзя посчитать кодом: пройдено {passed} из {len(results)} критериев. "
                 "Замечания — повод перечитать соответствующий раздел."
             ),
-            Table(["Критерий", "Итог"], rows, [7, 2])
-            if for_docx
-            else Table(["Критерий", "Итог", "Комментарий"], rows, [5, 2, 6]),
+            table,
         ],
     )
 
@@ -502,8 +640,9 @@ def _skipped_section(kit: Kit, notes: Sequence[str], for_docx: bool = False) -> 
 
 
 def _cost(kit: Kit) -> Section:
-    costs = kit.report.cost if kit.report is not None and kit.report.cost else kit.meta.cost
-    timing = kit.report.timing if kit.report is not None and kit.report.timing else kit.meta.timing
+    report = kit.report
+    costs = report.cost if report is not None and report.cost else kit.meta.cost
+    timing = report.timing if report is not None and report.timing else kit.meta.timing
     rows = [
         [
             STEP_TITLES.get(c.step.split(":")[0], c.step),
@@ -517,9 +656,12 @@ def _cost(kit: Kit) -> Section:
     total_rub = sum(c.cost_rub for c in costs)
     total_calls = sum(c.calls for c in costs)
     rows.append(["Итого", str(total_calls), "", _rub(total_rub), f"{sum(c.seconds for c in costs):.0f}"])
-    longest = max(timing.items(), key=lambda kv: kv[1]) if timing else None
     text = f"Вызовов модели: {total_calls}, стоимость {_rub(total_rub)} ₽."
-    if timing and sum(timing.values()) >= 1:
+    seconds = report.generation_seconds if report is not None else None
+    if seconds:
+        text += f" Комплект собран за {_duration(seconds)} после утверждения каркаса."
+    longest = max(timing.items(), key=lambda kv: kv[1]) if timing else None
+    if longest is not None and sum(timing.values()) >= 1:
         text += (
             f" Шаги генерации заняли {sum(timing.values()):.0f} с в сумме (часть шагов идёт параллельно); "
             f"самый долгий — «{STEP_TITLES.get(longest[0].split(':')[0], longest[0])}», {longest[1]:.0f} с."
@@ -553,6 +695,14 @@ def _rub(value: float) -> str:
     return f"{value:.2f}".replace(".", ",")
 
 
+def _duration(seconds: float) -> str:
+    total = int(round(seconds))
+    minutes, rest = divmod(total, 60)
+    if not minutes:
+        return f"{rest} с"
+    return f"{minutes} мин {rest} с" if rest else f"{minutes} мин"
+
+
 def _short(text: str, limit: int) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
@@ -567,15 +717,30 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ").strip() or " "
 
 
+def _advice_md(n: int, block: Advice) -> list[str]:
+    lines = [f"### {n}. {block.title}", "", block.text, ""]
+    if block.figures:
+        lines += ["| Цифры | |", "|---|---|"]
+        lines += [f"| {_cell(label)} | {_cell(value)} |" for label, value in block.figures]
+        lines.append("")
+    lines += ["**Варианты решения:**", ""]
+    lines += [f"{k}. {option}" for k, option in enumerate(block.options, start=1)]
+    return [*lines, ""]
+
+
 def render_report_md(doc: ReportDoc) -> str:
     lines = [f"# {doc.title}", "", f"**Итог.** {doc.summary}", ""]
     for section in doc.sections:
         lines += [f"## {section.title}", ""]
+        advice_no = 0
         for block in section.blocks:
             if isinstance(block, Para):
                 lines += [block.text, ""]
             elif isinstance(block, Bullets):
                 lines += [f"- {item}" for item in block.items] + [""]
+            elif isinstance(block, Advice):
+                advice_no += 1
+                lines += _advice_md(advice_no, block)
             else:
                 lines.append("| " + " | ".join(_cell(h) for h in block.header) + " |")
                 lines.append("|" + "|".join("---" for _ in block.header) + "|")

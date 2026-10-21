@@ -30,7 +30,6 @@ from app.core.hours import (
 )
 from app.core.ids import IdAllocator, display_label
 from app.core.registry import Registry
-from app.core.validate import EXPECTATION_RE
 from app.llm import LLMClient, LLMError, TruncatedResponse
 from app.models import (
     Audience,
@@ -52,7 +51,6 @@ from app.models import (
     TFRef,
     Topic,
     ValidationReport,
-    WarningType,
     WorkMix,
 )
 from app.pipeline.base import AgentError, StepContext
@@ -677,23 +675,6 @@ def slides_modules(kit: Kit, scope: SlidesScope) -> list[str]:
     return [m.id for m in modules if any(pattern.search(normalize(t.title)) for t in kit.topics_of(m.id))]
 
 
-def expectation_warnings(kit: Kit) -> list[MethodistWarning]:
-    """Общее правило: ожидание заказчика («пойти работать в сферу») против того, что реально даёт программа."""
-    match = EXPECTATION_RE.search(kit.request.raw_text)
-    if not match:
-        return []
-    skills = [o.text.rstrip(".") for o in kit.outcomes if o.kind == OutcomeKind.CAN][:4]
-    listed = "; ".join(f"«{s}»" for s in skills) if skills else "базовые умения по теме"
-    text = (
-        f"В запросе ожидание «{match.group(0)}». Программа на {hours_label(kit.program.total_hours)} даёт начальный "
-        f"уровень: {listed}. Этого хватит, чтобы продолжить обучение и выполнять простые задачи под руководством, "
-        "но не чтобы работать специалистом самостоятельно. Для этого обычно нужны профессиональная переподготовка "
-        "и практика. Проверьте, что цель и результаты программы не обещают трудоустройства, и обсудите это "
-        "с заказчиком."
-    )
-    return [MethodistWarning(type=WarningType.EXPECTATION_GAP, text=text)]
-
-
 def _solve(built: _Built, constraints: HoursConstraints) -> SolverResult:
     kit = built.kit
     modules = [
@@ -804,7 +785,7 @@ def assemble(
         logger.info("skeleton: %s", note)
     kit.request.assumptions = list(dict.fromkeys([*kit.request.assumptions, *built.notes]))
     kit.meta.created_at = now_msk()
-    kit.report = validate_fn(kit, [*warnings, *expectation_warnings(kit)])
+    kit.report = validate_fn(kit, warnings)  # expectation_gap и прочие общие правила добавляет validate
     return kit
 
 

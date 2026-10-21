@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if refresh_s %}
+  <meta http-equiv="refresh" content="{{ refresh_s }}">
+  {% endif %}
+  <title>Отчёт автопроверки — Каркас</title>
+  {% include "_report_styles.html" %}
+  <style>
+    body { margin: 0; background: #f6f8fa; }
+    .page { max-width: 1120px; margin: 0 auto; padding: 16px 16px 48px; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; color: #59636e; font: 14px/1.4 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin-bottom: 12px; }
+    .topbar strong { color: #1f2328; }
+    .sheet { background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 20px 24px; }
+    @media (max-width: 640px) { .sheet { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <span><strong>Каркас</strong> — агент методиста</span>
+      <span>Сессия {{ session_id }}</span>
+    </div>
+    <main class="sheet">
+      {% if doc %}
+      {% include "_report.html" %}
+        {% if downloads %}
+      <section class="report downloads" aria-labelledby="downloads-title">
+        <h2 id="downloads-title">Файлы комплекта</h2>
+        <ul>
+          {% for title, url in downloads %}
+          <li><a href="{{ url }}">{{ title }}</a></li>
+          {% endfor %}
+        </ul>
+      </section>
+        {% endif %}
+      {% else %}
+      <section class="report">
+        <h1>Отчёт автопроверки</h1>
+        <p class="status status-pending" role="status"><span>{{ message }}</span></p>
+      </section>
+      {% endif %}
+    </main>
+  </div>
+</body>
+</html>

@@ -1,4 +1,4 @@
-"""Транспортные DTO временного контракта (docs/api_contract.md) и перевод входа в RequestInput.
+"""Транспортные DTO контракта API (docs/api_contract.md) и перевод входа в RequestInput.
 
 Не путать с app/models.py: здесь только то, что ходит по HTTP. Входные DTO основного сценария
 не запрещают лишние поля (харнесс автопрогона может прислать своё) — они просто игнорируются.
@@ -326,6 +326,7 @@ class SessionOut(BaseModel):
     kit: dict[str, Any] | None = None
     files: dict[str, str] | None = None
     report: ValidationReport | None = None
+    report_page: str | None = None  # отчёт автопроверки для методиста — HTML-страница
     changed_ids: list[str] | None = None
     patch: PatchOut | None = None
     notes: list[str] | None = None
@@ -343,7 +344,9 @@ class RebalanceTopicOut(BaseModel):
 
 class ConflictOut(BaseModel):
     code: str
+    title: str = ""  # коротко, что не сходится
     message: str
+    options: list[str] = Field(default_factory=list)  # варианты решения для методиста
     target_ids: list[str] = Field(default_factory=list)
 
 

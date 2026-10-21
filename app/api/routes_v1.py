@@ -1,4 +1,4 @@
-"""Временный контракт API (docs/api_contract.md, docs/ARCHITECTURE.md §6.2).
+"""Контракт API (docs/api_contract.md, docs/ARCHITECTURE.md §6.2).
 
 Режимы ожидания (`?wait=`):
 - POST /sessions и /answers — по умолчанию ждут ближайшей остановки: вопросы, каркас или (при auto_approve)

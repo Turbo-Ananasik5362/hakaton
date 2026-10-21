@@ -16,7 +16,7 @@ from app.models import JudgeResult, Kit, StepCost
 from app.render import docx_dop, docx_pk
 from app.render.common import load_organization
 from app.render.program import render_program_docx
-from app.render.report_md import Table, api_message, build_report, render_report_md, summary_line
+from app.render.report_md import Advice, Table, api_message, build_report, render_report_md, summary_line
 
 FIXTURES = Path(__file__).parent / "fixtures" / "kits"
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,6 +24,7 @@ SAMPLE_PK = (ROOT / "docs" / "case" / "sample_pk_stazhirovka_bsa_248h.md").read_
 
 BASE_SECTIONS = [
     "Коротко",
+    "Предупреждения методисту",
     "Часы по уровням",
     "Покрытие результатов обучения",
     "Источники",
@@ -80,20 +81,33 @@ def test_ok_kit_says_so_in_one_phrase() -> None:
         and "**Итог.** Комплект собран, ошибок и предупреждений нет." in md
     )
     assert "Ничего не пропущено" in md
+    warnings = {sec.title: sec for sec in build_report(kit).sections}["Предупреждения методисту"]
+    assert [b.block for b in warnings.blocks] == ["para"] and "Предупреждений нет" in warnings.blocks[0].text
 
 
 def test_warnings_kit_lists_warnings_with_options_and_separates_sample_errors() -> None:
     kit = warnings_kit()
     summary = summary_line(kit)
-    assert re.match(r"Комплект собран, ошибок нет, \d+ предупреждени\w+ — см\. ниже\.", summary)
+    assert re.match(
+        r"Комплект собран, ошибок нет; \d+ предупреждени\w+ методисту( и \d+ замечани\w+ автопроверки)? — см\. ниже\.",
+        summary,
+    )
+    overview = {s.title: s for s in build_report(kit).sections}["Коротко"].blocks[0].items
+    methodist = int(re.search(r"(\d+) предупреждени\w+ методисту", summary).group(1))
+    assert f"предупреждения методисту (с вариантами решения): {methodist}" in overview
     assert "В приложенном образце найдено ошибок: 15; в программу они не перенесены." in summary
     report = build_report(kit)
     sections = {s.title: s for s in report.sections}
-    warnings = sections["Предупреждения"].blocks[0].items
-    assert warnings and all("Что можно сделать:" in w or "Как исправить:" in w for w in warnings)
+    cards = [b for b in sections["Предупреждения методисту"].blocks if isinstance(b, Advice)]
+    assert {c.kind for c in cards} == {"reference_errors", "norm_replaced"}
+    assert all(c.title and c.text and c.figures and len(c.options) >= 2 for c in cards)
+    remarks = sections["Замечания автопроверки"].blocks[0].items
+    assert remarks and all("Как исправить:" in line for line in remarks)
     sample = sections["Ошибки приложенного образца"]
     assert "делать ничего не нужно" in sample.blocks[0].text and len(sample.blocks[1].items) == 15
     assert "Что нужно исправить" not in sections
+    md = render_report_md(report)
+    assert "### 1. Ошибки в приложенном образце" in md and "**Варианты решения:**" in md
 
 
 def test_errors_kit_says_what_to_fix_and_how() -> None:
@@ -160,27 +174,38 @@ def test_sources_count_confirmed_unverified_and_dropped() -> None:
     kit = warnings_kit()
     kit.meta.literature_checks = {"rejected": 2, "dropped": 1, "unverified": 1}
     kit.sources[-1].verification = kit.sources[-1].verification.__class__.UNVERIFIED
+    kit.report = validate(kit, ValidationContext(registry=default_registry()))
+    assert kit.report.sources.unverified == 1 and kit.report.sources.rejected == 2
     section = next(s for s in build_report(kit).sections if s.title == "Источники")
     lines = section.blocks[0].items
     assert lines[1].endswith(": 1") and "отброшено при проверке: 3" in lines[2]
-    assert "[не подтверждено]" in section.blocks[2].items[0]
+    by_section = section.blocks[1]
+    assert isinstance(by_section, Table) and "warn" in by_section.tones
+    assert "[не подтверждено]" in section.blocks[3].items[0]
+
+
+def copying_text(kit: Kit, references: list[str]) -> str:
+    return (
+        next(
+            s for s in build_report(kit, references=references).sections if s.title == "Совпадение с образцом"
+        )
+        .blocks[0]
+        .text
+    )
 
 
 def test_copying_against_attached_sample() -> None:
     kit = warnings_kit()
-    clean = next(
-        s for s in build_report(kit, references=[SAMPLE_PK]).sections if s.title == "Совпадение с образцом"
-    )
-    assert "в норме" in clean.blocks[0].text
+    kit.report.copying = None  # пересчитать по переданному образцу
+    assert "в норме" in copying_text(kit, [SAMPLE_PK])
     kit.texts.annotation = SAMPLE_PK[2000:6000]  # дословный кусок образца
-    copied = next(
-        s for s in build_report(kit, references=[SAMPLE_PK]).sections if s.title == "Совпадение с образцом"
-    )
-    assert "выше порога" in copied.blocks[0].text
-    assert (
-        "не приложен"
-        in next(s for s in build_report(kit).sections if s.title == "Совпадение с образцом").blocks[0].text
-    )
+    assert "выше порога" in copying_text(kit, [SAMPLE_PK])
+    assert "не приложен" in copying_text(kit, [])
+    # сводка из report.json важнее пересчёта: её считает validate по тем же вложениям
+    kit.report = validate(kit, ValidationContext(registry=default_registry(), reference_texts=[SAMPLE_PK]))
+    assert kit.report.copying.references == 1 and not kit.report.copying.passed
+    text = copying_text(kit, [])
+    assert "выше порога" in text and "Почти дословно повторяют образец 1 фрагмент" in text
 
 
 def test_judge_results_and_absence() -> None:
@@ -193,7 +218,9 @@ def test_judge_results_and_absence() -> None:
     ]
     section = next(s for s in build_report(kit).sections if s.title == "Смысловая проверка")
     assert "пройдено 1 из 2" in section.blocks[0].text
-    assert section.blocks[1].rows[1][1] == "есть замечания"
+    table = section.blocks[1]
+    assert table.header[-1] == "Итог" and table.rows[1][-1] == "есть замечания"
+    assert table.tones == ["ok", "warn"]
     kit.report.judge, kit.meta.judge = [], []
     empty = next(s for s in build_report(kit).sections if s.title == "Смысловая проверка")
     assert "не выполнялась" in empty.blocks[0].text

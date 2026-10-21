@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -48,6 +49,7 @@ class StepContext:
     inputs_dir: Path
     files_dir: Path
     request: RequestInput
+    generation_started_at: datetime | None = None  # начало генерации комплекта (для времени в отчёте)
 
     def attachment_path(self, attachment: Attachment) -> Path:
         return self.inputs_dir / attachment.stored_as

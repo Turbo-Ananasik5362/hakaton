@@ -22,6 +22,7 @@ from app.pipeline.base import Pipeline
 from app.pipeline.default import DefaultPipeline
 from app.pipeline.orchestrator import Orchestrator
 from app.storage.sessions import SessionStore
+from app.web import routes as web_routes
 
 logger = logging.getLogger("karkas")
 
@@ -93,6 +94,7 @@ def create_app(
             "api": "/api/v1",
             "docs": "/docs",
             "health": "/health",
+            "report_page": "/sessions/{session_id}/report",
             "llm_mode": settings.llm_mode,
             "llm_ready": settings.llm_ready,
             "version": version,
@@ -102,6 +104,7 @@ def create_app(
         return info
 
     app.include_router(routes_v1.router)
+    app.include_router(web_routes.router)
     return app
 
 

@@ -23,6 +23,7 @@ from fractions import Fraction
 
 from app.core.hours import KINDS, HoursConstraints, fmt_hours, plural, to_hours, to_units
 from app.core.ids import day_id
+from app.core.methodist_warnings import schedule_days, schedule_sessions
 from app.models import (
     Calendar,
     CalendarDay,
@@ -31,7 +32,6 @@ from app.models import (
     Kit,
     MethodistWarning,
     Topic,
-    WarningType,
     WorkKind,
 )
 
@@ -164,17 +164,16 @@ def _sessions_calendar(
             "объём не делится на длину занятия."
         )
     if c.weeks_target and n and not _fits(weeks, c.weeks_target):
-        need_per_week = math.ceil(n / c.weeks_target)
-        target = _target_text(c.weeks_target, _duration_text(kit))
-        text = (
-            f"Желаемый срок — {target} — не сходится с расписанием: {n} "
-            f"{plural(n, 'занятие', 'занятия', 'занятий')} по {fmt_hours(session)} ч при {per_week} "
-            f"{plural(per_week, 'занятии', 'занятиях', 'занятиях')} в неделю займут {_weeks_text(weeks)}. "
-            f"Чтобы уложиться в {_weeks_text(c.weeks_target)}, нужно {need_per_week} "
-            f"{plural(need_per_week, 'занятие', 'занятия', 'занятий')} в неделю. "
-            f"В программу и календарный график записан расчётный срок — {_weeks_text(weeks)}."
+        warnings.append(
+            schedule_sessions(
+                target_weeks=c.weeks_target,
+                target_text=_target_text(c.weeks_target, _duration_text(kit)),
+                sessions=n,
+                session_hours=session,
+                per_week=per_week,
+                weeks=weeks,
+            )
         )
-        warnings.append(MethodistWarning(type=WarningType.SCHEDULE_TIGHT, text=text))
         notes.append(
             f"Расчётный срок — {_weeks_text(weeks)} при {per_week} "
             f"{plural(per_week, 'занятии', 'занятиях', 'занятиях')} в неделю; желаемый срок не выдерживается."
@@ -225,17 +224,18 @@ def _days_calendar(
             per_week = max_d
             weeks = math.ceil(n / per_week)
             need_u = math.ceil(total_u / (target * per_week))
-            target_text = _target_text(target, _duration_text(kit))
-            day_word = plural(n, "учебный день", "учебных дня", "учебных дней")
-            text = (
-                f"Желаемый срок — {target_text} — не сходится с нагрузкой: при объёме "
-                f"{fmt_hours(to_hours(total_u))} ч и не больше {fmt_hours(to_hours(cap_u))} ч в день получается "
-                f"{n} {day_word} — это {_weeks_text(weeks)} даже при {per_week} учебных днях в неделю. "
-                f"Чтобы уложиться в {_weeks_text(target)}, нужно около {fmt_hours(to_hours(need_u))} ч в день "
-                f"при {per_week} учебных днях в неделю; другой вариант — срок {_weeks_text(weeks)}. "
-                f"В программу и календарный график записан расчётный срок — {_weeks_text(weeks)}."
+            warnings.append(
+                schedule_days(
+                    target_weeks=target,
+                    target_text=_target_text(target, _duration_text(kit)),
+                    total=to_hours(total_u),
+                    cap=to_hours(cap_u),
+                    days=n,
+                    per_week=per_week,
+                    weeks=weeks,
+                    need_per_day=to_hours(need_u),
+                )
             )
-            warnings.append(MethodistWarning(type=WarningType.SCHEDULE_TIGHT, text=text))
             notes.append(
                 f"Расчётный срок — {_weeks_text(weeks)} при {per_week} учебных днях в неделю и нагрузке "
                 f"до {fmt_hours(to_hours(cap_u))} ч в день; желаемый срок при такой нагрузке не выдерживается."

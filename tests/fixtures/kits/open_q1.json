@@ -559,7 +559,7 @@
       "Понятие 2 темы «Первая программа: ввод и вывод» — Ключевое понятие, которое объясняется на лекции простыми словами.",
       "Понятие 3 темы «Первая программа: ввод и вывод» — Ключевое понятие, которое объясняется на лекции простыми словами."
      ],
-     "notes": ""
+     "notes": "Подведите итоги: что теперь получается и какие вопросы остались; ответьте на вопросы."
     }
    ]
   },
@@ -667,7 +667,7 @@
       "Понятие 2 темы «Переменные и типы данных» — Ключевое понятие, которое объясняется на лекции простыми словами.",
       "Понятие 3 темы «Переменные и типы данных» — Ключевое понятие, которое объясняется на лекции простыми словами."
      ],
-     "notes": ""
+     "notes": "Подведите итоги: что теперь получается и какие вопросы остались; ответьте на вопросы."
     }
    ]
   },
@@ -1611,24 +1611,6 @@
    "id": "SRC5",
    "kind": "book",
    "section": "additional",
-   "registry_id": "python_chernyshev_2022",
-   "verification": "catalog",
-   "authors": [
-    "Чернышев С. А."
-   ],
-   "title": "Основы программирования на Python : учебное пособие для вузов",
-   "year": 2022,
-   "publisher": "Юрайт",
-   "isbn": "978-5-534-14350-8",
-   "url": "https://rusneb.ru/catalog/000199_000009_011141361/",
-   "topic_ids": [],
-   "unverified": false,
-   "citation": "Чернышев С. А. Основы программирования на Python : учебное пособие для вузов. — Юрайт, 2022. — ISBN 978-5-534-14350-8. — URL: https://rusneb.ru/catalog/000199_000009_011141361/"
-  },
-  {
-   "id": "SRC6",
-   "kind": "book",
-   "section": "additional",
    "registry_id": "testing_beck_2021",
    "verification": "catalog",
    "authors": [
@@ -1644,7 +1626,7 @@
    "citation": "Бек К. Экстремальное программирование. Разработка через тестирование. — Питер, 2021. — ISBN 978-5-4461-1439-9. — URL: https://rusneb.ru/catalog/000199_000009_010439131/"
   },
   {
-   "id": "SRC7",
+   "id": "SRC6",
    "kind": "doc",
    "section": "internet",
    "registry_id": "python_docs_tutorial",
@@ -1660,7 +1642,7 @@
    "citation": "The Python Tutorial. — URL: https://docs.python.org/3/tutorial/"
   },
   {
-   "id": "SRC8",
+   "id": "SRC7",
    "kind": "doc",
    "section": "internet",
    "registry_id": "data_pandas_docs",
@@ -1676,7 +1658,7 @@
    "citation": "pandas documentation. — 2026. — URL: https://pandas.pydata.org/docs/"
   },
   {
-   "id": "SRC9",
+   "id": "SRC8",
    "kind": "doc",
    "section": "internet",
    "registry_id": "ml_sklearn_docs",
@@ -1878,53 +1860,234 @@
   "satisfaction": ""
  },
  "report": {
-  "generated_at": "2026-10-20T14:32:25.011023Z",
+  "generated_at": "2026-10-21T09:28:46.682942Z",
+  "summary": "Комплект собран, ошибок и предупреждений нет. Пояснения к сборке — в разделе «Что пропущено и почему».",
   "issues": [],
   "hours": {
-   "M1": {
-    "lk": 3.0,
-    "pr": 3.0,
-    "lb": 0.0,
-    "srs": 0.0,
-    "distance": 0.0,
-    "contact": 6.0,
-    "in_person": 6.0,
-    "total": 6.0
-   },
-   "M2": {
-    "lk": 2.0,
-    "pr": 2.0,
-    "lb": 0.0,
-    "srs": 0.0,
-    "distance": 0.0,
-    "contact": 4.0,
-    "in_person": 4.0,
-    "total": 4.0
-   },
-   "M3": {
-    "lk": 1.0,
-    "pr": 3.0,
-    "lb": 0.0,
-    "srs": 0.0,
-    "distance": 0.0,
-    "contact": 4.0,
-    "in_person": 4.0,
-    "total": 4.0
-   },
-   "TOTAL": {
-    "lk": 6.0,
-    "pr": 8.0,
-    "lb": 0.0,
-    "srs": 0.0,
-    "distance": 0.0,
-    "contact": 14.0,
-    "in_person": 14.0,
-    "total": 14.0
-   }
+   "declared": 16.0,
+   "total": 16.0,
+   "topics": 14.0,
+   "final_attestation": 2.0,
+   "lk": 6.0,
+   "pr": 8.0,
+   "lb": 0.0,
+   "srs": 0.0,
+   "contact": 14.0,
+   "distance": 0.0,
+   "in_person": 14.0,
+   "lines": [
+    {
+     "level": "module",
+     "id": "M1",
+     "number": "1",
+     "title": "Знакомство с Python",
+     "total": 6.0,
+     "hours": {
+      "lk": 3.0,
+      "pr": 3.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 6.0,
+      "in_person": 6.0,
+      "total": 6.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T1.1",
+     "number": "1.1",
+     "title": "Первая программа: ввод и вывод",
+     "total": 2.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 1.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T1.2",
+     "number": "1.2",
+     "title": "Переменные и типы данных",
+     "total": 2.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 1.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T1.3",
+     "number": "1.3",
+     "title": "Условия: программа принимает решения",
+     "total": 2.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 1.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "module",
+     "id": "M2",
+     "number": "2",
+     "title": "Циклы и списки",
+     "total": 4.0,
+     "hours": {
+      "lk": 2.0,
+      "pr": 2.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 4.0,
+      "in_person": 4.0,
+      "total": 4.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T2.1",
+     "number": "2.1",
+     "title": "Циклы: повторяем действия",
+     "total": 2.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 1.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T2.2",
+     "number": "2.2",
+     "title": "Списки и простые функции",
+     "total": 2.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 1.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "module",
+     "id": "M3",
+     "number": "3",
+     "title": "Мини-проект: игра или чат-бот",
+     "total": 4.0,
+     "hours": {
+      "lk": 1.0,
+      "pr": 3.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 4.0,
+      "in_person": 4.0,
+      "total": 4.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T3.1",
+     "number": "3.1",
+     "title": "Планирование проекта",
+     "total": 2.0,
+     "hours": {
+      "lk": 0.5,
+      "pr": 1.5,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "topic",
+     "id": "T3.2",
+     "number": "3.2",
+     "title": "Разработка и отладка проекта",
+     "total": 2.0,
+     "hours": {
+      "lk": 0.5,
+      "pr": 1.5,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 2.0,
+      "in_person": 2.0,
+      "total": 2.0
+     }
+    },
+    {
+     "level": "final_attestation",
+     "id": "FA",
+     "number": "",
+     "title": "Итоговая аттестация",
+     "total": 2.0,
+     "hours": {
+      "lk": 0.0,
+      "pr": 0.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 0.0,
+      "in_person": 0.0,
+      "total": 0.0
+     }
+    },
+    {
+     "level": "total",
+     "id": "TOTAL",
+     "number": "",
+     "title": "Итого",
+     "total": 16.0,
+     "hours": {
+      "lk": 6.0,
+      "pr": 8.0,
+      "lb": 0.0,
+      "srs": 0.0,
+      "distance": 0.0,
+      "contact": 14.0,
+      "in_person": 14.0,
+      "total": 14.0
+     }
+    }
+   ],
+   "matches": true
   },
   "coverage": [
    {
     "lo_id": "LO1.1",
+    "text": "Знать, что такое переменная, тип данных, условие и цикл",
+    "kind": "know",
     "topic_ids": [
      "T1.1",
      "T1.2",
@@ -1937,10 +2100,18 @@
      "S2",
      "S3",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 2,
+     "seminars": 3,
+     "final_attestation": 1
+    }
    },
    {
     "lo_id": "LO1.2",
+    "text": "Уметь писать программы с условиями и циклами",
+    "kind": "can",
     "topic_ids": [
      "T1.3",
      "T2.1",
@@ -1953,10 +2124,18 @@
      "S4",
      "S5",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 2,
+     "seminars": 3,
+     "final_attestation": 1
+    }
    },
    {
     "lo_id": "LO1.3",
+    "text": "Владеть навыком запуска и отладки простой программы",
+    "kind": "master",
     "topic_ids": [
      "T1.1",
      "T3.2"
@@ -1967,10 +2146,18 @@
      "S1",
      "S7",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 2,
+     "seminars": 2,
+     "final_attestation": 1
+    }
    },
    {
     "lo_id": "LO2.1",
+    "text": "Знать этапы создания небольшого проекта",
+    "kind": "know",
     "topic_ids": [
      "T3.1"
     ],
@@ -1978,10 +2165,18 @@
      "Q9",
      "S6",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 1,
+     "seminars": 1,
+     "final_attestation": 1
+    }
    },
    {
     "lo_id": "LO2.2",
+    "text": "Уметь разбивать задачу проекта на шаги",
+    "kind": "can",
     "topic_ids": [
      "T2.2",
      "T3.1",
@@ -1994,10 +2189,18 @@
      "S6",
      "S7",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 2,
+     "seminars": 3,
+     "final_attestation": 1
+    }
    },
    {
     "lo_id": "LO2.3",
+    "text": "Владеть навыком рассказа о своём проекте",
+    "kind": "master",
     "topic_ids": [
      "T3.2"
     ],
@@ -2005,14 +2208,42 @@
      "Q10",
      "S7",
      "FA"
-    ]
+    ],
+    "status": "ok",
+    "by_kind": {
+     "test_questions": 1,
+     "seminars": 1,
+     "final_attestation": 1
+    }
    }
   ],
   "sources": {
-   "registry": 0,
-   "catalog": 9,
-   "online": 0,
-   "unverified": 0
+   "total": 8,
+   "confirmed": 8,
+   "unverified": 0,
+   "rejected": 1,
+   "dropped": 0,
+   "by_verification": {
+    "registry": 0,
+    "catalog": 8,
+    "online": 0,
+    "unverified": 0
+   },
+   "by_section": {
+    "Основная литература": {
+     "confirmed": 3,
+     "unverified": 0
+    },
+    "Дополнительная литература": {
+     "confirmed": 2,
+     "unverified": 0
+    },
+    "Интернет-ресурсы": {
+     "confirmed": 3,
+     "unverified": 0
+    }
+   },
+   "unverified_ids": []
   },
   "sections": {
    "Пояснительная записка": true,
@@ -2034,47 +2265,62 @@
    "3.3.3. Интернет-ресурсы": true,
    "3.4. Кадровое обеспечение": true
   },
+  "copying": {
+   "references": 1,
+   "ratio": 0.0,
+   "threshold": 0.15,
+   "fields_flagged": 0,
+   "passed": true
+  },
   "warnings_for_methodist": [],
   "judge": [
    {
     "criterion": "J1",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Язык и терминология соответствуют аудитории; термины поясняются; нет жаргона."
    },
    {
     "criterion": "J2",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Уровень, последовательность тем и входные требования соответствуют входному уровню слушателей."
    },
    {
     "criterion": "J3",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Результаты обучения реалистичны для объёма программы; нет обещаний сверх объёма."
    },
    {
     "criterion": "J4",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Ситуации заданий взяты из профессиональной среды слушателей и реалистичны."
    },
    {
     "criterion": "J5",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Итоговая аттестация и задания соответствуют форме из запроса; требования конкретны, критерии измеримы, пример задания выполним."
    },
    {
     "criterion": "J6",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Содержание тем и лекций действительно раскрывает привязанные результаты обучения."
    },
    {
     "criterion": "J7",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Нет устаревших инструментов, версий и практик."
    },
    {
     "criterion": "J9",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": "Аннотация, цель и планируемые результаты по сути соответствуют своим разделам."
    }
   ],
   "cost": [
@@ -2145,57 +2391,60 @@
   ],
   "timing": {
    "plan": 0.0,
-   "program_texts": 0.001,
-   "final_attestation": 0.002,
-   "literature": 0.03,
-   "module_content:M1": 0.001,
-   "module_content:M2": 0.001,
-   "module_content:M3": 0.001,
-   "lectures:M1": 0.002,
-   "seminars:M1": 0.002,
-   "lectures:M2": 0.001,
-   "seminars:M2": 0.001,
-   "lectures:M3": 0.001,
-   "seminars:M3": 0.002,
-   "tests:M1": 0.017,
-   "tests:M2": 0.013,
-   "tests:M3": 0.008,
+   "program_texts": 0.041,
+   "final_attestation": 0.042,
+   "literature": 0.042,
+   "module_content:M1": 0.043,
+   "module_content:M2": 0.043,
+   "module_content:M3": 0.044,
+   "lectures:M1": 0.018,
+   "seminars:M1": 0.019,
+   "lectures:M2": 0.019,
+   "seminars:M2": 0.02,
+   "lectures:M3": 0.021,
+   "seminars:M3": 0.021,
+   "tests:M1": 0.026,
+   "tests:M2": 0.026,
+   "tests:M3": 0.026,
    "slides": 0.002,
    "refill": 0.0,
    "finalize": 0.009,
    "judge": 0.001
   },
-  "status": "ok"
+  "generation_seconds": 0.7,
+  "status": "ok",
+  "cost_rub": 0.0,
+  "llm_calls": 16
  },
  "history": [],
  "retired_ids": [],
  "meta": {
-  "created_at": "2026-10-20T17:32:24.743058+03:00",
+  "created_at": "2026-10-21T12:28:46.388853+03:00",
   "llm_mode": "mock",
   "generation_mode": "full",
   "skills_version": "",
   "timing": {
    "plan": 0.0,
-   "program_texts": 0.001,
-   "final_attestation": 0.002,
-   "literature": 0.03,
-   "module_content:M1": 0.001,
-   "module_content:M2": 0.001,
-   "module_content:M3": 0.001,
-   "lectures:M1": 0.002,
-   "seminars:M1": 0.002,
-   "lectures:M2": 0.001,
-   "seminars:M2": 0.001,
-   "lectures:M3": 0.001,
-   "seminars:M3": 0.002,
-   "tests:M1": 0.017,
-   "tests:M2": 0.013,
-   "tests:M3": 0.008,
+   "program_texts": 0.041,
+   "final_attestation": 0.042,
+   "literature": 0.042,
+   "module_content:M1": 0.043,
+   "module_content:M2": 0.043,
+   "module_content:M3": 0.044,
+   "lectures:M1": 0.018,
+   "seminars:M1": 0.019,
+   "lectures:M2": 0.019,
+   "seminars:M2": 0.02,
+   "lectures:M3": 0.021,
+   "seminars:M3": 0.021,
+   "tests:M1": 0.026,
+   "tests:M2": 0.026,
+   "tests:M3": 0.026,
    "slides": 0.002,
    "refill": 0.0,
    "finalize": 0.009,
    "judge": 0.001,
-   "validate": 0.107
+   "validate": 0.11
   },
   "cost": [
    {
@@ -2273,47 +2522,58 @@
    {
     "criterion": "J1",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J2",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J3",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J4",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J5",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J6",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J7",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    },
    {
     "criterion": "J9",
     "passed": true,
-    "reason": "Соответствует: формулировки конкретны и опираются на темы программы."
+    "reason": "Соответствует: формулировки конкретны и опираются на темы программы.",
+    "title": ""
    }
   ],
   "generation_notes": [
    "Модель предложила источник «Полное руководство по всему», который не удалось подтвердить (ISBN 978-5-4461-0000-1 не проходит проверку контрольной суммы), — он не включён."
-  ]
+  ],
+  "literature_checks": {
+   "rejected": 1
+  }
  },
  "hours_by_module": {
   "M1": {

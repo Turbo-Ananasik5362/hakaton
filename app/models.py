@@ -18,7 +18,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 # --------------------------------------------------------------------------------------------------
 # Базовые типы
@@ -594,22 +594,132 @@ class Issue(KitModel):
     fixed: bool = False
 
 
+class WarningFigure(KitModel):
+    """Цифра к предупреждению методисту: подпись и значение так, как их показывать («Расчётный срок» — «11 недель»)."""
+
+    label: str
+    value: str
+
+
 class MethodistWarning(KitModel):
+    """Предупреждение методисту по общему правилу (app/core/methodist_warnings.py): что не так — с цифрами,
+    и варианты решения. Пишется без жаргона: ни ID объектов, ни названий проверок."""
+
     type: WarningType
-    text: str
+    title: str = ""  # коротко, что случилось: «Желаемый срок не сходится с нагрузкой»
+    text: str  # подробно, с цифрами
+    figures: list[WarningFigure] = Field(
+        default_factory=list
+    )  # главные цифры отдельно — для таблиц и интерфейса
+    options: list[str] = Field(default_factory=list)  # варианты решения
+    # вариант text для приложения к самой программе (.docx), если в text есть то, что в программу не идёт:
+    # цитаты приложенного образца, номера утративших силу актов. Пусто — text годится и для программы.
+    program_text: str = ""
+    code: str = ""  # уточнение вида для программ (код конфликта солвера и т.п.)
     target_ids: list[AnyId] = Field(default_factory=list)
 
 
+CoverageStatus = Literal["ok", "single", "unassessed", "no_topic"]
+
+
 class LOCoverage(KitModel):
+    """Строка матрицы «результат обучения × темы × оценочные средства»."""
+
     lo_id: OutcomeId
+    text: str = ""  # формулировка результата — чтобы отчёт читался без комплекта
+    kind: OutcomeKind | None = None
     topic_ids: list[TopicId] = Field(default_factory=list)
-    assessment_ids: list[AnyId] = Field(default_factory=list)  # Q*, S*, IQ*, FA.K*
+    assessment_ids: list[AnyId] = Field(default_factory=list)  # Q*, S*, IQ*, FA
+    # ok — раскрыт в теме и проверяется не меньше чем двумя средствами; single — одним; unassessed — ни одним;
+    # no_topic — не раскрыт ни в одной теме
+    status: CoverageStatus | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def by_kind(self) -> dict[str, int]:
+        """Оценочные средства по видам: test_questions, seminars, interview, final_attestation."""
+        counts: dict[str, int] = {}
+        for item in self.assessment_ids:
+            kind = assessment_kind(item)
+            counts[kind] = counts.get(kind, 0) + 1
+        return counts
+
+
+def assessment_kind(assessment_id: str) -> str:
+    if assessment_id.startswith("IQ"):
+        return "interview"
+    if assessment_id.startswith("Q"):
+        return "test_questions"
+    if assessment_id.startswith("S"):
+        return "seminars"
+    return "final_attestation"
+
+
+class HoursLine(KitModel):
+    """Строка сводки часов по уровням: модуль, его темы, итоговая аттестация, итог."""
+
+    level: Literal["module", "topic", "final_attestation", "total"]
+    id: str = ""  # M1 / T1.2 / FA / TOTAL
+    number: str = ""  # отображаемый номер: «1», «1.2»
+    title: str = ""
+    total: Hours = 0  # у ИА часы не делятся по видам работы — только total
+    hours: HoursRow = Field(default_factory=HoursRow)
+
+
+class HoursSummary(KitModel):
+    """Часы по уровням: темы → модули → итог; итоговая аттестация; контактная работа, СРС, ДОТ."""
+
+    declared: Hours = 0  # объём из запроса
+    total: Hours = 0  # по учебному плану: темы + итоговая аттестация
+    topics: Hours = 0  # сумма часов тем
+    final_attestation: Hours = 0
+    lk: Hours = 0
+    pr: Hours = 0
+    lb: Hours = 0
+    srs: Hours = 0
+    contact: Hours = 0  # ЛК + ПР + ЛБ
+    distance: Hours = 0  # часть контактной работы с ДОТ
+    in_person: Hours = 0
+    lines: list[HoursLine] = Field(default_factory=list)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def matches(self) -> bool:
+        return abs(self.declared - self.total) < 1e-6
+
+
+class SourceSummary(KitModel):
+    """Источники: подтверждено (реестр, каталог, онлайн-сверка) / не подтверждено (с пометкой) / отброшено."""
+
+    total: int = 0  # в списке литературы программы
+    confirmed: int = 0
+    unverified: int = 0
+    rejected: int = 0  # предложены моделью и не прошли формальную проверку (ISBN, год, издательство)
+    dropped: int = 0  # сверх лимита неподтверждённых на раздел
+    by_verification: dict[str, int] = Field(default_factory=dict)  # registry / catalog / online / unverified
+    by_section: dict[str, dict[str, int]] = Field(default_factory=dict)  # раздел → {confirmed, unverified}
+    unverified_ids: list[SourceId] = Field(default_factory=list)
+
+
+class CopySummary(KitModel):
+    """Совпадение текстов комплекта с приложенными образцами (шинглы по 7 слов, общие формулировки не в счёт)."""
+
+    references: int = 0  # сколько образцов сравнивалось; 0 — сравнивать не с чем
+    ratio: float = Field(default=0, ge=0, le=1)  # доля совпавших шинглов во всём комплекте
+    threshold: float = Field(default=0, ge=0, le=1)
+    fields_flagged: int = 0  # полей, почти дословно повторяющих образец
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def passed(self) -> bool:
+        return self.ratio <= self.threshold + 1e-9 and self.fields_flagged == 0
 
 
 class JudgeResult(KitModel):
     criterion: str = Field(pattern=r"^J\d+$")
     passed: bool
     reason: str = ""
+    title: str = ""  # формулировка критерия для отчёта
 
 
 class StepCost(KitModel):
@@ -622,16 +732,35 @@ class StepCost(KitModel):
 
 
 class ValidationReport(KitModel):
+    """Отчёт самопроверки (report.json). Заполняют validate (проверки и сводки), шаг validate пайплайна
+    (судья, стоимость, время по шагам) и выгрузка (итог одной фразой, время генерации, сверка файлов V31)."""
+
     generated_at: datetime | None = None
+    summary: str = ""  # итог одной фразой для методиста
     issues: list[Issue] = Field(default_factory=list)
-    hours: dict[str, HoursRow] = Field(default_factory=dict)  # снимок: id модуля / "TOTAL" → часы
+    hours: HoursSummary | None = None
     coverage: list[LOCoverage] = Field(default_factory=list)
-    sources: dict[str, int] = Field(default_factory=dict)  # verification → количество
+    sources: SourceSummary | None = None
     sections: dict[str, bool] = Field(default_factory=dict)  # раздел шаблона → заполнен
+    copying: CopySummary | None = None  # антиплагиат против приложенного образца
     warnings_for_methodist: list[MethodistWarning] = Field(default_factory=list)
     judge: list[JudgeResult] = Field(default_factory=list)
     cost: list[StepCost] = Field(default_factory=list)
     timing: dict[str, float] = Field(default_factory=dict)  # шаг → секунды
+    generation_seconds: float | None = None  # от начала генерации комплекта до выгрузки файлов
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy(cls, data: object) -> object:
+        """kit.json прежних версий: hours был снимком «модуль → часы», sources — «статус → число». Такие сводки
+        отбрасываются — следующая проверка соберёт новые."""
+        if isinstance(data, dict):
+            hours, sources = data.get("hours"), data.get("sources")
+            if isinstance(hours, dict) and "lines" not in hours and "declared" not in hours:
+                data = {**data, "hours": None}
+            if isinstance(sources, dict) and "total" not in sources and "confirmed" not in sources:
+                data = {**data, "sources": None}
+        return data
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -642,6 +771,16 @@ class ValidationReport(KitModel):
         if any(i.severity == Severity.WARNING for i in open_issues) or self.warnings_for_methodist:
             return ReportStatus.WARNINGS
         return ReportStatus.OK
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cost_rub(self) -> float:
+        return round(sum(c.cost_rub for c in self.cost), 2)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def llm_calls(self) -> int:
+        return sum(c.calls for c in self.cost)
 
 
 # --------------------------------------------------------------------------------------------------

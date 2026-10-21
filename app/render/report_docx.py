@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from app.render.common import cell_text
-from app.render.report_md import Bullets, Para, ReportDoc, Table
+from app.render.report_md import Advice, Bullets, Para, ReportDoc, Table
 from app.render.writer import DocWriter
 
 APPENDIX_SUBTITLE = "Отчёт автопроверки комплекта"
@@ -24,13 +24,27 @@ def write_report_appendix(w: DocWriter, heading: str, report: ReportDoc) -> None
     w.para(f"Итог. {report.summary}", bold=True, first_line=False)
     for section in report.sections:
         w.subhead(section.title)
+        advice_no = 0
         for block in section.blocks:
             if isinstance(block, Para):
                 w.para(block.text)
             elif isinstance(block, Bullets):
                 w.bullets(block.items)
+            elif isinstance(block, Advice):
+                advice_no += 1
+                _advice(w, advice_no, block)
             elif isinstance(block, Table):
                 _table(w, block)
+
+
+def _advice(w: DocWriter, n: int, block: Advice) -> None:
+    """Предупреждение методисту: заголовок, текст, цифры одной строкой, нумерованные варианты решения."""
+    w.para(f"{n}. {block.title}", bold=True, align="left", keep_next=True, first_line=False)
+    w.para(block.text)
+    if block.figures:
+        w.para("Цифры: " + "; ".join(f"{label} — {value}" for label, value in block.figures) + ".")
+    w.para("Варианты решения:", align="left", keep_next=True, first_line=False)
+    w.numbered(block.options)
 
 
 def _table(w: DocWriter, block: Table) -> None:

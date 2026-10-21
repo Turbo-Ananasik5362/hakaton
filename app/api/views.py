@@ -1,4 +1,4 @@
-"""Сборка ответов API из состояния сессии и комплекта. Формат — временный контракт (docs/api_contract.md)."""
+"""Сборка ответов API из состояния сессии и комплекта. Формат — docs/api_contract.md."""
 
 from __future__ import annotations
 
@@ -62,6 +62,8 @@ def session_payload(
             out["report"] = kit.report.model_dump(mode="json")
     if state.files:
         out["files"] = file_urls(state)
+    if kit is not None and kit.report is not None and status == SessionStatus.DONE:
+        out["report_page"] = report_page_url(state.id)  # отчёт для методиста в браузере (HTML)
     if state.last_patch is not None:
         out["patch"] = state.last_patch.model_dump(mode="json", exclude={"instruction", "at"})
         if state.last_patch.ok:
@@ -71,6 +73,10 @@ def session_payload(
     if status == SessionStatus.FAILED:
         out["error"] = {"code": state.error_code or "failed", "message": state.error or "Работа остановлена."}
     return out
+
+
+def report_page_url(session_id: str) -> str:
+    return f"/sessions/{session_id}/report"
 
 
 def file_urls(state: SessionState) -> dict[str, str]:
@@ -127,6 +133,8 @@ def status_message(
             if kit is not None
             else "Комплект готов."
         )
+        if kit is not None and kit.report is not None:
+            text += f" Отчёт для методиста в браузере — {report_page_url(sid)}."
         if state.notes:
             text += " Список пропущенного — также в notes."
         if state.last_patch is not None and not state.last_patch.ok:

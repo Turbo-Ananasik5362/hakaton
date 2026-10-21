@@ -12,7 +12,7 @@ import asyncio
 import logging
 from collections.abc import Callable, Iterable
 
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, now_msk
 from app.core.reference import extract_text
 from app.core.registry import Registry, default_registry
 from app.core.validate import ValidationContext, validate
@@ -20,13 +20,13 @@ from app.llm import LLMClient
 from app.models import ClarifyQuestion, Issue, Kit, MethodistWarning, RequestSpec, ValidationReport
 from app.pipeline import clarify as clarify_step
 from app.pipeline.base import PatchResult, RequestInput, Step, StepContext, StepUnavailable
-from app.pipeline.content import ContentGenerator, merge_costs
+from app.pipeline.content import JUDGE_TEXTS, ContentGenerator, merge_costs
 from app.pipeline.intake import run_intake
 from app.pipeline.skeleton import run_skeleton
 from app.render.bundle import FAILED_NOTE, RenderOutcome, error_detail, failure_issue, render_all
 from app.render.common import load_organization
 from app.render.kit_json import render_kit_json
-from app.render.report_md import write_report_md
+from app.render.report_md import summary_line, write_report_md
 
 logger = logging.getLogger("karkas.render")
 
@@ -104,7 +104,10 @@ class DefaultPipeline:
         report = await asyncio.to_thread(self.validate, kit, (), ctx)  # не блокирует event loop
         report.cost = merge_costs(kit.meta.cost)
         report.timing = dict(kit.meta.timing)
-        report.judge = list(kit.meta.judge)
+        report.judge = [
+            r.model_copy(update={"title": r.title or JUDGE_TEXTS.get(r.criterion, "")})
+            for r in kit.meta.judge
+        ]
         kit.report = report
 
     def validate(
@@ -146,6 +149,10 @@ class DefaultPipeline:
         for note in outcome.notes:
             _add_note(kit, note)
         _attach_render_issues(kit, outcome.issues)
+        try:
+            _finish_report(kit, ctx)
+        except Exception:  # noqa: BLE001 — итог одной фразой и время сборки не важнее файлов комплекта
+            logger.exception("Итог отчёта не сформирован")
         files = dict(outcome.files)
         try:  # отчёт автопроверки — после всех выгрузок, чтобы в нём был и итог их сверки (V31)
             files["report_md"] = write_report_md(kit, ctx.files_dir, (), references, list(files.values()))
@@ -157,6 +164,16 @@ class DefaultPipeline:
             )
         files.update(render_kit_json(kit, ctx.files_dir))
         return files
+
+
+def _finish_report(kit: Kit, ctx: StepContext) -> None:
+    """Итог одной фразой и время генерации — в report.json (после сверки выгрузок V31, перед записью отчётов)."""
+    if kit.report is None:
+        return
+    if ctx.generation_started_at is not None:
+        elapsed = (now_msk() - ctx.generation_started_at).total_seconds()
+        kit.report.generation_seconds = round(max(0.0, elapsed), 1)
+    kit.report.summary = summary_line(kit)
 
 
 def _add_note(kit: Kit, note: str) -> None:

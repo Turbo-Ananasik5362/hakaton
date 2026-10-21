@@ -4,8 +4,8 @@
 - каждая проверка — функция ``check_vNN(kit, ctx) -> list[Finding]``; реестр проверок — ``CHECKS``
   (V31 «выгрузки» живёт вне этого модуля: ей нужны готовые файлы рендера);
 - ``validate()`` запускает выбранные проверки, превращает находки в ``Issue`` (ID «V02-1») и собирает
-  ``ValidationReport``: покрытие РО, снимок часов, статистику источников, полноту разделов шаблона
-  и предупреждения методисту, которые выводит код;
+  ``ValidationReport``: часы по уровням, покрытие РО, источники, полноту разделов шаблона, антиплагиат
+  и предупреждения методисту по общим правилам (app/core/methodist_warnings.py);
 - ``validate_reference()`` — логика V45 на сырых числах приложенного образца (``ParsedReference``).
 
 Параметры проверок — только из ``kit.request`` (RequestSpec) и ``kit.program``, пороги — из
@@ -27,13 +27,17 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from app.core import copycheck
+from app.core import methodist_warnings as mw
 from app.core.ids import display_numbers, issue_id
 from app.core.registry_api import NormRecord, RegistryView, fold_yo, name_pattern, normalize_text
 from app.models import (
     CalendarMode,
+    CopySummary,
     FAForm,
     FixBy,
+    HoursLine,
     HoursRow,
+    HoursSummary,
     Issue,
     Kit,
     Lecture,
@@ -54,6 +58,7 @@ from app.models import (
     Source,
     SourceKind,
     SourceSection,
+    SourceSummary,
     StudyFormKind,
     TestScope,
     Topic,
@@ -69,11 +74,12 @@ __all__ = [
     "CheckSpec",
     "Finding",
     "ValidationContext",
+    "copy_summary",
     "coverage_matrix",
-    "hours_snapshot",
+    "hours_summary",
     "methodist_warnings",
     "section_status",
-    "source_stats",
+    "source_summary",
     "validate",
     "validate_reference",
 ]
@@ -130,9 +136,12 @@ NORM_FALLBACK_NAMES = {
     "minobrnauki816": "приказ Минобрнауки России № 816 (электронное обучение и ДОТ)",
     "gov1678": "постановление Правительства РФ № 1678 (Правила применения электронного обучения и ДОТ)",
 }
-NORM_REPLACED_FALLBACK = (
-    "Порядок по ДПП — приказ Минобрнауки России от 24.03.2025 № 266: с 01.09.2025 он заменил приказ № 499 "
-    "от 01.07.2013, который указан в задании. В программе приведён действующий приказ № 266."
+# Порядок по ДПП на случай, когда реестр не подключён (с реестром всё берётся из записей).
+NORM_REPLACED_FALLBACK = mw.NormReplacement(
+    current="Приказ Минобрнауки России от 24.03.2025 № 266",
+    old="Приказ Минобрнауки России от 01.07.2013 № 499",
+    current_since="01.09.2025",
+    old_until="01.09.2025",
 )
 NORM_KIND_WORDS = {
     "federal_law": "Федеральный закон",
@@ -141,9 +150,8 @@ NORM_KIND_WORDS = {
     "letter": "письмо",
 }
 
-# Предупреждения, которые пишет не validate (LLM, солвер, календарь): переносятся из прошлого отчёта.
+# Предупреждения, которые пишет не validate (солвер часов, календарь): переносятся из прошлого отчёта.
 EXTERNAL_WARNING_TYPES = (
-    WarningType.EXPECTATION_GAP,
     WarningType.SCHEDULE_TIGHT,
     WarningType.CONSTRAINT_CONFLICT,
 )
@@ -662,11 +670,51 @@ def _module_numbers_of(kit: Kit) -> dict[str, str]:
 # --------------------------------------------------------------------------------------------------
 
 
-def hours_snapshot(kit: Kit) -> dict[str, HoursRow]:
-    """Часы по модулям и "TOTAL" — сумма всех тем по видам работы (часы ИА — kit.final_attestation.hours)."""
-    snapshot = {m.id: kit.module_hours(m.id) for m in kit.modules_sorted()}
-    snapshot["TOTAL"] = kit.program_hours()
-    return snapshot
+def hours_summary(kit: Kit) -> HoursSummary:
+    """Часы по уровням: модуль → его темы, итоговая аттестация, итог; контактная работа, СРС, ДОТ."""
+    numbers = display_numbers(kit)
+    lines: list[HoursLine] = []
+    for module in kit.modules_sorted():
+        row = kit.module_hours(module.id)
+        lines.append(
+            HoursLine(
+                level="module",
+                id=module.id,
+                number=numbers.get(module.id, ""),
+                title=module.title,
+                total=row.total,
+                hours=row,
+            )
+        )
+        lines += [
+            HoursLine(
+                level="topic",
+                id=topic.id,
+                number=numbers.get(topic.id, ""),
+                title=topic.title,
+                total=topic.hours.total,
+                hours=topic.hours,
+            )
+            for topic in kit.topics_of(module.id)
+        ]
+    fa = kit.fa_hours()
+    topics = kit.program_hours()
+    lines.append(HoursLine(level="final_attestation", id="FA", title="Итоговая аттестация", total=fa))
+    lines.append(HoursLine(level="total", id="TOTAL", title="Итого", total=kit.total_hours(), hours=topics))
+    return HoursSummary(
+        declared=kit.program.total_hours,
+        total=kit.total_hours(),
+        topics=topics.total,
+        final_attestation=fa,
+        lk=topics.lk,
+        pr=topics.pr,
+        lb=topics.lb,
+        srs=topics.srs,
+        contact=topics.contact,
+        distance=topics.distance,
+        in_person=topics.in_person,
+        lines=lines,
+    )
 
 
 def _assessments_by_lo(kit: Kit) -> dict[str, list[str]]:
@@ -688,21 +736,54 @@ def _assessments_by_lo(kit: Kit) -> dict[str, list[str]]:
     return result
 
 
-def coverage_matrix(kit: Kit) -> list[LOCoverage]:
-    """РО × темы × оценочные средства (вопросы, задания, вопросы собеседования, ИА)."""
+def coverage_matrix(kit: Kit, min_assessments: int = 2) -> list[LOCoverage]:
+    """РО × темы × оценочные средства (вопросы, задания, вопросы собеседования, ИА) со статусом строки."""
     assessments = _assessments_by_lo(kit)
     result = []
     for outcome in kit.outcomes:
         topics = [t.id for t in kit.topics if outcome.id in t.lo_ids]
+        found = assessments.get(outcome.id, [])
+        if not topics:
+            status = "no_topic"
+        elif not found:
+            status = "unassessed"
+        elif len(found) < min_assessments:
+            status = "single"
+        else:
+            status = "ok"
         result.append(
-            LOCoverage(lo_id=outcome.id, topic_ids=topics, assessment_ids=assessments.get(outcome.id, []))
+            LOCoverage(
+                lo_id=outcome.id,
+                text=outcome.text,
+                kind=outcome.kind,
+                topic_ids=topics,
+                assessment_ids=found,
+                status=status,
+            )
         )
     return result
 
 
-def source_stats(kit: Kit) -> dict[str, int]:
-    counts = Counter(s.verification.value for s in kit.sources)
-    return {v.value: counts.get(v.value, 0) for v in Verification}
+def source_summary(kit: Kit) -> SourceSummary:
+    """Подтверждено (реестр, каталог, онлайн-сверка) / не подтверждено / отброшено при проверке."""
+    counts = Counter(s.verification for s in kit.sources)
+    by_section: dict[str, dict[str, int]] = {}
+    for source in kit.sources:
+        name = mw.SECTION_NAMES.get(source.section, source.section.value)
+        entry = by_section.setdefault(name, {"confirmed": 0, "unverified": 0})
+        entry["unverified" if source.unverified else "confirmed"] += 1
+    unverified = [s.id for s in kit.sources if s.unverified]
+    checks = kit.meta.literature_checks
+    return SourceSummary(
+        total=len(kit.sources),
+        confirmed=len(kit.sources) - len(unverified),
+        unverified=len(unverified),
+        rejected=int(checks.get("rejected", 0)),
+        dropped=int(checks.get("dropped", 0)),
+        by_verification={v.value: counts.get(v, 0) for v in Verification},
+        by_section=by_section,
+        unverified_ids=unverified,
+    )
 
 
 SectionRule = tuple[Callable[[Kit], bool], FixBy]
@@ -4007,6 +4088,30 @@ def copy_stats(kit: Kit, references: Sequence[str]) -> CopyStats:
     return stats
 
 
+def _copied_fields(stats: CopyStats, field_ratio: float) -> list[tuple[_Text, set, set]]:
+    """Поля, почти дословно повторяющие образец: не меньше 3 совпавших шинглов и доля выше field_ratio."""
+    return [
+        (item, own, hit)
+        for item, own, hit in stats.fields
+        if len(hit) >= 3 and len(hit) / len(own) > field_ratio
+    ]
+
+
+def copy_summary(kit: Kit, references: Sequence[str], ctx: ValidationContext | None = None) -> CopySummary:
+    """Антиплагиат для отчёта: доля текста, дословно совпадающего с приложенными образцами, против порога."""
+    ctx = ctx or ValidationContext()
+    references = [t for t in references if t and t.strip()]
+    if not references:
+        return CopySummary(references=0, ratio=0, threshold=ctx.copy_threshold)
+    stats = copy_stats(kit, references)
+    return CopySummary(
+        references=len(references),
+        ratio=round(stats.ratio, 4),
+        threshold=ctx.copy_threshold,
+        fields_flagged=len(_copied_fields(stats, ctx.copy_field_ratio)),
+    )
+
+
 def check_v42(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     out: list[Finding] = []
     reference = kit.request.reference
@@ -4029,19 +4134,18 @@ def check_v42(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     stats = copy_stats(kit, references)
     copied, total = stats.copied, stats.total
     field_findings: list[Finding] = []
-    for item, own, hit in stats.fields:
-        if len(hit) >= 3 and len(hit) / len(own) > ctx.copy_field_ratio:
-            fragments = copycheck.copied_fragments(item.text, references, limit=1)
-            field_findings.append(
-                Finding(
-                    WARNING,
-                    f"{item.where}: текст почти дословно совпадает с образцом («{_short(fragments[0] if fragments else item.text, 80)}»).",
-                    [item.target] if item.target else [],
-                    f"field copy ratio {len(hit) / len(own):.2f}",
-                    FixBy.LLM,
-                    refs=("K12", "Q3.4b"),
-                )
+    for item, own, hit in _copied_fields(stats, ctx.copy_field_ratio):
+        fragments = copycheck.copied_fragments(item.text, references, limit=1)
+        field_findings.append(
+            Finding(
+                WARNING,
+                f"{item.where}: текст почти дословно совпадает с образцом («{_short(fragments[0] if fragments else item.text, 80)}»).",
+                [item.target] if item.target else [],
+                f"field copy ratio {len(hit) / len(own):.2f}",
+                FixBy.LLM,
+                refs=("K12", "Q3.4b"),
             )
+        )
     if total and copied / total > ctx.copy_threshold:
         out.append(
             Finding(
@@ -4689,76 +4793,100 @@ def _constraint_conflict(kit: Kit) -> bool:
     return bool(share) and _internship(kit)
 
 
-def _norm_replaced_text(kit: Kit, registry: RegistryView | None) -> str:
-    texts: list[str] = []
-    if registry is not None:
-        for norm_id in kit.program.norm_ids:
-            record = registry.norm(norm_id)
-            if record is None or not record.replaces:
-                continue
-            old = registry.norm(record.replaces)
-            if old is None:
-                continue
-            since = f" (действует с {_iso_to_ru(record.in_force_since)})" if record.in_force_since else ""
-            until = f" с {_iso_to_ru(old.in_force_until)}" if old.in_force_until else ""
-            texts.append(
-                f"Действующий акт — {_norm_short(record)}{since}. {_upper_first(_norm_short(old))} "
-                f"{_lost_force(old)} силу{until}: ссылка на него из задания или образца в программу не переносится."
+def _act_name(record: NormRecord) -> str:
+    """Название акта без заголовка в кавычках: «Приказ Минобрнауки России от 24.03.2025 № 266»."""
+    head = record.title.split("«", 1)[0].strip().rstrip(",")
+    return head if head and record.number and record.number in head else _upper_first(_norm_short(record))
+
+
+def _mentioned_in(kit: Kit, record: NormRecord) -> tuple[str, ...]:
+    """Где упоминается прежний акт: в тексте запроса, в приложенном образце (по номеру акта)."""
+    if not record.number:
+        return ()
+    pattern = re.compile(r"№\s*" + re.escape(record.number) + r"(?![\w/-])", re.I)
+    where = []
+    if pattern.search(kit.request.raw_text):
+        where.append("запросе")
+    reference = kit.request.reference
+    if reference is not None and any(pattern.search(text) for text in reference.order_refs):
+        where.append("приложенном образце")
+    return tuple(where)
+
+
+def _norm_replacements(kit: Kit, registry: RegistryView | None) -> list[mw.NormReplacement]:
+    """Действующие акты программы, которые заменили утратившие силу (по записям реестра)."""
+    out: list[mw.NormReplacement] = []
+    if registry is None:
+        if kit.program.type in PK_TYPES:
+            out.append(NORM_REPLACED_FALLBACK)
+        return out
+    for norm_id in kit.program.norm_ids:
+        record = registry.norm(norm_id)
+        if record is None or not record.replaces:
+            continue
+        old = registry.norm(record.replaces)
+        if old is None:
+            continue
+        out.append(
+            mw.NormReplacement(
+                current=_act_name(record),
+                old=_act_name(old),
+                current_since=_iso_to_ru(record.in_force_since),
+                old_until=_iso_to_ru(old.in_force_until),
+                lost_word=_lost_force(old),
+                source_url=record.source_url or old.source_url or "",
+                mentioned_in=_mentioned_in(kit, old),
             )
-    if not texts and kit.program.type in PK_TYPES:
-        texts.append(NORM_REPLACED_FALLBACK)
-    return " ".join(texts)
+        )
+    if not out and kit.program.type in PK_TYPES:
+        out.append(NORM_REPLACED_FALLBACK)
+    return out
 
 
-def _reference_summary(ref: ParsedReference, findings: list[Finding]) -> str:
-    name = f" «{ref.source_name}»" if ref.source_name else ""
-    shown = "; ".join(f.message.rstrip(".") for f in findings[:6])
-    more = f"; и ещё {len(findings) - 6}" if len(findings) > 6 else ""
-    return (
-        f"В приложенном образце{name} найдены расхождения ({len(findings)}): {shown}{more}. "
-        "В новой программе они не повторяются."
-    )
+def _ref_code(finding: Finding) -> str:
+    match = re.match(r"\[(\w+)\]", finding.detail)
+    return match.group(1) if match else ""
 
 
 def methodist_warnings(kit: Kit, ctx: ValidationContext | None = None) -> list[MethodistWarning]:
-    """Предупреждения, которые выводит код, + переданные извне (ctx.extra_warnings, прошлый отчёт)."""
+    """Предупреждения методисту по общим правилам (app/core/methodist_warnings.py) + переданные извне
+    (ctx.extra_warnings от солвера и календаря, schedule_tight и constraint_conflict из прошлого отчёта)."""
     ctx = ctx or ValidationContext()
     result: list[MethodistWarning] = []
     reference = kit.request.reference
     if reference is not None:
-        findings = _reference_findings(reference, ctx.registry)
-        if findings:
-            result.append(
-                MethodistWarning(
-                    type=WarningType.REFERENCE_ERRORS, text=_reference_summary(reference, findings)
-                )
-            )
-    unverified = [s for s in kit.sources if s.unverified]
-    if unverified:
-        titles = _list((f"«{_short(s.title, 50)}»" for s in unverified), 5)
-        result.append(
-            MethodistWarning(
-                type=WarningType.UNVERIFIED_SOURCES,
-                text=(
-                    f"Источники, которые не удалось подтвердить по реестру и каталогу ({len(unverified)}): {titles}. "
-                    f"В списке литературы они помечены «{UNVERIFIED_MARK}» — проверьте их перед утверждением."
-                ),
-                target_ids=[s.id for s in unverified],
-            )
-        )
-    replaced = _norm_replaced_text(kit, ctx.registry)
-    if replaced:
-        result.append(MethodistWarning(type=WarningType.NORM_REPLACED, text=replaced))
+        findings = [
+            mw.SampleFinding(_ref_code(f), f.message) for f in _reference_findings(reference, ctx.registry)
+        ]
+        warning = mw.reference_errors(reference.source_name, findings)
+        if warning is not None:
+            result.append(warning)
+    match = EXPECTATION_RE.search(kit.request.raw_text)
+    if match:
+        phrase = mw.expectation_phrase(kit.request.raw_text, match.start(), match.end())
+        result.append(mw.expectation_gap(kit, phrase))
+    checks = kit.meta.literature_checks
+    sources = mw.unverified_sources(kit, int(checks.get("rejected", 0)), int(checks.get("dropped", 0)))
+    if sources is not None:
+        result.append(sources)
+    replaced = mw.norm_replaced(_norm_replacements(kit, ctx.registry))
+    if replaced is not None:
+        result.append(replaced)
     external = list(ctx.extra_warnings)
     if ctx.carry_over_warnings and kit.report is not None:
-        external += [w for w in kit.report.warnings_for_methodist if w.type in EXTERNAL_WARNING_TYPES]
+        # в отчётах прежних версий у них нет заголовка и вариантов — дополняем теми же умолчаниями, что и рендер
+        external += [
+            w.model_copy(update={"title": mw.title_of(w), "options": mw.options_of(w)})
+            for w in kit.report.warnings_for_methodist
+            if w.type in EXTERNAL_WARNING_TYPES
+        ]
     seen = {(w.type, w.text) for w in result}
     for warning in external:
         key = (warning.type, warning.text)
         if key not in seen:
             seen.add(key)
             result.append(warning)
-    return result
+    return mw.ordered(result)
 
 
 def check_v46(kit: Kit, ctx: ValidationContext) -> list[Finding]:
@@ -4813,17 +4941,48 @@ def check_v46(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                 )
             )
     for warning in warnings:
+        title = mw.title_of(warning)
         if not warning.text.strip():
             out.append(
                 Finding(
                     WARNING,
-                    f"Предупреждение методисту «{warning.type.value}» без текста.",
-                    detail="empty warning",
-                    fix_by=FixBy.LLM,
+                    f"Предупреждение методисту «{title}» без текста.",
+                    detail=f"empty warning {warning.type.value}",
+                    fix_by=FixBy.CODE,
+                    refs=("K8",),
+                )
+            )
+            continue
+        missing = mw.missing_parts(warning)
+        if missing:
+            out.append(
+                Finding(
+                    WARNING,
+                    f"Предупреждение методисту «{title}» без {_and_list(missing)}: методисту нужно видеть, что не "
+                    "сходится в цифрах, и варианты решения.",
+                    detail=f"incomplete warning {warning.type.value}: {', '.join(missing)}",
+                    fix_by=FixBy.CODE,
+                    refs=("K8",),
+                )
+            )
+        jargon = mw.jargon_in(warning)
+        if jargon:
+            out.append(
+                Finding(
+                    WARNING,
+                    f"В предупреждении методисту «{title}» служебное обозначение «{jargon}» — методисту оно "
+                    "непонятно; нужны название или номер, как в программе.",
+                    detail=f"jargon in warning {warning.type.value}: {jargon}",
+                    fix_by=FixBy.CODE,
                     refs=("K8",),
                 )
             )
     return out
+
+
+def _and_list(items: Sequence[str]) -> str:
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " и " + items[-1]
 
 
 # --------------------------------------------------------------------------------------------------
@@ -4934,9 +5093,10 @@ def validate(
     return ValidationReport(
         generated_at=datetime.now(timezone.utc),
         issues=issues,
-        hours=hours_snapshot(kit),
-        coverage=coverage_matrix(kit),
-        sources=source_stats(kit),
+        hours=hours_summary(kit),
+        coverage=coverage_matrix(kit, ctx.min_assessments_per_lo),
+        sources=source_summary(kit),
         sections=section_status(kit),
+        copying=copy_summary(kit, ctx.reference_texts, ctx),
         warnings_for_methodist=methodist_warnings(kit, ctx),
     )

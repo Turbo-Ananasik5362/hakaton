@@ -385,6 +385,10 @@ class Orchestrator:
             inputs_dir=self.store.inputs_dir(state.id),
             files_dir=self.store.files_dir(state.id),
             request=state.request,
+            # время генерации в отчёте — только для сборки комплекта (у правки и каркаса свой отсчёт)
+            generation_started_at=(
+                state.generation_started_at if state.status == SessionStatus.GENERATING else None
+            ),
         )
 
     # ---- учёт шагов ---------------------------------------------------------------------------------

@@ -1,0 +1,54 @@
+<style>
+  :root {
+    --text: #1f2328;
+    --muted: #59636e;
+    --line: #d0d7de;
+    --bg: #ffffff;
+    --soft: #f6f8fa;
+    --ok: #1a7f37;
+    --ok-bg: #dafbe1;
+    --warn: #9a6700;
+    --warn-bg: #fff8c5;
+    --error: #cf222e;
+    --error-bg: #ffebe9;
+    --info: #0969da;
+    --info-bg: #ddf4ff;
+  }
+  .report { color: var(--text); font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .report h1 { font-size: 22px; margin: 0 0 12px; }
+  .report h2 { font-size: 18px; margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .report h3 { font-size: 16px; margin: 0 0 6px; }
+  .report p { margin: 0 0 10px; }
+  .report ul, .report ol { margin: 0 0 10px; padding-left: 22px; }
+  .report li { margin: 2px 0; }
+  .status { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; border: 1px solid; }
+  .status .badge { flex: none; font-weight: 600; white-space: nowrap; }
+  .status-ok { background: var(--ok-bg); border-color: var(--ok); }
+  .status-ok .badge { color: var(--ok); }
+  .status-warnings { background: var(--warn-bg); border-color: var(--warn); }
+  .status-warnings .badge { color: var(--warn); }
+  .status-errors { background: var(--error-bg); border-color: var(--error); }
+  .status-errors .badge { color: var(--error); }
+  .status-pending { background: var(--soft); border-color: var(--line); }
+  .advice { border: 1px solid var(--line); border-left: 6px solid var(--warn); border-radius: 8px; padding: 12px 14px; margin: 12px 0; background: var(--bg); }
+  .advice.info { border-left-color: var(--info); }
+  .advice .kind { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--warn); margin-bottom: 4px; }
+  .advice.info .kind { color: var(--info); }
+  .advice .num { display: inline-block; min-width: 1.6em; color: var(--muted); }
+  .advice .options-title { font-weight: 600; margin: 8px 0 4px; }
+  .figures { border-collapse: collapse; margin: 6px 0 4px; font-size: 14px; }
+  .figures th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 16px 2px 0; vertical-align: top; }
+  .figures td { padding: 2px 0; font-weight: 600; word-break: break-word; }
+  .table-wrap { overflow-x: auto; margin: 0 0 12px; }
+  .report table.data { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .report table.data th, .report table.data td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+  .report table.data thead th { background: var(--soft); font-weight: 600; }
+  .report table.data td.tone { white-space: nowrap; font-weight: 600; }
+  .tone-ok { color: var(--ok); background: var(--ok-bg); }
+  .tone-warn { color: var(--warn); background: var(--warn-bg); }
+  .tone-error { color: var(--error); background: var(--error-bg); }
+  .report .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .downloads ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .downloads a { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; color: var(--info); background: var(--soft); }
+  .downloads a:hover { border-color: var(--info); }
+</style>

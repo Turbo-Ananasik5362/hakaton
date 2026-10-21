@@ -32,6 +32,7 @@ from app.models import (
     RequestSpec,
     ScheduleParams,
     Topic,
+    WarningFigure,
     WarningType,
     WorkKind,
     WorkMix,
@@ -271,17 +272,193 @@ class HoursConstraints:
 
 @dataclass
 class ConstraintConflict:
-    """Несовместимые требования. message — для методиста, по-русски, с цифрами."""
+    """Несовместимые требования. message — для методиста, по-русски, с цифрами; title и options — заголовок
+    и варианты решения (по коду конфликта и числам, conflict_advice)."""
 
     code: str
     message: str
     details: dict[str, Any] = field(default_factory=dict)
+    title: str = ""
+    options: list[str] = field(default_factory=list)
+
+    def figures(self) -> list[WarningFigure]:
+        """Числа из details с подписями для методиста."""
+        out = []
+        for key, value in self.details.items():
+            label = FIGURE_LABELS.get(key)
+            if label is None or not isinstance(value, (int, float)):
+                continue
+            shown = f"{round(100 * value)} %" if key in SHARE_DETAILS else f"{fmt_hours(float(value))} ч"
+            out.append(WarningFigure(label=label, value=shown))
+        return out
 
     def to_warning(self, key_to_id: dict[str, str] | None = None) -> MethodistWarning:
         keys = [str(k) for k in self.details.get("keys", [])]
         if key_to_id:
             keys = [key_to_id.get(k, k) for k in keys]
-        return MethodistWarning(type=WarningType.CONSTRAINT_CONFLICT, text=self.message, target_ids=keys)
+        default_title, default_options = conflict_advice(self.code, self.details, None)
+        return MethodistWarning(
+            type=WarningType.CONSTRAINT_CONFLICT,
+            title=self.title or default_title,
+            text=self.message,
+            figures=self.figures(),
+            options=list(self.options) or default_options,
+            code=self.code,
+            target_ids=keys,
+        )
+
+
+FIGURE_LABELS: dict[str, str] = {
+    "total_hours": "Объём программы",
+    "fa_hours": "Итоговая аттестация",
+    "session_hours": "Длина занятия",
+    "locked_hours": "Зафиксировано вручную",
+    "budget_hours": "Доступно на темы",
+    "module_hours": "Часы модуля",
+    "need_hours": "Нужно",
+    "got_hours": "Получилось",
+    "delta_hours": "Разница",
+    "min_practice_share": "Доля практики в запросе",
+}
+SHARE_DETAILS = frozenset({"min_practice_share"})
+SESSION_LENGTHS = (1.0, 1.5, 2.0, 2.5, 3.0, 4.0)  # длины занятий, которые предлагаются взамен
+
+
+def _h(details: dict[str, Any], key: str) -> float | None:
+    value = details.get(key)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _floor_half(value: float) -> float:
+    return math.floor(value * UNITS_PER_HOUR + 1e-9) / UNITS_PER_HOUR
+
+
+def _ceil_half(value: float) -> float:
+    return math.ceil(value * UNITS_PER_HOUR - 1e-9) / UNITS_PER_HOUR
+
+
+def conflict_advice(code: str, details: dict[str, Any], c: HoursConstraints | None) -> tuple[str, list[str]]:
+    """Заголовок и варианты решения конфликта — по его коду и числам; без ID и служебных слов."""
+    total = _h(details, "total_hours") or (c.total_hours if c is not None else None)
+    fa = _h(details, "fa_hours")
+    session = _h(details, "session_hours")
+    locked, budget = _h(details, "locked_hours"), _h(details, "budget_hours")
+    need, got = _h(details, "need_hours"), _h(details, "got_hours")
+    if code == "total_invalid":
+        options = [
+            "Укажите объём программы в часах — положительное число, кратное 0,5 ч (например, 16, 36 или 72 ч)."
+        ]
+        if total and total > 0:
+            options = [
+                f"Укажите объём {fmt_hours(_floor_half(total))} ч или {fmt_hours(_ceil_half(total))} ч "
+                "(кратно 0,5 ч)."
+            ]
+        return "Объём программы указан неверно", options
+    if code == "fa_invalid":
+        rounded = fmt_hours(round((fa or 0) * UNITS_PER_HOUR) / UNITS_PER_HOUR)
+        return "Часы итоговой аттестации не кратны 0,5 ч", [
+            f"Оставить {rounded} ч, как округлил агент.",
+            "Указать часы итоговой аттестации, кратные 0,5 ч.",
+        ]
+    if code == "fa_exceeds_total":
+        return "Итоговая аттестация не помещается в объём программы", [
+            f"Уменьшить часы итоговой аттестации (сейчас {fmt_hours(fa or 0)} ч); обычно на неё отводят "
+            f"{fmt_hours(DEFAULT_FA_HOURS)} ч.",
+            f"Увеличить объём программы (сейчас {fmt_hours(total or 0)} ч).",
+        ]
+    if code == "session_invalid":
+        value = session or 0
+        return "Длина занятия не кратна 0,5 ч", [
+            f"Указать длину занятия {fmt_hours(_floor_half(value))} ч или {fmt_hours(_ceil_half(value))} ч."
+        ]
+    if code == "sessions_vs_all_srs":
+        return "Занятия в расписании при программе без аудиторных занятий", [
+            "Убрать длину занятий из запроса: в программе без аудиторных занятий график строится по учебным дням.",
+            "Если нужны занятия с преподавателем — выбрать форму с аудиторными часами (не стажировку без "
+            "аудиторной работы).",
+        ]
+    if code == "sessions_indivisible":
+        options = []
+        if total and session:
+            lower = math.floor(total / session) * session
+            options += [f"Изменить объём на {fmt_hours(x)} ч." for x in (lower, lower + session) if x > 0]
+            divisors = [
+                s for s in SESSION_LENGTHS if s != session and abs(total / s - round(total / s)) < 1e-9
+            ]
+            other = min(divisors, key=lambda s: (abs(s - session), s)) if divisors else None
+            if other is not None:
+                options.append(
+                    f"Изменить длину занятия: объём {fmt_hours(total)} ч делится, например, на занятия по "
+                    f"{fmt_hours(other)} ч."
+                )
+        return "Объём не делится на занятия", options or ["Измените объём программы или длину занятия."]
+    if code in ("locked_exceeds_budget", "locked_exceeds_module", "locked_mismatch"):
+        module = _h(details, "module_hours")
+        delta = _h(details, "delta_hours")
+        options = []
+        if locked is not None and budget is not None and locked > budget:
+            options.append(f"Уменьшить часы зафиксированных тем на {fmt_hours(locked - budget)} ч.")
+        elif locked is not None and module is not None and locked > module:
+            options.append(f"Уменьшить часы зафиксированных тем модуля на {fmt_hours(locked - module)} ч.")
+        elif code == "locked_mismatch" and budget is not None:
+            options.append(
+                f"Изменить часы зафиксированных тем так, чтобы в сумме было {fmt_hours(budget)} ч."
+            )
+        elif delta:
+            options.append(f"Изменить часы зафиксированных строк на {fmt_hours(abs(delta))} ч.")
+        options.append("Снять фиксацию с части тем — их часы пересчитаются автоматически.")
+        if code == "locked_exceeds_module":
+            options.append("Перераспределить часы по всей программе, а не в пределах модуля.")
+        return "Зафиксированные вручную часы не сходятся с объёмом", options
+    if code == "minimums_exceed_budget":
+        options = ["Сократить число модулей и тем или объединить близкие темы."]
+        if need is not None and total is not None and budget is not None and need > budget:
+            options.append(f"Увеличить объём программы хотя бы до {fmt_hours(total + need - budget)} ч.")
+        else:
+            options.append("Увеличить объём программы.")
+        return "Часов не хватает на все модули и темы", options
+    if code == "lectures_vs_all_srs":
+        return "Слайды к лекциям при программе без лекций", [
+            "Отказаться от слайдов к этому модулю: в программе без аудиторных занятий лекций нет.",
+            "Добавить в программу аудиторные лекции — тогда это уже не стажировка без аудиторных занятий.",
+        ]
+    if code == "lectures_impossible":
+        return "Лекция не помещается в тему", [
+            f"Увеличить часы темы хотя бы до {fmt_hours(LECTURE_MIN_HOURS)} ч.",
+            "Объединить тему с соседней темой модуля.",
+            "Не готовить слайды к этому модулю.",
+        ]
+    if code == "all_srs_vs_practice":
+        share = _h(details, "min_practice_share")
+        share_text = f" {round(100 * share)} %" if share else ""
+        return "Доля практики недостижима без аудиторных занятий", [
+            "Оставить формат без аудиторных занятий: практическая работа идёт в самостоятельной работе слушателя "
+            "(задания стажировки).",
+            f"Оставить долю практики{share_text} — тогда нужна форма с практическими занятиями"
+            + (f" ({fmt_hours(need)} ч)." if need else "."),
+        ]
+    if code == "practice_share_unreachable":
+        options = []
+        if need is not None and got is not None:
+            options.append(f"Снять фиксацию с части тем, чтобы добрать {fmt_hours(need - got)} ч практики.")
+            if total:
+                options.append(f"Снизить требуемую долю практики до {math.floor(100 * got / total)} %.")
+        options.append("Заменить часть лабораторных работ практическими занятиями.")
+        return "Доля практики недостижима", options
+    if code == "locked_invalid":
+        return "Часы зафиксированной строки исправлены", [
+            "Проверьте строку: часы округлены до 0,5 ч, а часов с дистанционными технологиями — не больше "
+            "контактных."
+        ]
+    if code == "sum_mismatch":
+        return "Сумма часов не сошлась с объёмом", [
+            "Пересоберите каркас; если расхождение останется — сообщите разработчикам."
+        ]
+    if code == "no_topics":
+        return "В каркасе нет тем", ["Пересоберите каркас или добавьте темы вручную."]
+    return "Требования запроса противоречат друг другу", [
+        "Решите, какое требование важнее, и поправьте запрос или каркас."
+    ]
 
 
 @dataclass
@@ -391,10 +568,20 @@ class _Run:
     c: HoursConstraints
     log: list[str] = field(default_factory=list)
     conflicts: list[ConstraintConflict] = field(default_factory=list)
+    labels: dict[str, str] = field(
+        default_factory=dict
+    )  # ключ темы → название (в тексты методисту — не ключи)
 
     def conflict(self, code: str, message: str, **details: Any) -> None:
-        self.conflicts.append(ConstraintConflict(code=code, message=message, details=details))
+        title, options = conflict_advice(code, details, self.c)
+        self.conflicts.append(
+            ConstraintConflict(code=code, message=message, details=details, title=title, options=options)
+        )
         self.log.append(f"Конфликт [{code}]: {message}")
+
+    def name(self, key: str) -> str:
+        label = self.labels.get(key)
+        return f"«{label}»" if label else key
 
 
 def _mix_weights(mix: WorkMix) -> dict[WorkKind, float]:
@@ -695,13 +882,15 @@ def _ensure_lectures(
         if row.lk >= min_lk:
             continue
         if key not in free:
-            run.log.append(f"Тема {key} зафиксирована вручную: лекций в ней меньше 1 ч, строка не меняется.")
+            run.log.append(
+                f"Тема {run.name(key)} зафиксирована вручную: лекций в ней меньше 1 ч, строка не меняется."
+            )
             continue
         need = min_lk - row.lk
         if row.total < min_lk:
             run.conflict(
                 "lectures_impossible",
-                f"В модуле «{module_label}» нужны лекции (по нему готовятся слайды), но тема {key} занимает "
+                f"В модуле «{module_label}» нужны лекции (по нему готовятся слайды), но тема {run.name(key)} занимает "
                 f"всего {fmt_hours(to_hours(row.total))} ч — лекция не меньше 1 ч в неё не помещается.",
                 keys=[key],
             )
@@ -847,13 +1036,13 @@ def _locked_row(run: _Run, key: str, row: HoursRow) -> _Row:
     if not all(is_half_multiple(v) for v in values):
         run.conflict(
             "locked_invalid",
-            f"В строке {key}, зафиксированной вручную, часы должны быть кратны 0,5 ч; значения округлены.",
+            f"В строке {run.name(key)}, зафиксированной вручную, часы должны быть кратны 0,5 ч; значения округлены.",
             keys=[key],
         )
     if result.distance > result.contact:
         run.conflict(
             "locked_invalid",
-            f"В строке {key}, зафиксированной вручную, часов с ДОТ ({fmt_hours(to_hours(result.distance))}) "
+            f"В строке {run.name(key)}, зафиксированной вручную, часов с ДОТ ({fmt_hours(to_hours(result.distance))}) "
             f"больше, чем контактных ({fmt_hours(to_hours(result.contact))}); взято {fmt_hours(to_hours(result.contact))} ч.",
             keys=[key],
         )
@@ -885,7 +1074,7 @@ def solve_hours(
     modules: list[ModuleSpec], topics: list[TopicSpec], constraints: HoursConstraints
 ) -> SolverResult:
     """Часы каждой темы и ИА по весам каркаса и ограничениям запроса (§3.2)."""
-    run = _Run(constraints)
+    run = _Run(constraints, labels={t.key: t.title for t in topics if t.title})
     _check_structure(modules, topics)
     total_u, fa_u = _budget(run)
     budget_u = total_u - fa_u
@@ -990,7 +1179,7 @@ def rebalance(
     """
     if scope not in ("module", "program"):
         raise ValueError(f"Неизвестная область перераспределения: {scope!r}")
-    run = _Run(constraints)
+    run = _Run(constraints, labels={t.id: t.title for t in kit.topics if t.title})
     fallback_fa = kit.final_attestation.hours if kit.final_attestation is not None else None
     total_u, fa_u = _budget(run, fallback_fa)
     budget_u = total_u - fa_u
