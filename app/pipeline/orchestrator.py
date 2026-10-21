@@ -634,11 +634,13 @@ class Orchestrator:
                 target_id=request.target_id,
                 instruction=request.instruction,
                 ok=True,
+                operation=result.operation,
+                summary=result.summary,
                 changed_ids=list(result.changed_ids),
                 revision=new_kit.revision,
                 at=now_msk(),
             )
-            state.notes += result.notes
+            # заметки правки — в patch.summary и истории правок, а не в общих notes сессии (иначе копились бы)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 — комплект остаётся прежним

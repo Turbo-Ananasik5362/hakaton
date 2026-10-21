@@ -306,8 +306,12 @@ class SkeletonOut(BaseModel):
 class PatchOut(BaseModel):
     target_id: str
     ok: bool
+    operation: str = (
+        ""  # replace_topic | change_hours | harden_test | replace_lo | add_topic | remove_topic | regenerate
+    )
+    summary: str = ""  # что сделано — для методиста
     changed_ids: list[str] = Field(default_factory=list)
-    error: str | None = None
+    error: str | None = None  # почему правка не выполнена (комплект тогда прежний)
     revision: int = 0
 
 

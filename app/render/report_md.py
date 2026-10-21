@@ -72,6 +72,7 @@ STEP_TITLES = {
     "final_attestation": "Итоговая аттестация",
     "literature": "Литература",
     "judge": "Смысловая проверка",
+    "patch": "Точечная правка",
 }
 COVERAGE_TEXT = {
     "ok": "в порядке",
@@ -276,6 +277,9 @@ def build_report(
         summary=summary_line(kit, notes),
     )
     doc.sections.append(_overview(kit))
+    history = _history(kit, for_docx)
+    if history is not None:
+        doc.sections.append(history)
     errors = _errors(kit)
     if errors is not None:
         doc.sections.append(errors)
@@ -326,7 +330,36 @@ def _overview(kit: Kit) -> Section:
     seconds = kit.report.generation_seconds if kit.report is not None else None
     if seconds:
         lines.append(f"время сборки комплекта после утверждения каркаса: {_duration(seconds)}")
+    if kit.history:
+        lines.append(f"точечных правок: {len(kit.history)}; текущая версия комплекта — {kit.revision}")
     return Section("Коротко", [Bullets(lines)])
+
+
+def _history(kit: Kit, for_docx: bool) -> Section | None:
+    """История точечных правок: что просил методист и что изменилось (без служебных ID)."""
+    if not kit.history:
+        return None
+    header = ["Версия", "Когда", "Указание методиста", "Что сделано"]
+    weights = [1, 2, 4, 7]
+    if not for_docx:
+        header.append("₽")
+        weights.append(1)
+    rows = []
+    for record in kit.history:
+        row = [
+            str(record.revision),
+            record.at.strftime("%d.%m %H:%M"),
+            record.instruction.strip() or "пересобрать заново",
+            record.summary or record.operation.value,
+        ]
+        if not for_docx:
+            row.append(_rub(record.cost_rub))
+        rows.append(row)
+    text = (
+        "Каждая правка меняет только затронутые материалы: остальное в комплекте остаётся как было. После правки "
+        "комплект заново проходит автопроверку, файлы выгружаются заново."
+    )
+    return Section("История правок", [Para(text), Table(header, rows, weights)])
 
 
 def _issue_line(issue: Issue, for_docx: bool = False) -> str:

@@ -669,38 +669,61 @@ class ContentGenerator:
     # ---- модули: черновики (без изменения комплекта) ---------------------------------------------
 
     def _module_values(
-        self, kit: Kit, module: Module, topic_ids: Sequence[str], content_kinds: Sequence[WorkKind] = ()
+        self,
+        kit: Kit,
+        module: Module,
+        topic_ids: Sequence[str],
+        content_kinds: Sequence[WorkKind] = (),
+        note: str = "",
     ) -> dict[str, str]:
+        """Входные данные навыков модуля; note — указание методиста при точечной правке (после списка тем)."""
         topics = [t for t in kit.topics_of(module.id) if t.id in set(topic_ids)]
         los = list(dict.fromkeys(lo for t in topics for lo in t.lo_ids))
         earlier = prompts.earlier_topics(kit, module)
         return {
             "program": prompts.describe_program(kit, self.registry),
             "module": prompts.module_label(kit, module) + (f"\n{earlier}" if earlier else ""),
-            "topics": prompts.describe_topics(kit, topics, content_kinds),
+            "topics": prompts.describe_topics(kit, topics, content_kinds) + (f"\n\n{note}" if note else ""),
             "outcomes": prompts.describe_outcomes(kit, los),
         }
 
-    async def _draft_content(self, kit: Kit, module: Module, client: LLMClient) -> ModuleContentDraft:
+    async def _draft_content(
+        self,
+        kit: Kit,
+        module: Module,
+        client: LLMClient,
+        topic_ids: Sequence[str] | None = None,
+        note: str = "",
+        key: str | None = None,
+    ) -> ModuleContentDraft:
         def make(part: Sequence[str], key: str) -> _Call:
-            values = self._module_values(kit, module, part)
+            values = self._module_values(kit, module, part, note=note)
             values.pop("outcomes")
             return _Call("module_content", values, ModuleContentDraft, key)
 
         return await self._ask_split(  # type: ignore[return-value]
             client,
-            [t.id for t in kit.topics_of(module.id)],
+            list(topic_ids) if topic_ids is not None else [t.id for t in kit.topics_of(module.id)],
             make,
             lambda ds: ModuleContentDraft(topics=[t for d in ds for t in d.topics]),  # type: ignore[attr-defined]
-            self._key(kit, module.id),
+            key or self._key(kit, module.id),
         )
 
     async def _draft_lectures(
-        self, kit: Kit, module: Module, client: LLMClient, topic_ids: Sequence[str] | None = None
+        self,
+        kit: Kit,
+        module: Module,
+        client: LLMClient,
+        topic_ids: Sequence[str] | None = None,
+        note: str = "",
+        key: str | None = None,
     ) -> LecturesDraft:
         def make(part: Sequence[str], key: str) -> _Call:
             return _Call(
-                "lectures", self._module_values(kit, module, part, (WorkKind.LK,)), LecturesDraft, key
+                "lectures",
+                self._module_values(kit, module, part, (WorkKind.LK,), note=note),
+                LecturesDraft,
+                key,
             )
 
         return await self._ask_split(  # type: ignore[return-value]
@@ -708,7 +731,7 @@ class ContentGenerator:
             list(topic_ids) if topic_ids is not None else [t.id for t in apply.lecture_topics(kit, module)],
             make,
             lambda ds: LecturesDraft(lectures=[x for d in ds for x in d.lectures]),  # type: ignore[attr-defined]
-            self._key(kit, module.id if topic_ids is None else f"{module.id}-refill-lectures"),
+            key or self._key(kit, module.id if topic_ids is None else f"{module.id}-refill-lectures"),
         )
 
     async def _draft_seminars(
@@ -718,6 +741,7 @@ class ContentGenerator:
         client: LLMClient,
         topic_ids: Sequence[str] | None = None,
         note: str = "",
+        key: str | None = None,
     ) -> SeminarsDraft:
         def make(part: Sequence[str], key: str) -> _Call:
             values = self._module_values(kit, module, part, (WorkKind.PR, WorkKind.LB))
@@ -732,7 +756,7 @@ class ContentGenerator:
             list(topic_ids) if topic_ids is not None else [t.id for t in apply.practice_topics(kit, module)],
             make,
             lambda ds: SeminarsDraft(seminars=[x for d in ds for x in d.seminars]),  # type: ignore[attr-defined]
-            self._key(kit, module.id) + ("-refill" if note else ""),
+            key or self._key(kit, module.id) + ("-refill" if note else ""),
         )
 
     def _tests_call(
@@ -776,10 +800,18 @@ class ContentGenerator:
         return _Call(step, values, TestsDraft, key)
 
     async def _draft_tests(
-        self, kit: Kit, module: Module, client: LLMClient, quotas: dict[str, int], interview: int
+        self,
+        kit: Kit,
+        module: Module,
+        client: LLMClient,
+        quotas: dict[str, int],
+        interview: int,
+        note: str = "",
+        key: str | None = None,
+        interview_los: Sequence[str] = (),
     ) -> TestsDraft:
         """Вопросы модуля частями не больше MAX_QUESTIONS_PER_CALL (большой тест не помещается в один ответ);
-        собеседование — в первой части."""
+        собеседование — в первой части. note — указание методиста при точечной правке."""
         chunks: list[dict[str, int]] = []
         for lo, count in quotas.items():
             while count > 0:
@@ -807,13 +839,24 @@ class ContentGenerator:
                     share = max(
                         1, math.ceil(interview * len(part) / len(parts))
                     )  # доля вопросов собеседования
-                    return self._tests_call(kit, module, {}, share, "tests", key, interview_los=list(part))
+                    return self._tests_call(
+                        kit, module, {}, share, "tests", key, interview_los=list(part), note=note
+                    )
                 part_quotas = {lo: chunk[lo] for lo in part if lo in chunk}
-                part_interview = interview if n == 0 and part[0] == parts[0] else 0
-                return self._tests_call(kit, module, part_quotas, part_interview, "tests", key)
+                first = n == 0 and part[0] == parts[0]
+                return self._tests_call(
+                    kit,
+                    module,
+                    part_quotas,
+                    interview if first else 0,
+                    "tests",
+                    key,
+                    interview_los=list(interview_los) if first else (),
+                    note=note,
+                )
 
-            key = self._key(kit, module.id) + (f"-{n + 1}" if n else "")
-            return await self._ask_split(client, parts, make, merge, key)
+            chunk_key = (key or self._key(kit, module.id)) + (f"-{n + 1}" if n else "")
+            return await self._ask_split(client, parts, make, merge, chunk_key)
 
         drafts = await gather_or_cancel(ask_chunk(n, chunk) for n, chunk in enumerate(chunks))
         return merge(list(drafts))

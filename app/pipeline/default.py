@@ -1,9 +1,7 @@
 """Боевой пайплайн: сборка реальных шагов агента.
 
-Шаги, которых ещё нет в этой версии, честно отвечают StepUnavailable — сессия получает понятное сообщение,
-а не молчаливую пустоту. По мере готовности шаги подключаются здесь:
-intake/clarify — app/pipeline/intake.py, clarify.py; skeleton — skeleton.py; содержание — content.py (подключены);
-правка — patch.py; выгрузки — app/render/ (program.docx + V31, kit.json, report.json).
+Шаги: intake/clarify — app/pipeline/intake.py, clarify.py; skeleton — skeleton.py; содержание — content.py;
+точечная правка — patch.py; выгрузки — app/render/ (program.docx + V31, .pptx, тесты, kit.json, report.json).
 """
 
 from __future__ import annotations
@@ -19,9 +17,10 @@ from app.core.validate import ValidationContext, validate
 from app.llm import LLMClient
 from app.models import ClarifyQuestion, Issue, Kit, MethodistWarning, RequestSpec, ValidationReport
 from app.pipeline import clarify as clarify_step
-from app.pipeline.base import PatchResult, RequestInput, Step, StepContext, StepUnavailable
+from app.pipeline.base import PatchResult, RequestInput, Step, StepContext
 from app.pipeline.content import JUDGE_TEXTS, ContentGenerator, merge_costs
 from app.pipeline.intake import run_intake
+from app.pipeline.patch import PatchEngine
 from app.pipeline.skeleton import run_skeleton
 from app.render.bundle import FAILED_NOTE, RenderOutcome, error_detail, failure_issue, render_all
 from app.render.common import load_organization
@@ -129,7 +128,21 @@ class DefaultPipeline:
     # ---- после генерации ---------------------------------------------------------------------------
 
     async def patch(self, kit: Kit, target_id: str, instruction: str, ctx: StepContext) -> PatchResult:
-        raise StepUnavailable("Точечная правка ещё не подключена в этой версии агента.")
+        """Точечная правка (app/pipeline/patch.py): план, структура кодом, пересборка затронутого, проверка."""
+        return await PatchEngine(self.content, self._patch_report).run(kit, target_id, instruction, ctx)
+
+    def _patch_report(
+        self, kit: Kit, warnings: Iterable[MethodistWarning], ctx: StepContext
+    ) -> ValidationReport:
+        """Отчёт после правки — как шаг validate сборки: проверки, стоимость, время, итог судьи."""
+        report = self.validate(kit, warnings, ctx)
+        report.cost = merge_costs(kit.meta.cost)
+        report.timing = dict(kit.meta.timing)
+        report.judge = [
+            r.model_copy(update={"title": r.title or JUDGE_TEXTS.get(r.criterion, "")})
+            for r in kit.meta.judge
+        ]
+        return report
 
     def render(self, kit: Kit, ctx: StepContext) -> dict[str, str]:
         """Программа .docx, слайды .pptx, тесты GIFT / Moodle XML / CSV (каждая выгрузка — с проверкой V31),

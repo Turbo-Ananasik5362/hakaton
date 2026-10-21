@@ -198,9 +198,13 @@ def apply_program_texts(kit: Kit, draft: ProgramTextsDraft) -> None:
 # --------------------------------------------------------------------------------------------------
 
 
-def apply_module_content(kit: Kit, module: Module, drafts: Sequence[TopicContentDraft]) -> list[str]:
+def apply_module_content(
+    kit: Kit, module: Module, drafts: Sequence[TopicContentDraft], only: Sequence[str] | None = None
+) -> list[str]:
+    """Пункты рабочей программы тем модуля (only — при точечной правке: только эти темы)."""
     changed: list[str] = []
-    for topic, draft in match_to_topics(drafts, kit.topics_of(module.id), lambda d: [d.topic_id]):
+    topics = [t for t in kit.topics_of(module.id) if only is None or t.id in set(only)]
+    for topic, draft in match_to_topics(drafts, topics, lambda d: [d.topic_id]):
         content: dict[WorkKind, list[str]] = {}
         for kind in work_kinds(topic):
             items = clean_items(getattr(draft, kind.value))

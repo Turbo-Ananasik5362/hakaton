@@ -83,6 +83,8 @@ class PatchResult:
     kit: Kit
     changed_ids: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    summary: str = ""  # что сделано — для методиста, без служебных ID
+    operation: str = ""
 
 
 class Pipeline(Protocol):

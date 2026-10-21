@@ -5,7 +5,8 @@
 
 Проверяет: GET /health; POST /api/v1/run на запросе 1 из eval/open_queries.json доходит до «done»; комплект валиден
 по app/models.py и сходится по часам; все выгрузки (.docx, .pptx, GIFT, Moodle XML, CSV, JSON) отдаются,
-скачиваются и разбираются. Код выхода 0 — всё в порядке, 1 — что-то сломано.
+скачиваются и разбираются; точечная правка (POST /patch) проходит и даёт версию 1.
+Код выхода 0 — всё в порядке, 1 — что-то сломано.
 """
 
 from __future__ import annotations
@@ -105,6 +106,17 @@ def main() -> int:
                 )
                 if missing:
                     problems.append(f"нет выгрузок: {', '.join(missing)}")
+                patched = client.post(  # точечная правка на основном пути: done → patch → done
+                    f"/api/v1/sessions/{body['session_id']}/patch",
+                    json={"target": "тема 1.2", "instruction": "пересобери тему 1.2"},
+                )
+                patch = patched.json().get("patch") or {}
+                if patched.status_code != 200 or not patch.get("ok") or patch.get("revision") != 1:
+                    problems.append(
+                        f"/patch: {patched.status_code} {patch.get('error') or patched.text[:200]}"
+                    )
+                else:
+                    print(f"ok: правка — {patch.get('summary')}")
     for problem in problems:
         print(f"ОШИБКА: {problem}", file=sys.stderr)
     return 1 if problems else 0

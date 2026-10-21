@@ -890,11 +890,17 @@ class RequestSpec(KitModel):
 
 
 class PatchRecord(KitModel):
+    """Запись истории правок готового комплекта (раздел «История правок» в отчёте)."""
+
     revision: int = Field(ge=1)
     operation: PatchOperation
     target_ids: list[AnyId] = Field(default_factory=list)
     instruction: str = ""
     changed_ids: list[AnyId] = Field(default_factory=list)
+    removed_ids: list[AnyId] = Field(default_factory=list)  # удалённые объекты (их ID — в retired_ids)
+    summary: str = ""  # что сделано — для методиста, без служебных ID
+    planned_by: Literal["rules", "model"] = "rules"  # команду разобрал код или навык patch
+    cost_rub: float = Field(default=0, ge=0)
     at: datetime
 
 
@@ -1274,12 +1280,18 @@ class LiteratureDraft(DraftModel):
 
 
 class PatchPlanDraft(DraftModel):
-    operation: PatchOperation
-    target_refs: list[str] = Field(default_factory=list)  # ID или «тема 2.3» — резолвит app/core/ids.py
-    instruction: str = ""  # что сделать, своими словами
-    quantity_text: str | None = (
-        None  # фрагмент с количеством («добавь 2 часа практики») — число извлекает код
+    """План точечной правки от навыка patch. Модель только называет операцию и объект; часы она не пересчитывает,
+    а цитирует фрагмент указания с числами (quote) — числа из него извлекает и раскладывает код."""
+
+    operation: str = (
+        ""  # replace_topic | change_hours | harden_test | replace_lo | add_topic | remove_topic | regenerate
     )
+    target: str = ""  # ID (T2.3) или «тема 2.3»; пусто — объект из запроса правки
+    title: str = ""  # новое название темы (replace_topic, add_topic)
+    text: str = ""  # новая формулировка результата обучения (replace_lo)
+    module: str = ""  # модуль новой темы (add_topic)
+    quote: str = ""  # фрагмент указания с часами — дословно (change_hours, add_topic)
+    focus: str = ""  # что учесть при пересборке — коротко, своими словами
 
 
 class ModulePackDraft(DraftModel):

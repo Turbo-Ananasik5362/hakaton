@@ -60,6 +60,8 @@ class PatchOutcome(BaseModel):
     target_id: str
     instruction: str = ""
     ok: bool
+    operation: str = ""  # replace_topic, change_hours, … (пусто — правка не дошла до плана)
+    summary: str = ""  # что сделано — для методиста
     changed_ids: list[str] = Field(default_factory=list)
     error: str | None = None
     revision: int = 0

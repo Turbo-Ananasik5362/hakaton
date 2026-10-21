@@ -3,13 +3,18 @@
 
     python scripts/run_open_query.py --id 4 --mode mock --out eval/runs/20261019-1100/q4
     python scripts/run_open_query.py --id 4 --url http://<адрес ВМ>:8000 --out eval/runs/vm-check/q4
+    python scripts/run_open_query.py --id 3 --mode live --out eval/runs/<дата>/q3 \
+        --patch "тема 2.3::замени тему 2.3 на «Сводные таблицы»" --patch "итоговый тест::усложни итоговый тест"
 
 По умолчанию сервер поднимается в этом же процессе (FastAPI TestClient, без сети), с режимом LLM из --mode.
 С --url сценарий идёт по HTTP к уже запущенному серверу (режим LLM задаёт сервер; на ВМ — live).
 
 На уточняющие вопросы отвечает methodist_answers запроса, на остальные — «_default» («на ваше усмотрение»).
 Сохраняет в --out: transcript.json (весь диалог), skeleton.json, kit.json, report.json, cost.json и все файлы,
-которые отдаёт сервер. Если комплект собран не полностью (шаги генерации ещё не подключены), это честно записано
+которые отдаёт сервер. --patch «объект::указание» (можно несколько) — точечные правки готового комплекта по очереди:
+результат каждой — в patch-N/ (patch.json, kit.json, report.json, файлы), итоги — в transcript.json → patches.
+--session <id> — не собирать комплект заново, а выполнить --patch к готовой сессии (на сервере --url или в
+--out/.sessions прошлого прогона в этом процессе). Если комплект собран не полностью (шаги генерации ещё не подключены), это честно записано
 в transcript.json → limitations.
 
 Live (и любой --url) с 00:00 до 10:00 МСК не запускается без --force: бюджет нужен утреннему автопрогону.
@@ -115,6 +120,7 @@ class Transcript:
     last_progress: list[dict[str, Any]] = field(default_factory=list)
     final_status: str | None = None
     error: dict[str, Any] | None = None
+    patches: list[dict[str, Any]] = field(default_factory=list)
 
     def event(self, action: str, method: str, path: str, response: httpx.Response, **extra: Any) -> dict:
         body = _json(response)
@@ -158,6 +164,7 @@ class Transcript:
             "complete": not self.limitations and self.final_status == "done",
             "limitations": self.limitations,
             "error": self.error,
+            "patches": self.patches,
             "events": self.events,
         }
 
@@ -274,6 +281,67 @@ def run_scenario(
         return _fail(log, body)
     _save_kit(client, body, out, log)
     return 0
+
+
+def _scenario_or_session(
+    client: httpx.Client, query: dict[str, Any], out: Path, log: Transcript, args: argparse.Namespace
+) -> int:
+    """Сборка комплекта с нуля или (--session) готовая сессия, к которой применяются только правки."""
+    if not args.session:
+        return run_scenario(client, query, out, log, args.timeout)
+    log.session_id = args.session
+    path = f"{API}/sessions/{args.session}"
+    body = log.event("session", "GET", path, client.get(path))
+    log.final_status = body.get("status")
+    if body.get("status") != "done":
+        return _fail(log, body)
+    return 0
+
+
+def run_patches(client: httpx.Client, patches: list[str], out: Path, log: Transcript) -> int:
+    """Точечные правки готового комплекта по очереди: «объект::указание». Код 0 — все выполнены, 1 — нет."""
+    code = 0
+    for n, spec in enumerate(patches, start=1):
+        target, sep, instruction = spec.partition("::")
+        folder = out / f"patch-{n}"
+        folder.mkdir(parents=True, exist_ok=True)
+        if not sep or not target.strip():
+            error = f"«{spec}» — нужен формат «объект::указание», например «тема 2.3::пересобери тему 2.3»."
+            log.patches.append(
+                {"n": n, "target": spec, "instruction": "", "ok": False, "error": error, "seconds": 0}
+            )
+            _write(folder / "patch.json", log.patches[-1])
+            code = 1
+            continue
+        path = f"{API}/sessions/{log.session_id}/patch"
+        started = time.monotonic()
+        response = client.post(path, json={"target": target.strip(), "instruction": instruction.strip()})
+        body = log.event(
+            "patch", "POST", path, response, target=target.strip(), instruction=instruction.strip()
+        )
+        patch = body.get("patch") or {}
+        item = {
+            "n": n,
+            "target": target.strip(),
+            "instruction": instruction.strip(),
+            "status_code": response.status_code,
+            "ok": bool(patch.get("ok")),
+            "operation": patch.get("operation"),
+            "summary": patch.get("summary"),
+            "error": patch.get("error") or (body.get("error") or {}).get("message"),
+            "changed_ids": patch.get("changed_ids", []),
+            "revision": patch.get("revision"),
+            "seconds": round(time.monotonic() - started, 1),
+        }
+        log.patches.append(item)
+        _write(folder / "patch.json", {**item, "message": body.get("message")})
+        if item["ok"]:
+            _save_kit(
+                client, body, folder, Transcript(query=log.query, mode=log.mode, transport=log.transport)
+            )
+        else:
+            code = 1
+    return code
 
 
 def _fail(log: Transcript, body: dict[str, Any]) -> int:
@@ -404,6 +472,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--url", help="адрес запущенного сервера, например http://<адрес ВМ>:8000")
     parser.add_argument("--force", action="store_true", help="разрешить live ночью и сверх остатка бюджета")
     parser.add_argument("--timeout", type=float, default=1800.0, help="сколько ждать генерации, с")
+    parser.add_argument("--session", help="готовая сессия: только правки --patch, без новой сборки")
+    parser.add_argument(
+        "--patch",
+        action="append",
+        default=[],
+        help="точечная правка после сборки: «объект::указание», например «тема 2.3::часы темы 2.3: ЛК 2, ПР 4»",
+    )
     return parser.parse_args(argv)
 
 
@@ -423,7 +498,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     settings = Settings.from_env().model_copy(update={"llm_mode": args.mode})
-    if live:
+    if live and args.session:
+        print(
+            f"Правки к сессии {args.session}: ≈ 0,5–1,5 ₽ на правку темы (вызовы модели только для затронутого)."
+        )
+    elif live:
         estimate = estimate_rub()
         spent = spent_today_rub(settings.cost_log)
         left = max(settings.daily_budget_rub - spent, 0.0)
@@ -448,7 +527,9 @@ def main(argv: list[str] | None = None) -> int:
     if remote:
         timeout = httpx.Timeout(600.0, connect=10.0)
         with httpx.Client(base_url=args.url.rstrip("/"), timeout=timeout) as client:
-            code = run_scenario(client, query, out, log, args.timeout)
+            code = _scenario_or_session(client, query, out, log, args)
+            if code == 0 and args.patch:
+                code = run_patches(client, args.patch, out, log)
     else:
         from fastapi.testclient import TestClient
 
@@ -456,16 +537,19 @@ def main(argv: list[str] | None = None) -> int:
 
         settings = settings.model_copy(update={"sessions_dir": out / ".sessions", "cost_tag": run_tag})
         with TestClient(create_app(settings=settings)) as client:
-            code = run_scenario(client, query, out, log, args.timeout)
+            code = _scenario_or_session(client, query, out, log, args)
+            if code == 0 and args.patch:
+                code = run_patches(client, args.patch, out, log)
 
     transcript = log.to_json()
-    _write(out / "transcript.json", transcript)
+    suffix = "_patches" if args.session else ""  # правки к готовой сессии не затирают итоги её сборки
+    _write(out / f"transcript{suffix}.json", transcript)
     _write(
-        out / "cost.json",
+        out / f"cost{suffix}.json",
         cost_summary(settings.cost_log, since, mode, remote, log.last_progress, "" if remote else run_tag),
     )
 
-    cost = json.loads((out / "cost.json").read_text(encoding="utf-8"))
+    cost = json.loads((out / f"cost{suffix}.json").read_text(encoding="utf-8"))
     asked = len(transcript["questions"])
     print(
         f"Запрос {query['id']}: {transcript['final_status']} за {transcript['seconds']:.1f} с; "
@@ -473,6 +557,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     for item in transcript["limitations"]:
         print(f"  — {item}")
+    for item in transcript["patches"]:
+        state = item["summary"] if item["ok"] else f"НЕ ВЫПОЛНЕНА: {item['error']}"
+        print(f"  правка {item['n']} ({item['target']}, {item['seconds']:.0f} с): {state}")
     if transcript["error"]:
         print(f"  ошибка: {transcript['error'].get('message')}", file=sys.stderr)
     return code

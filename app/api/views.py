@@ -137,10 +137,23 @@ def status_message(
             text += f" Отчёт для методиста в браузере — {report_page_url(sid)}."
         if state.notes:
             text += " Список пропущенного — также в notes."
-        if state.last_patch is not None and not state.last_patch.ok:
-            text += " Последняя правка не выполнена — см. patch."
+        patch = state.last_patch
+        if patch is not None and patch.ok and patch.summary:
+            text = f"Правка выполнена (версия {patch.revision}): {patch.summary} {text}"
+        elif patch is not None and not patch.ok:
+            text = f"{_patch_failure(patch.error)} {text}"
         return text
     return state.error or "Работа остановлена из-за ошибки."
+
+
+def _patch_failure(error: str | None) -> str:
+    """«Правка не выполнена: <причина>. Комплект прежний.» — без повторов, если причина уже так сформулирована."""
+    reason = (error or "внутренняя ошибка").strip()
+    if not reason.lower().startswith("правка не"):
+        reason = f"Правка не выполнена: {reason[:1].lower()}{reason[1:]}"
+    if "комплект" not in reason.lower():
+        reason = reason.rstrip(".") + ". Комплект прежний."
+    return reason
 
 
 def _report_hint(kit: Kit | None, field: str) -> str:

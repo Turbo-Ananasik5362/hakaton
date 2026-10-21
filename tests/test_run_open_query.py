@@ -140,3 +140,23 @@ def test_cost_summary_reads_only_this_run(tmp_path: Path) -> None:
     assert summary["by_step"]["intake"]["calls"] == 1 and summary["by_step"]["skeleton"]["cached"] == 1
     remote = script.cost_summary(log, "2026-10-19T12:00:00+03:00", "server", True, [])
     assert remote["by_step"] == {} and "не виден" in remote["note"]
+
+
+def test_patches_after_build_and_on_existing_session(tmp_path: Path) -> None:
+    out = tmp_path / "q1"
+    args = ["--id", "1", "--mode", "mock", "--out", str(out)]
+    code = script.main([*args, "--patch", "тема 1.2::пересобери тему 1.2", "--patch", "тема 1.2 пересобери"])
+    transcript = load(out / "transcript.json")
+    first = transcript["patches"][0]
+    assert first["ok"] and first["revision"] == 1 and first["operation"] == "regenerate" and first["summary"]
+    assert (out / "patch-1" / "program.docx").is_file() and load(out / "patch-1" / "kit.json")[
+        "revision"
+    ] == 1
+    assert code == 1 and transcript["patches"][1]["ok"] is False  # вторая правка без «::» не выполнена…
+    assert load(out / "patch-2" / "patch.json")["error"]  # …и объяснена
+    # правка к уже готовой сессии (без новой сборки): итоги сборки не затираются
+    session = ["--session", transcript["session_id"], "--patch", "тест 1::усложни итоговый тест"]
+    assert script.main([*args, *session]) == 0
+    patches = load(out / "transcript_patches.json")["patches"]
+    assert patches[0]["ok"] and patches[0]["operation"] == "harden_test" and patches[0]["revision"] == 2
+    assert load(out / "transcript.json")["patches"][0]["revision"] == 1
