@@ -918,3 +918,146 @@ def test_judge_sees_all_question_stems_portfolio_and_interview() -> None:
     internship = make_internship_kit()
     summary = content.judge_summary(internship)
     assert all(q.text in summary for q in internship.interview_questions[:8])
+
+
+def test_shared_portfolio_requirements_move_to_attestation() -> None:
+    """Прогон 22.10, п. 2.7: у трёх элементов портфолио одинаковые требования слово в слово. Общие требования —
+    в требованиях аттестации, у элементов — только свои."""
+    from app.models import FAForm, FinalAttestationDraft, PortfolioItemDraft
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    kit.request.fa_form = FAForm.PORTFOLIO
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.PORTFOLIO
+    common = ["Материал создан с помощью ИИ-сервиса.", "Указан использованный запрос к сервису."]
+    draft = FinalAttestationDraft(
+        form_text="Защита портфолио.",
+        requirements=["Портфолио сдаётся до начала аттестации."],
+        portfolio_items=[
+            PortfolioItemDraft(title="План урока", requirements=[*common, "Есть цели и этапы урока."]),
+            PortfolioItemDraft(
+                title="Задания для учеников", requirements=[*common, "Есть ключи к заданиям."]
+            ),
+            PortfolioItemDraft(title="Проверочная работа", requirements=[*common]),
+        ],
+    )
+    apply.apply_final_attestation(kit, draft)
+    fa = kit.final_attestation
+    assert [i.requirements for i in fa.portfolio_items] == [
+        ["Есть цели и этапы урока."],
+        ["Есть ключи к заданиям."],
+        common,  # своих требований нет — общие остаются, чтобы элемент не был пустым
+    ]
+    assert fa.requirements == ["Портфолио сдаётся до начала аттестации.", *common]
+
+
+def test_missing_required_seminar_type_replaces_one_seminar(tmp_path: Path) -> None:
+    """Прогон 22.10, п. 2.6: запрос требует «проверочную работу», V36 это видит, но автодобор её не делал. Теперь
+    задание темы, где вид назван (иначе — с наибольшей практикой), пишется заново нужного вида; прежнее задание
+    заменяется, только если модель ответила."""
+    from app.core.registry import default_registry
+    from app.core.validate import ValidationContext, missing_seminar_types, validate
+    from app.models import SeminarDraft, SeminarsDraft, TopicRequirement
+    from tests.validate_kits import make_pk_kit, make_registry
+
+    kit = make_pk_kit()
+    kit.request.constraints.required_seminar_types = [
+        TopicRequirement(label="проверочная работа", patterns=["проверочн"])
+    ]
+    assert missing_seminar_types(kit)
+    pipeline = content.ContentGenerator(Settings(llm_mode="mock"), default_registry(), lambda ctx: None)  # type: ignore[arg-type]
+    targets = pipeline.seminar_type_targets(kit)
+    assert len(targets) == 1
+    label, topic_id = targets[0]
+    old = [s.id for s in kit.seminars if s.topic_id == topic_id]
+    assert old
+    modules = {m.id: m for m in kit.modules}
+    topic_module = {t.id: t.module_id for t in kit.topics}
+    pipeline._apply_seminar_types(kit, modules, topic_module, targets, [RuntimeError("шлюз")])
+    assert [s.id for s in kit.seminars if s.topic_id == topic_id] == old  # без ответа модели — всё как было
+    wrong = SeminarsDraft(
+        seminars=[
+            SeminarDraft(
+                topic_id=topic_id,
+                title="Разбор кейса",
+                task="Разберите кейс и предложите решение.",
+                criteria=[{"text": "Решение обосновано", "max_points": 4}],
+            )
+        ]
+    )
+    pipeline._apply_seminar_types(kit, modules, topic_module, targets, [wrong])
+    assert [s.id for s in kit.seminars if s.topic_id == topic_id] == old  # не того вида — прежнее остаётся
+    draft = SeminarsDraft(
+        seminars=[
+            SeminarDraft(
+                topic_id=topic_id,
+                title="Проверочная работа по теме",
+                task="Составьте проверочную работу из пяти заданий с ключами.",
+                criteria=[{"text": "Задания соответствуют теме", "max_points": 4}],
+            )
+        ]
+    )
+    pipeline._apply_seminar_types(kit, modules, topic_module, targets, [draft])
+    now = [s for s in kit.seminars if s.topic_id == topic_id]
+    assert len(now) == 1 and now[0].id not in old and set(old) <= set(kit.retired_ids)
+    assert not missing_seminar_types(kit)
+    report = validate(kit, ValidationContext(registry=make_registry()), only=["V36"])
+    assert not [i for i in report.issues if "проверочная работа" in i.message]
+
+
+def test_final_attestation_input_has_hours_and_portfolio_kinds() -> None:
+    """Прогон 22.10: модель не знала времени аттестации (задание на работу по всем модулям, п. 4.10) и видов
+    материалов портфолио из запроса (виды выдуманы, п. 2.7)."""
+    from app.models import FAForm, TopicRequirement
+    from app.pipeline import content_prompts
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.PORTFOLIO
+    kit.request.constraints.required_seminar_types = [
+        TopicRequirement(label="план урока", patterns=["урок"]),
+        TopicRequirement(label="проверочная работа", patterns=["проверочн"]),
+    ]
+    text = content_prompts.describe_fa(kit)
+    assert f"отведено {content_prompts.fmt_hours(kit.final_attestation.hours)} ч" in text
+    assert "Виды материалов из запроса: план урока, проверочная работа" in text
+    assert "5–8 разделов" not in content_prompts.FA_RULES[FAForm.REPORT_DEFENSE]
+
+
+def test_report_requirements_only_for_forms_with_report() -> None:
+    from app.models import FAForm, FinalAttestationDraft
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.EXAM_PRACTICAL
+    draft = FinalAttestationDraft(form_text="Экзамен.", report_requirements=["Отчёт из пяти разделов."])
+    apply.apply_final_attestation(kit, draft)
+    assert kit.final_attestation.report_requirements == []
+    kit.final_attestation.form = FAForm.REPORT_DEFENSE
+    apply.apply_final_attestation(kit, draft)
+    assert kit.final_attestation.report_requirements == ["Отчёт из пяти разделов."]
+
+
+def test_portfolio_item_keeps_requirements_when_all_are_shared() -> None:
+    """Если у элемента все требования общие, он их сохраняет: элемент без требований — ошибка самопроверки."""
+    from app.models import FAForm, FinalAttestationDraft, PortfolioItemDraft
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.PORTFOLIO
+    common = ["Материал создан с помощью ИИ-сервиса."]
+    draft = FinalAttestationDraft(
+        form_text="Портфолио.",
+        portfolio_items=[
+            PortfolioItemDraft(title="План урока", requirements=[*common, "Есть этапы урока."]),
+            PortfolioItemDraft(title="Памятка", requirements=[*common]),
+        ],
+    )
+    apply.apply_final_attestation(kit, draft)
+    items = kit.final_attestation.portfolio_items
+    assert items[0].requirements == ["Есть этапы урока."] and items[1].requirements == common
+    assert kit.final_attestation.requirements[-1] == common[0]

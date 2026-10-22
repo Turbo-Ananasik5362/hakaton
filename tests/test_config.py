@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -21,10 +23,31 @@ def env(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
 
 
 def test_auto_is_default_and_falls_back_to_mock_with_warning(env: pytest.MonkeyPatch) -> None:
+    env.delenv("LLM_DAILY_BUDGET_RUB", raising=False)
     settings = Settings.from_env(env_file=None)
+    assert Settings().daily_budget_rub == settings.daily_budget_rub == 280
     assert settings.llm_mode == "mock" and settings.llm_mode_requested == "auto"
     assert not settings.llm_ready and not settings.gateway_configured
     assert settings.llm_warning and "OPENAI_API_KEY" in settings.llm_warning
+
+
+@pytest.mark.parametrize(("budget", "expected"), [(None, 280), ("175", 175)])
+@pytest.mark.parametrize("short", [False, True])
+def test_budget_script_uses_configured_daily_limit(
+    env: pytest.MonkeyPatch, tmp_path: Path, budget: str | None, expected: int, short: bool
+) -> None:
+    env.setenv("LLM_MODE", "mock")
+    env.setenv("PYTHON_DOTENV_DISABLED", "1")
+    env.setenv("LLM_DAILY_LIMIT_RUB", "999")
+    env.delenv("LLM_DAILY_BUDGET_RUB", raising=False)
+    if budget is not None:
+        env.setenv("LLM_DAILY_BUDGET_RUB", budget)
+    script = Path(__file__).resolve().parents[1] / "scripts" / "budget.py"
+    command = [sys.executable, str(script), "--log", str(tmp_path / "cost.jsonl")]
+    if short:
+        command.append("--short")
+    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    assert f"из {expected} ₽" in result.stdout
 
 
 def test_auto_with_gateway_is_live(env: pytest.MonkeyPatch) -> None:

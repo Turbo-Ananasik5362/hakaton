@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import math
-from collections import defaultdict
+import re
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +19,14 @@ ROOT = Path(__file__).resolve().parent.parent
 MISSING = "нет данных"
 # Диапазон ручной подготовки из docs/case/case.md, раздел «Описание проблемы».
 MANUAL_WEEKS = (2, 8)
+MAX_CACHED_SHARE = 0.2
+
+
+@dataclass(frozen=True)
+class QueryInfo:
+    id: str
+    program_type: str | None
+    hours: float | None
 
 
 @dataclass(frozen=True)
@@ -34,10 +44,33 @@ class RunMetrics:
     status: str | None
     report_status: str | None
     notes: tuple[str, ...]
+    query_id: str | None = None
+    recorded_at: dt.datetime | None = None
 
     @property
     def finished(self) -> bool:
         return self.complete is True and self.status == "done"
+
+    @property
+    def cached_share(self) -> float | None:
+        if self.calls is None or self.calls <= 0 or self.cached_calls is None:
+            return None
+        if not 0 <= self.cached_calls <= self.calls:
+            return None
+        return self.cached_calls / self.calls
+
+
+def exclusion_reasons(run: RunMetrics) -> tuple[str, ...]:
+    reasons: list[str] = []
+    if run.mode != "live":
+        reasons.append("режим не live или не определён однозначно")
+    if run.complete is not True:
+        reasons.append("нет подтверждения полного комплекта (transcript.complete=true)")
+    if run.cached_share is None:
+        reasons.append("доля кеша неизвестна или некорректна")
+    elif run.cached_share > MAX_CACHED_SHARE:
+        reasons.append("доля кеша больше 20 %")
+    return tuple(reasons)
 
 
 def number(value: Any) -> float | None:
@@ -52,6 +85,43 @@ def mapping(value: Any) -> dict[str, Any]:
 
 def string(value: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def query_id(value: Any) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    return str(value).strip() or None
+
+
+def _timestamp(value: Any) -> dt.datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        result = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return result.astimezone(dt.timezone.utc) if result.tzinfo is not None else None
+
+
+def read_queries(path: Path) -> list[QueryInfo]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("Не удалось прочитать список открытых запросов") from exc
+    items = mapping(data).get("queries")
+    if not isinstance(items, list):
+        raise ValueError("В списке открытых запросов нет массива queries")
+    result: list[QueryInfo] = []
+    for item in items:
+        item = mapping(item)
+        identity = query_id(item.get("id"))
+        if identity is None or any(query.id == identity for query in result):
+            raise ValueError("У открытых запросов должны быть непустые уникальные id")
+        expected = mapping(item.get("expected"))
+        result.append(
+            QueryInfo(identity, string(expected.get("program_type")), number(expected.get("total_hours")))
+        )
+    return result
 
 
 def _read(path: Path, notes: list[str]) -> dict[str, Any]:
@@ -127,6 +197,10 @@ def read_run(path: Path, label: str) -> RunMetrics:
     if remote:
         cost_rub, calls, cached = None, None, None
         notes.append("удалённый сервер: локальная сводка расходов не измеряет его стоимость и вызовы")
+    identity = query_id(transcript.get("query_id"))
+    if identity is None and (match := re.match(r"q(\d+)(?:\D|$)", path.name)):
+        identity = match.group(1)
+    recorded_at = _timestamp(transcript.get("finished_at")) or _timestamp(transcript.get("started_at"))
     return RunMetrics(
         path=label,
         program_type=string(program.get("type")),
@@ -141,6 +215,8 @@ def read_run(path: Path, label: str) -> RunMetrics:
         status=string(transcript.get("final_status")),
         report_status=string(report.get("status")),
         notes=tuple(notes),
+        query_id=identity,
+        recorded_at=recorded_at,
     )
 
 
@@ -160,15 +236,74 @@ def cell(value: str | float | int | None) -> str:
     return value.replace("|", "\\|").replace("\n", " ")
 
 
-def _pair(values: list[float]) -> str:
-    if not values:
-        return f"{MISSING} / {MISSING}"
-    return f"{cell(mean(values))} / {cell(max(values))} (n={len(values)})"
+def _average(values: list[float]) -> str:
+    return f"{cell(mean(values))} (n={len(values)})" if values else MISSING
 
 
-def render_report(runs: Sequence[RunMetrics], hours_per_week: float = 40, review_hours: float = 4) -> str:
+def _summary_rows(runs: Sequence[RunMetrics], queries: Sequence[QueryInfo]) -> list[str]:
+    latest: dict[str, RunMetrics] = {}
+    minimum = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+    for run in runs:
+        if run.query_id is None:
+            continue
+        previous = latest.get(run.query_id)
+        key = (run.recorded_at is not None, run.recorded_at or minimum, run.path)
+        if previous is None or key > (
+            previous.recorded_at is not None,
+            previous.recorded_at or minimum,
+            previous.path,
+        ):
+            latest[run.query_id] = run
+    lines = [
+        "| Запрос | Тип | Объём, ч | Последний подходящий прогон | До каркаса, с | Сборка, с | Стоимость, ₽ |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    selected: list[RunMetrics] = []
+    for query in queries:
+        run = latest.get(query.id)
+        if run is None:
+            values = (query.id, query.program_type, query.hours, None, None, None, None)
+        else:
+            selected.append(run)
+            values = (
+                query.id,
+                run.program_type,
+                run.hours,
+                run.path,
+                run.skeleton_seconds,
+                run.generation_seconds,
+                run.cost_rub,
+            )
+        lines.append("| " + " | ".join(cell(value) for value in values) + " |")
+    skeletons = [run.skeleton_seconds for run in selected if run.skeleton_seconds is not None]
+    generations = [run.generation_seconds for run in selected if run.generation_seconds is not None]
+    costs = [run.cost_rub for run in selected if run.cost_rub is not None]
+    lines.append(
+        f"| Среднее | — | — | Запросов с замером: {len(selected)} | {_average(skeletons)} | "
+        f"{_average(generations)} | {_average(costs)} |"
+    )
+    return lines
+
+
+def render_report(
+    runs: Sequence[RunMetrics],
+    hours_per_week: float = 40,
+    review_hours: float = 4,
+    queries: Sequence[QueryInfo] | None = None,
+) -> str:
     if any(not math.isfinite(value) or value <= 0 for value in (hours_per_week, review_hours)):
         raise ValueError("Часы рабочей недели и правки должны быть положительными конечными числами")
+    accepted = [run for run in runs if not exclusion_reasons(run)]
+    rejected = [run for run in runs if exclusion_reasons(run)]
+    reasons = Counter(reason for run in rejected for reason in exclusion_reasons(run))
+    excluded = "; ".join(f"{reason} — {count}" for reason, count in sorted(reasons.items())) or "нет"
+    if queries is None:
+        known = {
+            run.query_id: QueryInfo(run.query_id, run.program_type, run.hours)
+            for run in runs
+            if run.query_id is not None
+        }
+        queries = [known[key] for key in sorted(known)]
     lines = [
         "# Эффект подготовки образовательной программы",
         "",
@@ -177,19 +312,21 @@ def render_report(runs: Sequence[RunMetrics], hours_per_week: float = 40, review
         "",
         "## Измерения по прогонам",
         "",
-        f"Найдено папок: {len(runs)}. Объём — заявленные часы `kit.program.total_hours`, "
-        "тип — `kit.program.type` (pk — повышение квалификации, pk_internship — стажировка, "
-        "dop — общеразвивающая программа). "
-        "Пустые папки также показаны. Отсутствующие, некорректные и нечисловые значения — «нет данных»; "
-        "явно записанный ноль сохраняется.",
+        f"Найдено папок: {len(runs)}. В таблице только live, `transcript.complete=true` и доля вызовов "
+        "из кеша не больше 20 %. Полнота означает наличие комплекта по transcript, а не отсутствие "
+        "ошибок автопроверки: её статус показан отдельно и не влияет на отбор. "
+        "Объём — `kit.program.total_hours`, тип — `kit.program.type` "
+        "(pk — повышение квалификации, pk_internship — стажировка, dop — общеразвивающая программа). "
+        "Отсутствующие значения — «нет данных», явно записанный ноль сохраняется.",
+        "",
+        f"Исключено {len(rejected)} отладочных прогонов: {excluded}. Причины могут пересекаться.",
         "",
         "| Прогон | Тип | Объём, ч | До каркаса, с | Сборка, с | Стоимость, ₽ | Вызовы¹ | Из кеша¹ | "
         "Режим | Статус / полный комплект / автопроверка |",
         "|---|---|---|---|---|---|---|---|---|---|",
     ]
-    for run in runs:
-        complete = None if run.complete is None else ("да" if run.complete else "нет")
-        status = " / ".join(cell(value) for value in (run.status, complete, run.report_status))
+    for run in accepted:
+        status = " / ".join(cell(value) for value in (run.status, "да", run.report_status))
         values = (
             run.path,
             run.program_type,
@@ -205,52 +342,40 @@ def render_report(runs: Sequence[RunMetrics], hours_per_week: float = 40, review
         lines.append("| " + " | ".join(cell(value) for value in values) + " |")
     if not runs:
         lines += ["", "Прогоны не найдены; измерений нет."]
+    elif not accepted:
+        lines += ["", "Подходящих прогонов нет; измерений для таблицы и сводки нет."]
     lines += [
         "",
         "До каркаса — `t` первого события `skeleton_ready` в `transcript.events`: от старта сценария, "
-        "включая уточнения и ожидание ответов, если оно было записано. Сборка — разность `t` первого "
-        "`result/done` и `approve`; она включает очередь, генерацию, проверку и выгрузку до получения результата. "
-        "Точечные правки после первого результата во время сборки не входят. Если таких событий нет и нет правок, "
-        "используется явно записанное `report.generation_seconds`; это отмечено ниже. Времена параллельных шагов "
-        "не суммируются. У неполного комплекта время означает завершение попытки, а не готовность всех материалов.",
+        "включая записанные уточнения и ожидание ответов. Сборка — разность `t` первого `result/done` "
+        "и `approve`, включая очередь, генерацию, проверку и выгрузку. Последующие точечные правки "
+        "не входят во время сборки. Если событий нет и нет правок, используется явно записанное "
+        "`report.generation_seconds`; это отмечено ниже. Времена параллельных шагов не суммируются.",
         "",
-        "Стоимость — только записанная `cost.total_rub`, за весь прогон. Она может включать правки; "
-        "стоимость из `report.cost_rub` не подставляется: её охват уже (обычно без подготовки каркаса). "
-        "Для удалённого сервера локальный ноль-заглушка не считается измерением.",
+        "Стоимость — записанная `cost.total_rub` за весь прогон, она может включать правки. "
+        "`report.cost_rub` не подставляется: его охват уже (обычно без подготовки каркаса). "
+        "Для удалённого сервера локальный ноль не считается измерением.",
         "",
-        "¹ Вызовы — сумма `cost.by_step.*.calls`, включая попадания в кеш; «Из кеша» — сумма поля `cached`. "
-        "Это учтённые обращения клиента, а не гарантированное число сетевых попыток шлюза. "
-        "Пустой `by_step` без явных счётчиков не заменяется нулём. Стоимость повторов с кешем может быть ниже "
-        "стоимости первой генерации; одинаковые запросы не считаются независимыми замерами холодного старта.",
+        "¹ Вызовы — сумма `cost.by_step.*.calls`, включая кеш; «Из кеша» — сумма `cached`. "
+        "Доля кеша — cached / calls. При неизвестных счётчиках, calls=0 или cached > calls долю "
+        "подтвердить нельзя, такой прогон исключается. Это учтённые обращения клиента, "
+        "а не гарантированное число сетевых попыток шлюза.",
         "",
-        "## Сводка по объёмам",
+        "## Сводка по открытым запросам",
         "",
-        "Группировка по объёму и режиму; в парах указаны среднее / максимум и число измерений n. "
-        "Для времени сборки учитываются только `complete=true` и `final_status=done` — наличие файлов "
-        "не гарантирует отсутствие ошибок автопроверки. Стоимость включает все записанные попытки "
-        "(в том числе неполные), но только с однозначным режимом live. Mock, replay и неизвестный/смешанный "
-        "режим исключены из сводки стоимости. Нулевой расход live из кеша остаётся реальным нулём.",
+        "По одному последнему подходящему прогону на каждый запрос из списка `--queries` "
+        "(по умолчанию `eval/open_queries.json`). "
+        "Тип и объём выбранного замера берутся из kit; если замера нет — из expected запроса. "
+        "Последний определяется по `transcript.finished_at`, при его отсутствии — по `started_at` "
+        "(даты с часовым поясом). Без даты или при равных датах используется порядок имён папок; "
+        "замеры с известной датой идут после замеров без даты. ID — `transcript.query_id`, "
+        "если он отсутствует — номер папки qN. ID не определяется по объёму: разные запросы на один "
+        "объём остаются разными строками. Среднее считается по последним замерам, а не по всем попыткам; "
+        "неизвестные значения не включаются, n указано отдельно для каждой метрики. "
+        "Запрос без подходящего прогона остаётся с «нет данных» и не влияет на среднее.",
         "",
-        "| Объём, ч | Режим | Папок / полных | До каркаса, с: ср. / макс. | "
-        "Сборка полного комплекта, с: ср. / макс. | Стоимость live, ₽: ср. / макс. | Вызовы¹: ср. / макс. |",
-        "|---|---|---|---|---|---|---|",
+        *_summary_rows(accepted, queries),
     ]
-    groups: dict[tuple[float | None, str | None], list[RunMetrics]] = defaultdict(list)
-    for run in runs:
-        groups[run.hours, run.mode].append(run)
-    for (hours, mode), group in sorted(
-        groups.items(), key=lambda item: (item[0][0] is None, item[0][0] or 0, item[0][1] or "")
-    ):
-        skeletons = [run.skeleton_seconds for run in group if run.skeleton_seconds is not None]
-        generations = [
-            run.generation_seconds for run in group if run.finished and run.generation_seconds is not None
-        ]
-        costs = [run.cost_rub for run in group if run.mode == "live" and run.cost_rub is not None]
-        calls = [float(run.calls) for run in group if run.calls is not None]
-        lines.append(
-            f"| {cell(hours)} | {cell(mode)} | {len(group)} / {sum(run.finished for run in group)} | "
-            f"{_pair(skeletons)} | {_pair(generations)} | {_pair(costs)} | {_pair(calls)} |"
-        )
     lower, upper = (weeks * hours_per_week for weeks in MANUAL_WEEKS)
     saved_low, saved_high = lower - review_hours, upper - review_hours
     lines += [
@@ -280,32 +405,44 @@ def render_report(runs: Sequence[RunMetrics], hours_per_week: float = 40, review
         "",
         "Параметры можно изменить: `python scripts/effect.py --hours-per-week 40 --review-hours 4`. "
         "Другой архив/вывод: `--runs-dir <папка> --out <путь внутри проекта>`. "
-        "Расчёт универсален и не читает список открытых запросов.",
+        "Список запросов для сводки можно изменить через `--queries <файл JSON>`; ID и объёмы не зашиты в коде.",
         "",
         "## Замечания к источникам",
         "",
     ]
-    notes = [f"- `{cell(run.path)}`: {cell(note)}." for run in runs for note in run.notes]
+    notes = [f"- `{cell(run.path)}`: {cell(note)}." for run in accepted for note in run.notes]
     lines += notes or ["Дополнительных замечаний к чтению источников нет."]
     return "\n".join(lines) + "\n"
+
+
+def project_path(value: Path) -> Path:
+    path = (ROOT / value).resolve()
+    if not path.is_relative_to(ROOT.resolve()):
+        raise ValueError("Путь должен находиться внутри проекта")
+    return path
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs-dir", type=Path, default=ROOT / "eval/runs", help="Архив папок */q*/")
     parser.add_argument("--out", type=Path, default=ROOT / "docs/effect.md", help="Путь отчёта Markdown")
+    parser.add_argument(
+        "--queries", type=Path, default=ROOT / "eval/open_queries.json", help="Список открытых запросов"
+    )
     parser.add_argument("--hours-per-week", type=float, default=40, help="Допущение: часов в рабочей неделе")
     parser.add_argument("--review-hours", type=float, default=4, help="Допущение: часов проверки и правки")
     args = parser.parse_args(argv)
-    if not args.runs_dir.is_dir():
-        parser.error("Папка прогонов не найдена")
     try:
-        text = render_report(collect_runs(args.runs_dir), args.hours_per_week, args.review_hours)
+        out = project_path(args.out)
+        if not args.runs_dir.is_dir():
+            raise ValueError("Папка прогонов не найдена")
+        queries = read_queries(args.queries)
+        text = render_report(collect_runs(args.runs_dir), args.hours_per_week, args.review_hours, queries)
     except ValueError as exc:
         parser.error(str(exc))
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(text, encoding="utf-8")
-    print(f"Отчёт записан: {args.out}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(f"Отчёт записан: {out}")
     return 0
 
 

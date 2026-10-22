@@ -337,3 +337,28 @@ def test_non_beginners_keep_books_beyond_topic_tags() -> None:
     assert [i for i in books if not bibliography.on_topic(kit, i)], [
         i.key for i in books
     ]  # не только по тегу темы
+
+
+def test_programming_books_only_where_programming_is_taught() -> None:
+    """Прогон 22.10, п. 2.8: учителям без программирования — книги по ML на Python; в курсе по кибербезопасности —
+    «Python и анализ данных». Книги для программистов — только там, где программирование есть в темах."""
+    from tests.validate_kits import make_dop_kit
+
+    teachers = make_dop_kit()
+    teachers.program.title = "Искусственный интеллект в работе учителя"
+    teachers.program.audience.age_or_grade = None
+    teachers.request.audience.entry_level = "базовые навыки работы с компьютером"
+    for topic in teachers.topics:
+        topic.title = "Подготовка плана урока с помощью нейросетей"
+        topic.tags = ["нейросети", "искусственный интеллект"]
+        topic.content = {}
+    registry = default_registry()
+    books = [i for i in bibliography.shortlist(teachers, registry) if i.key.startswith("lit:")]
+    assert books and not [i.key for i in books if {"python", "ml"} & set(i.record.tags)]
+
+    coders = make_pk_kit()
+    for topic in coders.topics:
+        topic.tags = ["python", "нейросети", "ml"]
+    coders.request.raw_text = "Программа для разработчиков: машинное обучение на Python"
+    books = [i for i in bibliography.shortlist(coders, registry) if i.key.startswith("lit:")]
+    assert [i.key for i in books if {"python", "ml"} & set(i.record.tags)]

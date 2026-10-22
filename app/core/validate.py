@@ -3875,21 +3875,27 @@ def check_v36(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                     FixBy.LLM,
                 )
             )
-    # вид работы из запроса засчитывается и итоговой аттестацией: «в конце каждый защищает проект — игру или
-    # чат-бота» — это итоговый проект, а не отдельное задание (ложная ошибка в прогоне 21.10)
-    works = [_seminar_text(s) for s in seminars] + [_fa_text(kit)]
-    for req in kit.request.constraints.required_seminar_types:
-        patterns = _requirement_patterns(req)
-        if not any(any(p.search(text) for p in patterns) for text in works if text):
-            out.append(
-                Finding(
-                    ERROR,
-                    f"Нет задания типа «{req.label}», которое требуется в запросе.",
-                    detail=f"required seminar type: {req.label}",
-                    fix_by=FixBy.LLM,
-                )
+    for req in missing_seminar_types(kit):
+        out.append(
+            Finding(
+                ERROR,
+                f"Нет задания типа «{req.label}», которое требуется в запросе.",
+                detail=f"required seminar type: {req.label}",
+                fix_by=FixBy.LLM,
             )
+        )
     return out
+
+
+def missing_seminar_types(kit: Kit) -> list[TopicRequirement]:
+    """Виды заданий из запроса, которых нет ни в одном задании. Вид засчитывается и итоговой аттестацией: «в конце
+    каждый защищает проект — игру или чат-бота» — это итоговый проект, а не отдельное задание (прогон 21.10)."""
+    works = [_seminar_text(s) for s in kit.seminars] + [_fa_text(kit)]
+    return [
+        req
+        for req in kit.request.constraints.required_seminar_types
+        if not any(any(p.search(text) for p in _requirement_patterns(req)) for text in works if text)
+    ]
 
 
 def _grades(text: str) -> set[int]:

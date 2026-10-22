@@ -638,6 +638,7 @@ def apply_final_attestation(
             )
             for p in items
         ]
+        _split_shared_requirements(fa)
     task = draft.example_task
     if task is not None and (clean(task.title) or clean(task.description)):
         task.title, task.environment = clean_prose(task.title), clean_prose(task.environment)
@@ -651,12 +652,43 @@ def apply_final_attestation(
             ANON_SENTENCE
         )  # обязательное условие запроса — код не полагается на модель
     fa.expected_result = clean_prose(draft.expected_result) or fa.expected_result
-    fa.report_requirements = clean_items(draft.report_requirements, 10)
+    # требования к отчёту — только у форм, где отчёт бывает (прогон 22.10: блоки отчёта у экзамена и школьного зачёта)
+    with_report = fa.form in (FAForm.REPORT_DEFENSE, FAForm.PROJECT_DEFENSE, FAForm.OTHER)
+    fa.report_requirements = clean_items(draft.report_requirements, 10) if with_report else []
     fa.criteria = _criteria("FA", draft.criteria, alloc)
     total = sum(c.max_points for c in fa.criteria)
     fa.pass_rule = fa_pass_rule(clean_prose(draft.pass_rule), total, pass_share)
     fa.procedure = clean_items(draft.procedure, 8)
     kit.final_attestation = fa
+
+
+def _req_key(text: str) -> str:
+    return " ".join(re.findall(r"\w+", text.lower().replace("ё", "е")))
+
+
+def _split_shared_requirements(fa: FinalAttestation) -> None:
+    """Требование, повторённое у двух и более элементов портфолио, — общее: оно переносится в требования аттестации,
+    у элементов остаются только свои (прогон 22.10, п. 2.7: у трёх элементов пять одинаковых требований слово в слово)."""
+    items = fa.portfolio_items
+    if len(items) < 2:
+        return
+    seen: dict[str, int] = {}
+    for item in items:
+        for key in {_req_key(r) for r in item.requirements}:
+            seen[key] = seen.get(key, 0) + 1
+    shared = {key for key, n in seen.items() if n >= 2 and key}
+    if not shared:
+        return
+    general = {_req_key(r) for r in fa.requirements}
+    for item in items:
+        for req in item.requirements:
+            key = _req_key(req)
+            if key in shared and key not in general:
+                fa.requirements.append(req)
+                general.add(key)
+        own = [r for r in item.requirements if _req_key(r) not in shared]
+        if own:  # элемент без своих требований — ошибка V12 «нет требований»; тогда оставляем как есть
+            item.requirements = own
 
 
 RULE_SHARE_RE = re.compile(r"(\d{2})\s*%")

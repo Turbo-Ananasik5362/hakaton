@@ -17,9 +17,16 @@ STEM_STOPWORDS = frozenset(
         "нужно можно следует используется используют является называется верно правильно"
     ).split()
 )
-MIN_STEMS = 3  # меньше значимых слов — формулировки не сравниваются («Что выведет print(2+3)?»)
+MIN_STEMS = 2  # короткие формулировки сравниваются только при совпадении чисел и фрагментов кода
 STEM_SIMILARITY = 0.8
 OPTION_OVERLAP = 0.75
+NUMBER_RE = re.compile(r"[-+−]?\d+(?:[.,]\d+)?")
+TOKEN_RE = re.compile(
+    r""""(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|«[^»]*»|“[^”]*”|\x60[^\x60]*\x60"""
+    r"|\d+(?:\.\d+)?|\w+|[^\w\s]"
+)
+BRACKET_END: dict[str, str] = {"(": ")", "[": "]", "{": "}"}
+QUOTE_STARTS = "\"'«“\x60"
 
 
 def stem_set(text: str) -> set[str]:
@@ -33,6 +40,44 @@ def _option(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+def _fragment_end(tokens: Sequence[str], start: int) -> int:
+    """Конец фрагмента с учётом вложенных скобок; кавычки уже собраны в отдельные токены."""
+    stack: list[str] = []
+    for index in range(start, len(tokens)):
+        token = tokens[index]
+        if token in BRACKET_END:
+            stack.append(BRACKET_END[token])
+        elif stack and token == stack[-1]:
+            stack.pop()
+            if not stack:
+                return index + 1
+    return len(tokens)
+
+
+def _non_root_tokens(text: str) -> tuple[tuple[str, ...], ...]:
+    """Числа и содержимое скобок, кавычек и части после двоеточия, без потери знаков и регистра кода."""
+    tokens = TOKEN_RE.findall(text.rstrip().rstrip("?"))
+    result: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token == ":":
+            result.append(tuple(tokens[index + 1 :]))
+            break
+        if token in BRACKET_END:
+            end = _fragment_end(tokens, index)
+            result.append(tuple(tokens[index:end]))
+            index = end
+            continue
+        if token[0] in QUOTE_STARTS:
+            result.append((token,))
+        elif NUMBER_RE.fullmatch(token):
+            sign = tokens[index - 1] if index and tokens[index - 1] in {"+", "-", "−"} else ""
+            result.append((sign + token,))
+        index += 1
+    return tuple(result)
+
+
 def same_question(
     stem_a: str,
     options_a: Sequence[str],
@@ -41,14 +86,19 @@ def same_question(
     options_b: Sequence[str],
     correct_b: Sequence[int],
 ) -> bool:
-    """Два вопроса проверяют одно и то же: почти одна формулировка или те же варианты с тем же верным ответом."""
+    """Похожие формулировки или содержательные варианты, если числа и фрагменты кода совпадают."""
+    if _non_root_tokens(stem_a) != _non_root_tokens(stem_b):
+        return False
     a, b = stem_set(stem_a), stem_set(stem_b)
-    if len(a) >= MIN_STEMS and len(b) >= MIN_STEMS and len(a & b) / len(a | b) >= STEM_SIMILARITY:
+    # Коэффициент Дайса сохраняет короткие формулировки с небольшим уточнением контекста.
+    if len(a) >= MIN_STEMS and len(b) >= MIN_STEMS and 2 * len(a & b) / (len(a) + len(b)) >= STEM_SIMILARITY:
         return True
     opts_a, opts_b = {_option(o) for o in options_a}, {_option(o) for o in options_b}
     right_a = {_option(options_a[i]) for i in correct_a if 0 <= i < len(options_a)}
     right_b = {_option(options_b[i]) for i in correct_b if 0 <= i < len(options_b)}
     if not right_a or right_a != right_b or not opts_a or not opts_b:
+        return False
+    if all(NUMBER_RE.fullmatch(option) or len(WORD_RE.findall(option)) <= 1 for option in opts_a | opts_b):
         return False
     return len(opts_a & opts_b) >= OPTION_OVERLAP * min(len(opts_a), len(opts_b))
 

@@ -23,7 +23,7 @@
 ```json
 {"session_id": "s_...", "status": "need_clarification", "questions": [{"id": "hours", "text": "Сколько часов ...?", "options": ["16", "36", "72", "другое"]}]}
 {"session_id": "s_...", "status": "skeleton_ready", "skeleton": { "...": "каркас: цель, компетенции, учебный план" }, "validation": { "...": "отчёт по часам" }}
-{"session_id": "s_...", "status": "done", "kit": { "...": "полный JSON комплекта" }, "files": {"program_docx": "/api/v1/sessions/s_.../files/program.docx", "slides_pptx": "...", "tests_gift": "...", "kit_json": "..."}, "report": { "...": "отчёт самопроверки" }}
+{"session_id": "s_...", "status": "done", "kit": { "...": "полный JSON комплекта" }, "files": {"program_docx": "/api/v1/sessions/s_.../files/program.docx", "report_docx": "/api/v1/sessions/s_.../files/report.docx", "slides_pptx": "...", "tests_gift": "...", "kit_json": "..."}, "report": { "...": "отчёт самопроверки" }}
 ```
 `auto_approve: true` — режим для автоматической проверки: каркас утверждается автоматически и сразу собирается комплект
 (уточняющие вопросы всё равно задаются, если данных не хватает).
@@ -32,7 +32,8 @@
 Ответы на уточняющие вопросы: `{"answers": {"hours": "72", ...}}` → следующее состояние.
 
 ### POST /api/v1/sessions/{id}/approve
-Утвердить каркас (опционально с правками: `{"skeleton": {...}}`) → генерация комплекта → `status: done`.
+Утвердить каркас (опционально с правками: `{"skeleton": {...}}`) → `generating` или `queued`; результат — опросом сессии.
+С `?wait=true` запрос ждёт завершения генерации комплекта.
 Правки каркаса (все поля необязательные; объекты — по ID или по-человечески, «тема 2.3»):
 ```json
 {"skeleton": {
@@ -52,7 +53,7 @@
 Точечная правка готового комплекта (`status: done`): `{"target": "тема 2.3", "instruction": "замени тему 2.3 на «…»"}`.
 `target` — ID объекта или его название по-человечески («тема 2.3», «модуль 2», «итоговый тест», «результат 1.2»);
 `instruction` — что сделать (пусто — пересобрать объект заново). По умолчанию ждёт результат (`?wait=false` — сразу
-`patching`, затем опрос `GET /sessions/{id}`). Пересобирается только затронутое (docs/ARCHITECTURE.md §5.2), затем
+`patching`, затем опрос `GET /api/v1/sessions/{id}`). Пересобирается только затронутое (docs/ARCHITECTURE.md §5.2), затем
 самопроверка и все выгрузки.
 
 Ответ — состояние сессии (`done`) и поле `patch`:
@@ -80,24 +81,24 @@
 Сессия не меняется.
 
 ### Состояния сессии
-`new` (разбор запроса) → `need_clarification` → `skeleton_ready` → `queued` (заняты оба слота генерации) →
+`new` (разбор запроса) → `need_clarification` → `skeleton_ready` → `queued` (заняты все слоты генерации) →
 `generating` → `done`; после `done` — `patching` → `done`. При сбое — `failed` с полем `error` и тем, что успели.
 В каждом ответе есть `message` — что происходит и что делать дальше, по-русски; `progress` — шаги со статусами
-(`pending`, `running`, `done`, `failed`, `skipped`). Одновременно генерируются не больше 2 сессий.
-После перезапуска сервера незавершённые сессии продолжаются с последнего готового шага.
+(`pending`, `running`, `done`, `failed`, `skipped`). Одновременно генерируются не больше `MAX_GENERATING_SESSIONS` сессий (по умолчанию 2).
+После перезапуска сервера незавершённые сессии моложе 2 ч продолжаются с последнего готового шага.
 
 ### Ожидание ответа (`?wait=`)
 | Запрос | По умолчанию | Что значит |
 |---|---|---|
 | `POST /sessions`, `/answers` | `wait=true` | ждать вопросов, каркаса или (при `auto_approve`) готового комплекта |
-| `POST /approve` | `wait=false` | сразу `generating` + `progress`; опрашивать `GET /sessions/{id}` раз в 2 с |
+| `POST /approve` | `wait=false` | сразу `generating` или `queued` + `progress`; опрашивать `GET /api/v1/sessions/{id}` раз в 2 с |
 | `POST /patch` | `wait=true` | ждать результата правки |
 | `POST /run` | всегда синхронно | |
 
 ### Ошибки
 Всегда JSON: `{"status": "error", "error": {"code": "...", "message": "понятный текст", "details": ...}}`.
-`400 invalid_input` (битое вложение), `404 session_not_found` / `file_not_found`, `409 invalid_state` / `session_busy`,
-`413 payload_too_large`, `415 unsupported_attachment` (нужны .docx, .pdf, .txt), `422 invalid_request` (поля запроса),
+`400 invalid_input` (нет текста и ни одного читаемого вложения), `404 session_not_found` / `file_not_found`, `409 invalid_state` / `session_busy`,
+`413 payload_too_large`, `422 invalid_request` (поля запроса),
 `422 unknown_target` / `hours_conflict`, `429 rate_limited` (больше `RATE_LIMIT_PER_MINUTE` новых сессий в минуту
 с одного адреса или больше `MAX_ACTIVE_SESSIONS` сессий в работе; заголовок `Retry-After` — через сколько секунд
 повторить). Ошибка внутри шага агента не даёт 500: сессия переходит в `failed`, код — в `error.code` сессии, в
@@ -114,11 +115,12 @@
 `skeleton.assumptions` (формат определяется по содержимому: PDF с расширением .docx будет прочитан как PDF).
 
 ### Файлы (`files` в ответе `done`)
-Ключи `files`: `program_docx` (программа по шаблону АЦР), `slides_pptx` (слайды лекций из запроса), `tests_gift`,
+Ключи `files`: `program_docx` (программа по шаблону АЦР без отчёта), `report_docx` (отдельный `report.docx` для методиста),
+`slides_pptx` (слайды лекций из запроса), `tests_gift`,
 `tests_moodle_xml` и `tests_csv` (тесты: импорт в Moodle и таблица), `report_md` (отчёт автопроверки для
-методиста; он же — последнее приложение программы .docx), `kit_json` (комплект без разобранного образца —
-его реквизиты и текст в выгрузку не попадают), `report_json`. Каждый файл после записи перечитывается и сверяется с
-комплектом (V31 в `report`). Нет материала (лекций со слайдами, тестовых вопросов) — нет файла, причина в `notes`.
+методиста; те же разделы доступны в `report.docx`), `kit_json` (комплект без разобранного образца —
+его реквизиты и текст в выгрузку не попадают), `report_json`. Программа, слайды и файлы тестов после записи перечитываются и сверяются с
+комплектом (V31 в `report`); `report.docx` отдельно проверяется на открытие. Нет материала (лекций со слайдами, тестовых вопросов) — нет файла, причина в `notes`.
 Сбой одной выгрузки не мешает остальным: файла нет, причина — в `notes` и в `report` (V31), JSON выдаётся всегда. После правки (`/patch`)
 в ответе есть `patch`: `{target_id, ok, changed_ids, error, revision}` — неудачная правка комплект не меняет.
 `GET /health` и `GET /` показывают `llm_mode` и `llm_ready` сервера: для автопрогона должно быть `live` и `true`.
@@ -131,7 +133,7 @@
 | Поле | Что в нём |
 |---|---|
 | `status`, `summary` | `ok` / `warnings` / `errors`; итог одной фразой |
-| `warnings_for_methodist` | предупреждения методисту по общим правилам: `type` (`reference_errors`, `expectation_gap`, `schedule_tight`, `norm_replaced`, `unverified_sources`, `constraint_conflict`), `title`, `text` (с цифрами), `figures` (`[{label, value}]` — главные цифры), `options` (варианты решения), `program_text` (вариант текста для приложения к программе .docx — без цитат образца и номеров утративших силу актов; пусто — годится `text`), `code` (уточнение вида, например код конфликта солвера), `target_ids` |
+| `warnings_for_methodist` | предупреждения методисту по общим правилам: `type` (`reference_errors`, `expectation_gap`, `schedule_tight`, `norm_replaced`, `unverified_sources`, `constraint_conflict`), `title`, `text` (с цифрами), `figures` (`[{label, value}]` — главные цифры), `options` (варианты решения), `program_text` (сохранённый для совместимости вариант текста без цитат образца и номеров утративших силу актов; пусто — годится `text`; в program.docx отчёт не включается), `code` (уточнение вида, например код конфликта солвера), `target_ids` |
 | `issues` | замечания проверок V01–V46: `check`, `severity`, `message` (для методиста), `detail` (для разработчика), `fix_by`, `target_ids` |
 | `hours` | часы по уровням: `declared`, `total`, `matches`, `topics`, `final_attestation`, `lk`, `pr`, `lb`, `srs`, `contact`, `distance`, `in_person`; `lines` — модуль → его темы, итоговая аттестация, итог (`level`, `id`, `number`, `title`, `total`, `hours`) |
 | `coverage` | матрица «результат обучения × темы × оценочные средства»: `lo_id`, `text`, `topic_ids`, `assessment_ids`, `by_kind`, `status` (`ok` — два и более средства, `single`, `unassessed`, `no_topic`) |

@@ -1526,7 +1526,7 @@
     "max_points": 3.0
    }
   ],
-  "pass_rule": "Зачтено — не меньше 6 баллов из 10.",
+  "pass_rule": "«Зачтено» — не меньше 6 баллов из 10 и ни по одному критерию не 0 баллов.",
   "procedure": [
    "Слушатель заранее сдаёт работу преподавателю",
    "Представляет результат комиссии",
@@ -1573,60 +1573,6 @@
   },
   {
    "id": "SRC3",
-   "kind": "book",
-   "section": "main",
-   "registry_id": "data_mckinney_2023",
-   "verification": "catalog",
-   "authors": [
-    "Маккинни У."
-   ],
-   "title": "Python и анализ данных",
-   "year": 2023,
-   "publisher": "ДМК Пресс",
-   "isbn": "978-5-93700-174-0",
-   "url": "https://www.dmkpress.com/catalog/computer/programming/python/978-5-93700-174-0/",
-   "topic_ids": [],
-   "unverified": false,
-   "citation": "Маккинни У. Python и анализ данных. — ДМК Пресс, 2023. — ISBN 978-5-93700-174-0. — URL: https://www.dmkpress.com/catalog/computer/programming/python/978-5-93700-174-0/"
-  },
-  {
-   "id": "SRC4",
-   "kind": "book",
-   "section": "additional",
-   "registry_id": "data_vanderplas_2023",
-   "verification": "catalog",
-   "authors": [
-    "Вандер Плас Дж."
-   ],
-   "title": "Python для сложных задач : наука о данных и машинное обучение",
-   "year": 2023,
-   "publisher": "Питер",
-   "isbn": "978-5-4461-0914-2",
-   "url": "https://rusneb.ru/catalog/000200_000018_RU_NLR_BIBL_A_016211862/",
-   "topic_ids": [],
-   "unverified": false,
-   "citation": "Вандер Плас Дж. Python для сложных задач : наука о данных и машинное обучение. — Питер, 2023. — ISBN 978-5-4461-0914-2. — URL: https://rusneb.ru/catalog/000200_000018_RU_NLR_BIBL_A_016211862/"
-  },
-  {
-   "id": "SRC5",
-   "kind": "book",
-   "section": "additional",
-   "registry_id": "testing_beck_2021",
-   "verification": "catalog",
-   "authors": [
-    "Бек К."
-   ],
-   "title": "Экстремальное программирование. Разработка через тестирование",
-   "year": 2021,
-   "publisher": "Питер",
-   "isbn": "978-5-4461-1439-9",
-   "url": "https://rusneb.ru/catalog/000199_000009_010439131/",
-   "topic_ids": [],
-   "unverified": false,
-   "citation": "Бек К. Экстремальное программирование. Разработка через тестирование. — Питер, 2021. — ISBN 978-5-4461-1439-9. — URL: https://rusneb.ru/catalog/000199_000009_010439131/"
-  },
-  {
-   "id": "SRC6",
    "kind": "doc",
    "section": "internet",
    "registry_id": "python_docs_tutorial",
@@ -1642,36 +1588,22 @@
    "citation": "The Python Tutorial. — URL: https://docs.python.org/3/tutorial/"
   },
   {
-   "id": "SRC7",
-   "kind": "doc",
-   "section": "internet",
-   "registry_id": "data_pandas_docs",
+   "id": "SRC4",
+   "kind": "book",
+   "section": "additional",
+   "registry_id": "python_lutz_2019",
    "verification": "catalog",
-   "authors": [],
-   "title": "pandas documentation",
-   "year": 2026,
-   "publisher": null,
-   "isbn": null,
-   "url": "https://pandas.pydata.org/docs/",
+   "authors": [
+    "Лутц М."
+   ],
+   "title": "Изучаем Python : авторитетный курс объектно-ориентированного программирования. Т. 1",
+   "year": 2019,
+   "publisher": "Диалектика",
+   "isbn": "978-5-907144-52-1",
+   "url": "https://rusneb.ru/catalog/000199_000009_010092513/",
    "topic_ids": [],
    "unverified": false,
-   "citation": "pandas documentation. — 2026. — URL: https://pandas.pydata.org/docs/"
-  },
-  {
-   "id": "SRC8",
-   "kind": "doc",
-   "section": "internet",
-   "registry_id": "ml_sklearn_docs",
-   "verification": "catalog",
-   "authors": [],
-   "title": "scikit-learn User Guide",
-   "year": null,
-   "publisher": null,
-   "isbn": null,
-   "url": "https://scikit-learn.org/stable/user_guide.html",
-   "topic_ids": [],
-   "unverified": false,
-   "citation": "scikit-learn User Guide. — URL: https://scikit-learn.org/stable/user_guide.html"
+   "citation": "Лутц М. Изучаем Python : авторитетный курс объектно-ориентированного программирования. Т. 1. — Диалектика, 2019. — ISBN 978-5-907144-52-1. — URL: https://rusneb.ru/catalog/000199_000009_010092513/"
   }
  ],
  "calendar": {
@@ -1860,7 +1792,7 @@
   "satisfaction": ""
  },
  "report": {
-  "generated_at": "2026-10-21T22:17:19.333820Z",
+  "generated_at": "2026-10-22T12:52:15.809577Z",
   "summary": "Комплект собран, ошибок и предупреждений нет. Пояснения к сборке — в разделе «Что пропущено и почему».",
   "issues": [],
   "hours": {
@@ -2218,28 +2150,28 @@
    }
   ],
   "sources": {
-   "total": 8,
-   "confirmed": 8,
+   "total": 4,
+   "confirmed": 4,
    "unverified": 0,
    "rejected": 1,
    "dropped": 0,
    "by_verification": {
     "registry": 0,
-    "catalog": 8,
+    "catalog": 4,
     "online": 0,
     "unverified": 0
    },
    "by_section": {
     "Основная литература": {
-     "confirmed": 3,
-     "unverified": 0
-    },
-    "Дополнительная литература": {
      "confirmed": 2,
      "unverified": 0
     },
     "Интернет-ресурсы": {
-     "confirmed": 3,
+     "confirmed": 1,
+     "unverified": 0
+    },
+    "Дополнительная литература": {
+     "confirmed": 1,
      "unverified": 0
     }
    },
@@ -2391,27 +2323,27 @@
   ],
   "timing": {
    "plan": 0.0,
-   "program_texts": 0.044,
-   "final_attestation": 0.045,
-   "literature": 0.045,
-   "module_content:M1": 0.046,
-   "module_content:M2": 0.046,
-   "module_content:M3": 0.047,
-   "lectures:M1": 0.017,
-   "seminars:M1": 0.018,
-   "lectures:M2": 0.018,
-   "seminars:M2": 0.019,
-   "lectures:M3": 0.019,
-   "seminars:M3": 0.02,
-   "tests:M1": 0.025,
-   "tests:M2": 0.026,
-   "tests:M3": 0.026,
+   "program_texts": 0.06,
+   "final_attestation": 0.061,
+   "literature": 0.061,
+   "module_content:M1": 0.062,
+   "module_content:M2": 0.062,
+   "module_content:M3": 0.063,
+   "lectures:M1": 0.021,
+   "seminars:M1": 0.022,
+   "lectures:M2": 0.022,
+   "seminars:M2": 0.023,
+   "lectures:M3": 0.023,
+   "seminars:M3": 0.024,
+   "tests:M1": 0.03,
+   "tests:M2": 0.03,
+   "tests:M3": 0.03,
    "slides": 0.002,
    "refill": 0.0,
-   "finalize": 0.009,
-   "judge": 0.001
+   "finalize": 0.095,
+   "judge": 0.002
   },
-  "generation_seconds": 0.7,
+  "generation_seconds": 0.8,
   "status": "ok",
   "cost_rub": 0.0,
   "llm_calls": 16
@@ -2419,32 +2351,32 @@
  "history": [],
  "retired_ids": [],
  "meta": {
-  "created_at": "2026-10-22T01:17:19.057686+03:00",
+  "created_at": "2026-10-22T15:52:15.399560+03:00",
   "llm_mode": "mock",
   "generation_mode": "full",
   "skills_version": "",
   "timing": {
    "plan": 0.0,
-   "program_texts": 0.044,
-   "final_attestation": 0.045,
-   "literature": 0.045,
-   "module_content:M1": 0.046,
-   "module_content:M2": 0.046,
-   "module_content:M3": 0.047,
-   "lectures:M1": 0.017,
-   "seminars:M1": 0.018,
-   "lectures:M2": 0.018,
-   "seminars:M2": 0.019,
-   "lectures:M3": 0.019,
-   "seminars:M3": 0.02,
-   "tests:M1": 0.025,
-   "tests:M2": 0.026,
-   "tests:M3": 0.026,
+   "program_texts": 0.06,
+   "final_attestation": 0.061,
+   "literature": 0.061,
+   "module_content:M1": 0.062,
+   "module_content:M2": 0.062,
+   "module_content:M3": 0.063,
+   "lectures:M1": 0.021,
+   "seminars:M1": 0.022,
+   "lectures:M2": 0.022,
+   "seminars:M2": 0.023,
+   "lectures:M3": 0.023,
+   "seminars:M3": 0.024,
+   "tests:M1": 0.03,
+   "tests:M2": 0.03,
+   "tests:M3": 0.03,
    "slides": 0.002,
    "refill": 0.0,
-   "finalize": 0.009,
-   "judge": 0.001,
-   "validate": 0.112
+   "finalize": 0.095,
+   "judge": 0.002,
+   "validate": 0.115
   },
   "cost": [
    {

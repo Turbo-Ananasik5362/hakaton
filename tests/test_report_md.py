@@ -1,4 +1,4 @@
-"""Отчёт автопроверки (app/render/report_md.py, report_docx.py): итог одной фразой, разделы, приложение в .docx и
+"""Отчёт автопроверки (app/render/report_md.py, report_docx.py): итог одной фразой, разделы, отдельный .docx и
 сообщение API — на трёх комплектах: без замечаний, с предупреждениями, с ошибками."""
 
 from __future__ import annotations
@@ -13,9 +13,10 @@ from app.config import Settings
 from app.core.registry import default_registry
 from app.core.validate import ValidationContext, validate
 from app.models import JudgeResult, Kit, StepCost
-from app.render import docx_dop, docx_pk
+from app.render.bundle import render_all
 from app.render.common import load_organization
 from app.render.program import render_program_docx
+from app.render.report_docx import render_report_docx
 from app.render.report_md import Advice, Table, api_message, build_report, render_report_md, summary_line
 
 FIXTURES = Path(__file__).parent / "fixtures" / "kits"
@@ -247,23 +248,29 @@ def test_skipped_steps_and_cost() -> None:
 
 
 # --------------------------------------------------------------------------------------------------
-# Приложение в .docx, report.md и API
+# Отдельный report.docx, чистая программа, report.md и API
 # --------------------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("n", "heading"), [(3, docx_pk.APPENDIX_3), (1, docx_dop.APPENDIX_2)])
-def test_docx_appendix_with_report(n: int, heading: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize("n", [1, 2, 3, 4, 5])
+def test_separate_docx_report(n: int, tmp_path: Path) -> None:
     kit = load(n)
     report = build_report(kit)
-    name, issues = render_program_docx(
-        kit, tmp_path, default_registry(), load_organization(Settings().organization_file), report
+    outcome = render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
+    assert outcome.issues == []
+    program = docx.Document(str(tmp_path / outcome.files["program_docx"]))
+    paragraphs = [p.text for p in program.paragraphs]
+    cells = [c.text for table in program.tables for row in table.rows for c in row.cells]
+    assert "Отчёт автопроверки" not in "\n".join(paragraphs + cells)
+    assert outcome.files["report_docx"] == "report.docx"
+    document = docx.Document(str(tmp_path / "report.docx"))
+    texts = [p.text for p in document.paragraphs]
+    assert texts[0] == report.title and f"Итог. {report.summary}" in texts
+    assert "Коротко" in texts and "Часы по уровням" in texts and "Покрытие результатов обучения" in texts
+    assert not any(
+        p.text.startswith("Приложение") for p in document.paragraphs if p.style.name.startswith("Heading")
     )
-    assert issues == []
-    texts = [p.text for p in docx.Document(str(tmp_path / name)).paragraphs]
-    start = texts.index(heading)
-    tail = texts[start:]
-    assert "Отчёт автопроверки комплекта" in tail and f"Итог. {report.summary}" in tail
-    assert "Часы по уровням" in tail and "Покрытие результатов обучения" in tail
+    assert not document.core_properties.author and not document.core_properties.last_modified_by
 
 
 def test_done_message_and_report_md_through_api(tmp_path: Path) -> None:
@@ -275,6 +282,7 @@ def test_done_message_and_report_md_through_api(tmp_path: Path) -> None:
 
     body = run(tmp_path, OPEN[3])
     assert body["files"]["report_md"].endswith("/files/report.md")
+    assert body["files"]["report_docx"].endswith("/files/report.docx")
     kit = Kit.model_validate(body["kit"])
     assert body["message"].startswith(summary_line(kit, see="см. отчёт").split(" Пояснения")[0])
     assert "Подробный отчёт — файл report.md" in body["message"]
@@ -287,7 +295,7 @@ def test_done_message_and_report_md_through_api(tmp_path: Path) -> None:
         assert name in md
 
 
-def test_docx_appendix_keeps_out_what_rules_forbid(tmp_path: Path) -> None:
+def test_program_keeps_out_report_details(tmp_path: Path) -> None:
     """В программу не идут: ISBN отброшенной моделью книги, часы и цитаты образца, свободный текст судьи, номера
     отменённых актов. В report.md всё это остаётся."""
     kit = load(3)
@@ -312,7 +320,17 @@ def test_docx_appendix_keeps_out_what_rules_forbid(tmp_path: Path) -> None:
         "№ 499",
     ):
         assert forbidden not in text, forbidden
-    assert "не прошедших проверку: 1" in text and "Полная версия отчёта — файл report.md" in text
+    assert "Отчёт автопроверки" not in text
+    # Сокращённый ReportDoc остаётся совместимым; прежние проверки очистки не теряются.
+    render_report_docx(build_report(kit, for_docx=True), tmp_path / "filtered.docx")
+    filtered = "\n".join(p.text for p in docx.Document(str(tmp_path / "filtered.docx")).paragraphs)
+    assert "не прошедших проверку: 1" in filtered and "Полная версия отчёта — файл report.md" in filtered
+    render_report_docx(build_report(kit), tmp_path / "report.docx")
+    full = docx.Document(str(tmp_path / "report.docx"))
+    full_text = "\n".join(
+        [p.text for p in full.paragraphs] + [c.text for t in full.tables for r in t.rows for c in r.cells]
+    )
+    assert "978-5-4461-0000-1" in full_text and reason in full_text and "ПР (9 ч)" in full_text
     md = render_report_md(build_report(kit))
     assert "978-5-4461-0000-1" in md and reason in md and "ПР (9 ч)" in md
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.core.hours import fmt_hours
 from app.core.ids import display_numbers
 from app.core.registry import Registry
 from app.models import (
@@ -198,8 +199,8 @@ FA_RULES: dict[FAForm, str] = {
         "description (что сделать), deliverable (что сдать); requirements — условия экзамена."
     ),
     FAForm.REPORT_DEFENSE: (
-        "Защита отчёта: report_requirements — структура отчёта, 5–8 разделов; requirements — требования к оформлению "
-        "и к отзыву руководителя."
+        "Защита отчёта: report_requirements — разделы отчёта по названиям, объём в страницах, приложения; "
+        "requirements — требования к оформлению; наличие отзыва руководителя — условие допуска, а не критерий."
     ),
     FAForm.TEST: (
         "Итоговое тестирование: requirements — как проводится тест (число попыток, время, порог); вопросы теста "
@@ -231,8 +232,16 @@ def describe_fa(kit: Kit) -> str:
     if request.fa_text:
         lines.append(f"Как сказано в запросе: {request.fa_text}.")
     lines.append(FA_RULES.get(form, FA_RULES[FAForm.OTHER]))
+    if fa is not None and fa.hours:
+        # время — чтобы задание было на часы аттестации, а не на работу по всем модулям (прогон 22.10, п. 4.10)
+        lines.append(
+            f"На итоговую аттестацию отведено {fmt_hours(fa.hours)} ч — задание и защита на это время."
+        )
     if form == FAForm.PORTFOLIO and request.portfolio_items_count:
         lines.append(f"Материалов портфолио — ровно {request.portfolio_items_count}.")
+    kinds = [r.label for r in request.constraints.required_seminar_types]
+    if form == FAForm.PORTFOLIO and kinds:  # виды материалов из запроса (прогон 22.10, п. 2.7: виды выдуманы)
+        lines.append(f"Виды материалов из запроса: {', '.join(kinds)} — по одному элементу портфолио на вид.")
     if request.constraints.anonymized_data:
         lines.append(
             "data_requirements — требования к данным проекта, обязательно: данные обезличены; expected_result — "

@@ -108,7 +108,7 @@ class Settings(BaseModel):
     api_key: SecretStr = SecretStr("")
     default_model: str = DEFAULT_MODEL
     reasoning_model: str = REASONING_MODEL
-    daily_budget_rub: float = Field(default=90.0, ge=0)
+    daily_budget_rub: float = Field(default=280.0, ge=0)
     concurrency: int = Field(default=2, ge=1)  # шлюз ограничивает одновременные запросы всей команды (429)
     timeout_s: float = Field(default=120.0, gt=0)
     max_retries: int = Field(default=4, ge=0)
@@ -180,7 +180,7 @@ class Settings(BaseModel):
             base_url=base_url,
             api_key=SecretStr(api_key),
             default_model=env.get("LLM_DEFAULT_MODEL", DEFAULT_MODEL),
-            daily_budget_rub=float(env.get("LLM_DAILY_BUDGET_RUB", "90")),
+            daily_budget_rub=float(env.get("LLM_DAILY_BUDGET_RUB", "280")),
             concurrency=int(env.get("LLM_CONCURRENCY", "2")),
             timeout_s=float(env.get("LLM_TIMEOUT_S", "120")),
             max_retries=int(env.get("LLM_MAX_RETRIES", "4")),

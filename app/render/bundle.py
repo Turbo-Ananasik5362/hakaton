@@ -1,4 +1,4 @@
-"""Все выгрузки комплекта, кроме JSON: программа .docx, слайды .pptx, тесты GIFT / Moodle XML / CSV — с проверкой V31.
+"""Выгрузки: программа .docx, слайды .pptx, тесты GIFT / Moodle XML / CSV с V31 и отдельный report.docx.
 
 Каждая выгрузка независима: сбой одной даёт понятную заметку и замечание V31, остальные файлы выдаются.
 Нет материала (лекций со слайдами, тестовых вопросов) — файла нет, а в заметке сказано почему.
@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.core.registry import Registry
-from app.models import FixBy, Issue, Kit, Severity
+from app.models import FixBy, Issue, Kit, Severity, ValidationReport
 from app.render.common import Organization
 from app.render.csv_tests import CSV_NAME, render_csv
 from app.render.gift import GIFT_NAME, render_gift
@@ -21,7 +21,8 @@ from app.render.moodle_xml import XML_NAME, render_moodle_xml
 from app.render.pptx import PPTX_NAME, deck_lectures, lecture_slides, render_pptx
 from app.render.program import DOCX_NAME, render_program_docx
 from app.render.questions import question_bank
-from app.render.report_md import build_report
+from app.render.report_docx import REPORT_DOCX_NAME, render_report_docx
+from app.render.report_md import ReportDoc, build_report
 from app.render.verify import CHECK, REFS, verify_pptx, verify_tests
 
 logger = logging.getLogger("karkas.render")
@@ -56,19 +57,24 @@ def render_all(
     notes: Sequence[str] = (),
     references: Sequence[str] = (),
 ) -> RenderOutcome:
-    """notes — заметки сессии и references — тексты приложенных образцов (для отчёта автопроверки в .docx)."""
+    """notes и references используются в отдельном отчёте методисту report.docx."""
     outcome = RenderOutcome()
     steps: list[tuple[str, list[str], Callable[[], None]]] = [
         (
             "Программа .docx",
             [DOCX_NAME],
-            lambda: _program(kit, out_dir, registry, org, notes, references, outcome),
+            lambda: _program(kit, out_dir, registry, org, outcome),
         ),
         ("Слайды .pptx", [PPTX_NAME], lambda: _slides(kit, out_dir, outcome)),
         (
             "Тесты GIFT, Moodle XML и CSV",
             [GIFT_NAME, XML_NAME, CSV_NAME],
             lambda: _tests(kit, out_dir, outcome),
+        ),
+        (
+            "Отчёт автопроверки .docx",
+            [REPORT_DOCX_NAME],
+            lambda: _report(kit, out_dir, notes, references, outcome),
         ),
     ]
     for title, names, run in steps:
@@ -97,17 +103,34 @@ def _program(
     out_dir: Path,
     registry: Registry,
     org: Organization,
+    outcome: RenderOutcome,
+) -> None:
+    # Общий рендер сохраняет прежний аргумент отчёта для совместимости; программа его больше не использует.
+    report = ReportDoc(title="", status=None, summary="")
+    name, issues = render_program_docx(kit, out_dir, registry, org, report)
+    outcome.files["program_docx"] = name
+    outcome.issues += issues
+
+
+def _report(
+    kit: Kit,
+    out_dir: Path,
     notes: Sequence[str],
     references: Sequence[str],
     outcome: RenderOutcome,
 ) -> None:
-    # заметки «слайдов / тестов нет» известны до выгрузок — приложение-отчёт в .docx должно их видеть
+    # Основной пайплайн присоединит V31 позже; для Word-отчёта используем копию уже с результатами выгрузок.
+    work = kit.model_copy(deep=True)
+    if work.report is None:
+        work.report = ValidationReport()
+    work.report.issues = [issue for issue in work.report.issues if issue.check != CHECK] + outcome.issues
     report = build_report(
-        kit, [*notes, *material_notes(kit)], references, for_docx=True
-    )  # сбой гасит только .docx
-    name, issues = render_program_docx(kit, out_dir, registry, org, report)
-    outcome.files["program_docx"] = name
-    outcome.issues += issues
+        work,
+        [*notes, *outcome.notes],
+        references,
+        files=[*outcome.files.values(), REPORT_DOCX_NAME],
+    )
+    outcome.files["report_docx"] = render_report_docx(report, out_dir / REPORT_DOCX_NAME)
 
 
 def _slides(kit: Kit, out_dir: Path, outcome: RenderOutcome) -> None:

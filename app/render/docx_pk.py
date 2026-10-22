@@ -34,7 +34,6 @@ from app.render.common import (
     or_fill,
     upper_first,
 )
-from app.render.report_docx import write_report_appendix
 from app.render.report_md import ReportDoc
 from app.render.tables import (
     CALENDAR_HEADER,
@@ -83,7 +82,6 @@ H2 = "2. СОДЕРЖАНИЕ ПРОГРАММЫ"
 H3 = "3. ОРГАНИЗАЦИОННО-ПЕДАГОГИЧЕСКИЕ УСЛОВИЯ РЕАЛИЗАЦИИ ПРОГРАММЫ"
 APPENDIX_1 = "Приложение 1"
 APPENDIX_2 = "Приложение 2"
-APPENDIX_3 = "Приложение 3"
 SUB = {
     "1.1": "1.1. Аннотация программы",
     "1.2": "1.2. Цель реализации программы",
@@ -123,7 +121,6 @@ HEADINGS: list[str] = [
     *[SUB[k] for k in ("3.1", "3.2", "3.2.1", "3.2.2", "3.2.3", "3.2.4", "3.2.5", "3.3", "3.4")],
     APPENDIX_1,
     APPENDIX_2,
-    APPENDIX_3,
 ]
 ORDER_LINE = "Приказом № ____{suffix} от «___» __________ 20__ г."
 
@@ -131,7 +128,7 @@ ORDER_LINE = "Приказом № ____{suffix} от «___» __________ 20__ г.
 def render_pk(
     kit: Kit, tables: ProgramTables, registry: Registry, org: Organization, path: Path, report: ReportDoc
 ) -> list[str]:
-    """Пишет программу ПК в path. Возвращает список записанных заголовков (для V31)."""
+    """Пишет программу ПК в path; report принимается для совместимости и в программу не включается."""
     doc = Document(str(TEMPLATE))
     body = doc.element.body
     for child in list(body):
@@ -144,7 +141,6 @@ def render_pk(
     _section_2(w, kit, tables)
     _section_3(w, kit, registry)
     _appendices(w, kit, tables)
-    write_report_appendix(w, APPENDIX_3, report)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(path))
     return w.headings

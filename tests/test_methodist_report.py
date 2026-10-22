@@ -1,5 +1,5 @@
 """Отчёт агента для методиста (P6.1, docs/ARCHITECTURE.md §1.3): предупреждения по общим правилам — с цифрами
-и вариантами решения, без жаргона; сводки report.json; блок предупреждений в приложении .docx; раздел отчёта
+и вариантами решения, без жаргона; сводки report.json; блок предупреждений в report.docx; раздел отчёта
 в веб-интерфейсе."""
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ from app.models import (
 )
 from app.pipeline.default import DefaultPipeline
 from app.pipeline.editing import conflict_details
+from app.render.bundle import render_all
 from app.render.common import load_organization
-from app.render.program import render_program_docx
 from app.render.report_md import api_message, build_report
 from app.web.report_page import render_report_page
 from tests.intake_queries import OPEN
@@ -331,7 +331,7 @@ def test_report_json_has_every_part_of_the_report(q5_session) -> None:  # noqa: 
 
 
 # --------------------------------------------------------------------------------------------------
-# Приложение .docx и report.md
+# Отдельный report.docx и report.md
 # --------------------------------------------------------------------------------------------------
 
 
@@ -341,15 +341,13 @@ def docx_text(path: Path) -> str:
     return "\n".join([p.text for p in document.paragraphs] + cells)
 
 
-def test_docx_appendix_has_methodist_warnings_without_forbidden_texts(tmp_path: Path) -> None:
+def test_report_docx_has_methodist_warnings_and_program_has_no_report(tmp_path: Path) -> None:
     kit = load(5)
     types = {w.type for w in kit.report.warnings_for_methodist}
     assert {WarningType.REFERENCE_ERRORS, WarningType.NORM_REPLACED, WarningType.SCHEDULE_TIGHT} <= types
-    name, issues = render_program_docx(
-        kit, tmp_path, default_registry(), load_organization(Settings().organization_file)
-    )
-    assert issues == []
-    text = docx_text(tmp_path / name)
+    outcome = render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
+    assert outcome.issues == []
+    text = docx_text(tmp_path / outcome.files["report_docx"])
     for expected in (
         "Предупреждения методисту",
         "Желаемый срок не сходится с нагрузкой",
@@ -359,8 +357,10 @@ def test_docx_appendix_has_methodist_warnings_without_forbidden_texts(tmp_path: 
         "Приказ Минобрнауки России от 24.03.2025 № 266",
     ):
         assert expected in text, expected
+    program = docx_text(tmp_path / outcome.files["program_docx"])
+    assert "Отчёт автопроверки" not in program
     for forbidden in ("№ 499", "№ 816", "«Итого» 66", "в «Итого» 174", "pk_stazhirovka"):
-        assert forbidden not in text, forbidden
+        assert forbidden not in program, forbidden
 
 
 def test_report_md_keeps_full_texts(q5_session) -> None:  # noqa: ANN001
@@ -392,6 +392,8 @@ def test_report_page_shows_status_in_color_and_words(q5_session) -> None:  # noq
     assert "Нужно решение" in page and "Для сведения" in page and "Варианты решения" in page
     assert 'class="tone tone-ok"' in page and "в порядке" in page  # цвет и текст статуса строки
     assert f"/api/v1/sessions/{body['session_id']}/files/program.docx" in page
+    assert f"/api/v1/sessions/{body['session_id']}/files/report.docx" in page
+    assert "Отчёт автопроверки (Word)" in page
     partial = pages["partial"]
     assert partial.startswith('<section class="report"') and "<html" not in partial
 

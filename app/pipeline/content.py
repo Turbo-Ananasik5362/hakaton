@@ -41,6 +41,7 @@ from app.core.validate import (
     coverage_matrix,
     fix_glossary_order,
     mark_unknown_codes,
+    missing_seminar_types,
 )
 from app.llm import LLMClient, TruncatedResponse, estimate_cost
 from app.models import (
@@ -71,6 +72,7 @@ from app.pipeline import content_apply as apply
 from app.pipeline import content_prompts as prompts
 from app.pipeline.base import AgentError, Step, StepContext
 from app.pipeline.intake import request_key
+from app.pipeline.request_rules import found_in
 from app.pipeline.skeleton import slides_modules
 from app.skills import load_skill
 
@@ -103,6 +105,10 @@ FA_COMPACT = (
 )
 REFILL_SEMINAR_NOTE = (
     "Это добор: к этим темам заданий пока нет — нужно ровно одно задание на каждую тему из списка."
+)
+SEMINAR_TYPE_NOTE = (
+    "Это замена задания: запрос требует задание вида «{label}», а его в программе нет. Задание к этой теме должно "
+    "быть именно такого вида и так называться."
 )
 REFILL_NOTE = (
     "Это добор: прежние вопросы по этим результатам не приняты (повторяющиеся варианты или правильный ответ не из "
@@ -1098,15 +1104,70 @@ class ContentGenerator:
                 gaps[module.id] = missing
         return gaps
 
+    @staticmethod
+    def seminar_type_targets(kit: Kit) -> list[tuple[str, str]]:
+        """Виды заданий из запроса, которых нет (V36), → (метка, тема с заданием, которое заменить): тема, в названии
+        которой есть вид, иначе тема с наибольшей практикой; одна тема — один вид (прогон 22.10, п. 2.6)."""
+        with_seminar = {s.topic_id for s in kit.seminars}
+        candidates = [
+            t for m in kit.modules_sorted() for t in apply.practice_topics(kit, m) if t.id in with_seminar
+        ]
+        used: set[str] = set()
+        targets: list[tuple[str, str]] = []
+        for req in missing_seminar_types(kit):
+            free = [t for t in candidates if t.id not in used]
+            if not free:
+                break
+            named = [t for t in free if any(found_in(p, t.title) for p in req.patterns)]
+            topic = named[0] if named else max(free, key=lambda t: t.hours.pr + t.hours.lb)
+            used.add(topic.id)
+            targets.append((req.label, topic.id))
+        return targets
+
+    def _apply_seminar_types(
+        self,
+        kit: Kit,
+        modules: dict[str, Module],
+        topic_module: dict[str, str],
+        targets: list[tuple[str, str]],
+        answers: Sequence[object],
+    ) -> None:
+        """Новое задание нужного вида заменяет прежнее задание темы — только если модель его дала и оно правда этого
+        вида; иначе новое отбрасывается, прежнее остаётся (ревью 22.10)."""
+        for (label, topic_id), answer in zip(targets, answers, strict=True):
+            if isinstance(answer, asyncio.CancelledError):
+                raise answer
+            if isinstance(answer, BaseException):
+                logger.warning("Задание вида «%s» не добрано: %s", label, answer)
+                continue
+            old = [s.id for s in kit.seminars if s.topic_id == topic_id]
+            created = apply.apply_seminars(
+                kit,
+                modules[topic_module[topic_id]],
+                answer.seminars,  # type: ignore[attr-defined]
+                only=[topic_id],
+                pass_share=self.limits.seminar_pass_share,
+            )
+            if not created:
+                continue
+            fits = label not in {req.label for req in missing_seminar_types(kit)}
+            dropped = old if fits else created
+            if not fits:
+                logger.warning("Задание вида «%s» не добрано: модель дала задание другого вида", label)
+            kit.seminars = [s for s in kit.seminars if s.id not in dropped]
+            kit.retired_ids.extend(x for x in dropped if x not in kit.retired_ids)
+
     async def _refill(self, kit: Kit, ctx: StepContext) -> None:
         """Автодобор, один раунд: недостающее по refill_needs — в модулях с собеседованием вопросами собеседования,
         иначе тестовыми вопросами; темы с практикой без задания; темы с теорией без лекции."""
         needs = self.refill_needs(kit)
         seminar_gaps = self.seminar_gaps(kit)
         lecture_gaps = self.lecture_gaps(kit)
-        if not needs and not seminar_gaps and not lecture_gaps:
+        type_targets = self.seminar_type_targets(kit)
+        if not needs and not seminar_gaps and not lecture_gaps and not type_targets:
             return
         modules = {m.id: m for m in kit.modules}
+        topic_module = {t.id: t.module_id for t in kit.topics}
         seminar_gaps = {mid: topics for mid, topics in seminar_gaps.items() if mid in modules}
         lecture_gaps = {mid: topics for mid, topics in lecture_gaps.items() if mid in modules}
         jobs: list[tuple[Module, dict[str, int], list[str], _Call]] = []
@@ -1146,11 +1207,24 @@ class ContentGenerator:
                     for m in seminar_modules
                 ),
                 *(self._draft_lectures(kit, m, client, lecture_gaps[m.id]) for m in lecture_modules),
+                *(
+                    self._draft_seminars(
+                        kit,
+                        modules[topic_module[topic_id]],
+                        client,
+                        [topic_id],
+                        SEMINAR_TYPE_NOTE.format(label=label),
+                        key=self._key(kit, f"{topic_id}-type"),
+                    )
+                    for label, topic_id in type_targets
+                ),
                 return_exceptions=True,
             )
             answers = results[: len(jobs)]
             seminar_answers = results[len(jobs) : len(jobs) + len(seminar_modules)]
-            lecture_answers = results[len(jobs) + len(seminar_modules) :]
+            lecture_end = len(jobs) + len(seminar_modules) + len(lecture_modules)
+            lecture_answers = results[len(jobs) + len(seminar_modules) : lecture_end]
+            self._apply_seminar_types(kit, modules, topic_module, type_targets, results[lecture_end:])
             for module, answer in zip(lecture_modules, lecture_answers, strict=True):
                 if isinstance(answer, asyncio.CancelledError):
                     raise answer

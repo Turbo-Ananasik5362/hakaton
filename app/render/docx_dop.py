@@ -37,7 +37,6 @@ from app.render.common import (
     up_to_points,
     upper_first,
 )
-from app.render.report_docx import write_report_appendix
 from app.render.report_md import ReportDoc
 from app.render.tables import (
     CALENDAR_HEADER,
@@ -80,7 +79,6 @@ H1 = "1. Пояснительная записка"
 H2 = "2. Содержание программы"
 H3 = "3. Организационно-педагогические условия реализации программы"
 APPENDIX_1 = "Приложение № 1"
-APPENDIX_2 = "Приложение № 2"
 SUB = {
     "1.1": "1.1. Актуальность программы",
     "1.2": "1.2. Категории обучающихся",
@@ -108,7 +106,6 @@ HEADINGS: list[str] = [
     H3,
     *[SUB[k] for k in ("3.1", "3.2", "3.3", "3.3.1", "3.3.2", "3.3.3", "3.4")],
     APPENDIX_1,
-    APPENDIX_2,
 ]
 ORDER_LINE = "Приказом № ____ от «____» ____________ ____ г."
 
@@ -116,6 +113,7 @@ ORDER_LINE = "Приказом № ____ от «____» ____________ ____ г."
 def render_dop(
     kit: Kit, tables: ProgramTables, registry: Registry, org: Organization, path: Path, report: ReportDoc
 ) -> list[str]:
+    """Пишет программу ДОП; report принимается для совместимости и в программу не включается."""
     doc = Document()
     _styles(doc)
     _page(doc.sections[0], landscape=False)
@@ -135,7 +133,6 @@ def render_dop(
     _assessment(w, kit, tables)
     _section_3(w, kit, tables)
     _appendix(w, kit, tables)
-    write_report_appendix(w, APPENDIX_2, report)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(path))
     return w.headings

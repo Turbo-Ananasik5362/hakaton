@@ -48,6 +48,136 @@ def test_same_question_by_options_or_wording() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        (
+            "Какой результат выполнения кода: for i in range(3): print(i)?",
+            "Какой результат выполнения кода: for i in range(1, 4): print(i * 2)?",
+        ),
+        (
+            "Какой результат выполнения кода print((left + right) * factor)?",
+            "Какой результат выполнения кода print((left - right) * factor)?",
+        ),
+        (
+            "Какой результат выполнения кода: left + right?",
+            "Какой результат выполнения кода: left - right?",
+        ),
+        (
+            'Какой результат вернёт обработка строки "result_a"?',
+            'Какой результат вернёт обработка строки "result_b"?',
+        ),
+        (
+            "Какой результат вернёт обработка строки «result_a»?",
+            "Какой результат вернёт обработка строки «result_b»?",
+        ),
+        (
+            "Какой результат вернёт обработка списка [first, second]?",
+            "Какой результат вернёт обработка списка [second, first]?",
+        ),
+        (
+            "Какой результат вернёт обработка значения (Value)?",
+            "Какой результат вернёт обработка значения (value)?",
+        ),
+        (
+            "Какой результат вернёт обработка числа 10?",
+            "Какой результат вернёт обработка числа 20?",
+        ),
+        (
+            "Какой результат вернёт обработка числа -10?",
+            "Какой результат вернёт обработка числа 10?",
+        ),
+        (
+            'Какой результат вернёт обработка строки "a b"?',
+            'Какой результат вернёт обработка строки "ab"?',
+        ),
+    ],
+    ids=[
+        "loop_bounds_and_expression",
+        "nested_parentheses",
+        "code_after_colon",
+        "quoted_string",
+        "quoted_string_guillemets",
+        "list_order",
+        "code_case",
+        "numbers",
+        "number_sign",
+        "string_whitespace",
+    ],
+)
+def test_different_payloads_are_not_duplicates(first: str, second: str) -> None:
+    options = ["Первое значение", "Второе значение", "Третье значение", "Ошибка выполнения"]
+    assert not same_question(first, options, [0], second, options, [0])
+    assert not same_question(second, options, [0], first, options, [0])
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ["1", "2", "3", "4"],
+        ["1.5", "2.5", "3.5", "4.5"],
+        ["1,5", "2,5", "3,5", "4,5"],
+        ["Байт", "Бит", "Слово", "Элемент"],
+    ],
+)
+def test_short_options_do_not_match_unrelated_questions(options: list[str]) -> None:
+    assert not same_question(
+        "Сколько байт занимает тип int?",
+        options,
+        [0],
+        "Сколько элементов в списке [1, 2]?",
+        options,
+        [0],
+    )
+    # Одинаковые короткие ответы не должны связывать и вопросы без чисел или скобок.
+    assert not same_question(
+        "Что определяет размер памяти?",
+        options,
+        [0],
+        "Какая операция меняет порядок элементов?",
+        options,
+        [0],
+    )
+
+
+def test_command_paraphrases_with_same_answers_remain_duplicates() -> None:
+    assert same_question(
+        "Какая команда выведет на экран текст?",
+        OPTIONS,
+        [1],
+        "Какая команда в Python используется для вывода текста?",
+        OPTIONS,
+        [1],
+    )
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        (
+            "Какие этапы включает создание простого проекта?",
+            "Какие этапы включает создание простого проекта на Python?",
+        ),
+        ("Что такое переменная?", "Что такое переменная в Python?"),
+    ],
+)
+def test_wording_with_minor_context_remains_duplicate(first: str, second: str) -> None:
+    # Совпадение формулировки сохраняется даже при разных коротких вариантах.
+    assert same_question(first, ["а", "б"], [0], second, ["в", "г"], [1])
+    assert same_question(second, ["в", "г"], [1], first, ["а", "б"], [0])
+
+
+def test_code_whitespace_does_not_change_question() -> None:
+    assert same_question(
+        "Какой результат выполнения кода: print(range(1,4))?",
+        ["а", "б"],
+        [0],
+        "Какой результат выполнения кода: print( range(1, 4) )?",
+        ["в", "г"],
+        [1],
+    )
+
+
 def test_option_refs_ignore_word_endings() -> None:
     """«…из правильного ответа).» и «два варианта)» — окончания слов, а не буквы вариантов (ревью 22.10)."""
     from app.core.questions import rewrite_option_refs

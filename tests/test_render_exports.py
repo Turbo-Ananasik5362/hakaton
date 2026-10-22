@@ -19,7 +19,7 @@ from app.models import Kit, QuestionKind, TestScope
 from app.pipeline.base import StepContext
 from app.pipeline.content import slides_lectures
 from app.pipeline.default import DefaultPipeline
-from app.render.bundle import NO_SLIDES_NOTE, render_all
+from app.render.bundle import NO_SLIDES_NOTE, failure_issue, render_all
 from app.render.common import load_organization
 from app.render.csv_tests import render_csv
 from app.render.gift import escape, parse_gift, render_gift
@@ -256,6 +256,7 @@ def test_render_produces_all_files_and_json_roundtrips(tmp_path: Path) -> None:
     files = DefaultPipeline(Settings(llm_mode="mock")).render(kit, _ctx(tmp_path))
     assert set(files) == {
         "program_docx",
+        "report_docx",
         "slides_pptx",
         "tests_gift",
         "tests_moodle_xml",
@@ -273,7 +274,7 @@ def test_render_produces_all_files_and_json_roundtrips(tmp_path: Path) -> None:
 def test_internship_without_tests_and_lectures_explains(tmp_path: Path) -> None:
     kit = load(5)
     outcome = render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
-    assert set(outcome.files) == {"program_docx"} and outcome.issues == []
+    assert set(outcome.files) == {"program_docx", "report_docx"} and outcome.issues == []
     assert NO_SLIDES_NOTE in outcome.notes
     assert any("Тестовых вопросов в комплекте нет" in n and "собеседование" in n for n in outcome.notes)
 
@@ -292,6 +293,62 @@ def test_one_failed_export_keeps_the_others(tmp_path: Path, monkeypatch: pytest.
     assert len(issues) == 1 and issues[0].id == "V31-1" and "сломан шаблон слайдов" in issues[0].detail
 
 
+@pytest.mark.parametrize("target", ["render_report_docx", "build_report"])
+def test_failed_report_keeps_program_and_other_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    def broken(*args: object, **kwargs: object) -> str:
+        (tmp_path / "report.docx").write_bytes(b"broken")
+        raise RuntimeError("сбой отдельного отчёта")
+
+    monkeypatch.setattr(f"app.render.bundle.{target}", broken)
+    kit = load(3)
+    files = DefaultPipeline(Settings(llm_mode="mock")).render(kit, _ctx(tmp_path))
+    assert "report_docx" not in files and not (tmp_path / "report.docx").exists()
+    assert {"program_docx", "slides_pptx", "tests_gift", "report_md", "kit_json", "report_json"} <= set(files)
+    import docx
+
+    assert docx.Document(str(tmp_path / "program.docx")).paragraphs
+    assert any(
+        "сбой отдельного отчёта" in issue.detail for issue in kit.report.issues if issue.check == "V31"
+    )
+
+
+def test_report_includes_failed_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*args: object, **kwargs: object) -> int:
+        raise RuntimeError("сбой слайдов")
+
+    monkeypatch.setattr("app.render.bundle.render_pptx", broken)
+    outcome = render_all(
+        load(3), tmp_path, default_registry(), load_organization(Settings().organization_file)
+    )
+    import docx
+
+    document = docx.Document(str(tmp_path / outcome.files["report_docx"]))
+    text = "\n".join(
+        [p.text for p in document.paragraphs]
+        + [c.text for t in document.tables for r in t.rows for c in r.cells]
+    )
+    assert "Слайды .pptx: файл не сформирован" in text and "Проверка выгрузок" in text
+    assert "автопроверка нашла 1 ошибку" in text
+    assert len(outcome.issues) == 1 and outcome.issues[0].check == "V31"
+
+
+def test_report_drops_stale_export_errors_on_retry(tmp_path: Path) -> None:
+    kit = load(3)
+    kit.report.issues.append(failure_issue("Старые слайды", "Ошибка прошлого запуска"))
+    outcome = render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
+    import docx
+
+    document = docx.Document(str(tmp_path / outcome.files["report_docx"]))
+    text = "\n".join(
+        [p.text for p in document.paragraphs]
+        + [c.text for t in document.tables for r in t.rows for c in r.cells]
+    )
+    assert "Старые слайды" not in text
+    assert "расхождений нет" in text and not outcome.issues
+
+
 def test_all_files_download_through_api(tmp_path: Path) -> None:
     """Сквозной прогон запроса 1 в mock: каждый файл из files скачивается и разбирается."""
     from docx import Document
@@ -303,6 +360,7 @@ def test_all_files_download_through_api(tmp_path: Path) -> None:
     files = body["files"]
     assert set(files) == {
         "program_docx",
+        "report_docx",
         "slides_pptx",
         "tests_gift",
         "tests_moodle_xml",
@@ -320,6 +378,8 @@ def test_all_files_download_through_api(tmp_path: Path) -> None:
         got = {key: client.get(url) for key, url in files.items()}
     assert all(r.status_code == 200 and r.content for r in got.values())
     Document(io.BytesIO(got["program_docx"].content))
+    report = Document(io.BytesIO(got["report_docx"].content))
+    assert "Коротко" in [p.text for p in report.paragraphs]
     deck = Presentation(io.BytesIO(got["slides_pptx"].content))
     kit = Kit.model_validate_json(got["kit_json"].content)
     assert len(deck.slides) == sum(len(lec.plan) + 2 for lec in slides_lectures(kit))

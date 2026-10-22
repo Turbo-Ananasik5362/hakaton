@@ -208,6 +208,22 @@ def _beginners(kit: Kit) -> bool:
     return school or bool(BEGINNER_RE.search(text))
 
 
+# книги для программистов: в программе без программирования они не по уровню и не по предмету (прогон 22.10,
+# п. 2.8: учителям без программирования — Жерон, Шолле, Рашка; в курсе по кибербезопасности — «Python и анализ данных»)
+PROGRAMMING_TAGS = frozenset(
+    {"python", "ml", "программирование", "разработка", "web", "верстка", "фронтенд", "data"}
+)
+PROGRAMMING_RE = re.compile(
+    r"python|программировани|\bsql\b|javascript|\bjava\b|\bhtml|\bcss\b|pandas|numpy|скрипт|"
+    r"машинн\w*\s+обучени|\bml\b|алгоритм|\bкод(?:а|ом|е|ы|ов)?\b|разработк\w*\s+(?:программ|по\b|приложени|сайт|веб)",
+    re.IGNORECASE,
+)
+
+
+def _teaches_programming(kit: Kit) -> bool:
+    return bool(PROGRAMMING_RE.search(program_text(kit)))
+
+
 def _level_fits(kit: Kit, record: LiteratureRecord) -> bool:
     """Для школьников (ДОП с возрастом / классами) — без вузовских учебников; для школьников и начинающих — без
     продвинутых и профильных изданий не по темам программы (оценка 21.10: школьникам 8–9 классов — TDD с Django,
@@ -215,9 +231,11 @@ def _level_fits(kit: Kit, record: LiteratureRecord) -> bool:
     school = kit.program.type == ProgramType.DOP and bool(kit.program.audience.age_or_grade)
     if school and HIGHER_ED_RE.search(f"{record.title} {' '.join(record.tags)}"):
         return False
+    tags = {normalize_text(tag) for tag in record.tags}
+    if tags & PROGRAMMING_TAGS and not _teaches_programming(kit):
+        return False
     if not _beginners(kit):
         return True
-    tags = {normalize_text(tag) for tag in record.tags}
     if tags & ADVANCED_TAGS:
         return False
     wanted = {normalize_text(tag) for topic in kit.topics for tag in topic.tags}

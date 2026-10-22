@@ -469,7 +469,7 @@ def test_pk_requirements_always_name_those_still_studying(tmp_path: Path) -> Non
     assert any("опытом работы от года" in t for t in section)
 
 
-def test_docx_appendix_knows_about_missing_slides_and_tests(tmp_path: Path) -> None:
+def test_report_docx_knows_about_missing_slides_and_tests(tmp_path: Path) -> None:
     import docx
 
     from app.render.bundle import NO_SLIDES_NOTE, render_all
@@ -477,7 +477,7 @@ def test_docx_appendix_knows_about_missing_slides_and_tests(tmp_path: Path) -> N
 
     kit = load(5)  # стажировка: нет лекций и тестов
     render_all(kit, tmp_path, default_registry(), load_organization(Settings().organization_file))
-    text = "\n".join(p.text for p in docx.Document(str(tmp_path / "program.docx")).paragraphs)
+    text = "\n".join(p.text for p in docx.Document(str(tmp_path / "report.docx")).paragraphs)
     assert NO_SLIDES_NOTE in text and "Тестовых вопросов в комплекте нет" in text
     assert "Ничего не пропущено" not in text
 

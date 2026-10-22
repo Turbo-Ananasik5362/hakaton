@@ -129,7 +129,8 @@
    "fz273",
    "minobrnauki266",
    "gov1678",
-   "letter_vk1013"
+   "letter_vk1013",
+   "fz152"
   ],
   "slides_scope": {
    "mode": "default",
@@ -2082,32 +2083,25 @@
   "requirements": [
    "Работа выполняется самостоятельно по темам программы",
    "Материал работы относится к сфере: школа",
-   "Результат оформляется по шаблону и сдаётся до начала аттестации"
+   "Результат оформляется по шаблону и сдаётся до начала аттестации",
+   "Выполнен самостоятельно",
+   "Оформлен по шаблону"
   ],
   "portfolio_items": [
    {
     "id": "FA.P1",
     "title": "Материал портфолио 1",
-    "requirements": [
-     "Выполнен самостоятельно",
-     "Оформлен по шаблону"
-    ]
+    "requirements": []
    },
    {
     "id": "FA.P2",
     "title": "Материал портфолио 2",
-    "requirements": [
-     "Выполнен самостоятельно",
-     "Оформлен по шаблону"
-    ]
+    "requirements": []
    },
    {
     "id": "FA.P3",
     "title": "Материал портфолио 3",
-    "requirements": [
-     "Выполнен самостоятельно",
-     "Оформлен по шаблону"
-    ]
+    "requirements": []
    }
   ],
   "example_task": null,
@@ -2131,7 +2125,7 @@
     "max_points": 3.0
    }
   ],
-  "pass_rule": "Зачтено — не меньше 6 баллов из 10.",
+  "pass_rule": "«Зачтено» — не меньше 6 баллов из 10 и ни по одному критерию не 0 баллов.",
   "procedure": [
    "Слушатель заранее сдаёт работу преподавателю",
    "Представляет результат комиссии",
@@ -2296,6 +2290,22 @@
    "topic_ids": [],
    "unverified": false,
    "citation": "Документация Yandex AI Studio. — URL: https://aistudio.yandex.ru/docs/ru/"
+  },
+  {
+   "id": "SRC10",
+   "kind": "doc",
+   "section": "internet",
+   "registry_id": "gigachat",
+   "verification": "catalog",
+   "authors": [],
+   "title": "GigaChat: официальный сайт сервиса",
+   "year": null,
+   "publisher": null,
+   "isbn": null,
+   "url": "https://giga.chat/",
+   "topic_ids": [],
+   "unverified": false,
+   "citation": "GigaChat: официальный сайт сервиса. — URL: https://giga.chat/"
   }
  ],
  "calendar": {
@@ -2551,9 +2561,28 @@
   "satisfaction": "После завершения обучения слушатели заполняют анонимную анкету об удовлетворённости содержанием, организацией и работой преподавателей; результаты учитываются при обновлении программы."
  },
  "report": {
-  "generated_at": "2026-10-21T22:17:20.353707Z",
-  "summary": "Комплект собран, ошибок нет; 2 предупреждения методисту — см. ниже. В приложенном образце найдено ошибок: 15; в программу они не перенесены. Пояснения к сборке — в разделе «Что пропущено и почему».",
+  "generated_at": "2026-10-22T12:52:16.986517Z",
+  "summary": "Комплект собран, но автопроверка нашла 1 ошибку — их нужно исправить до утверждения программы; ещё 2 предупреждения методисту — см. ниже. В приложенном образце найдено ошибок: 15; в программу они не перенесены. Пояснения к сборке — в разделе «Что пропущено и почему».",
   "issues": [
+   {
+    "id": "V21-1",
+    "check": "V21",
+    "severity": "error",
+    "target_ids": [
+     "FA"
+    ],
+    "message": "У материалов портфолио FA.P1, FA.P2, FA.P3 нет требований.",
+    "detail": "portfolio requirements",
+    "checklist_refs": [
+     "Q1.5a",
+     "Q2.7a",
+     "Q3.7a",
+     "Q4.10a",
+     "Q5.7a"
+    ],
+    "fix_by": "llm",
+    "fixed": false
+   },
    {
     "id": "V45-1",
     "check": "V45",
@@ -3231,14 +3260,14 @@
    }
   ],
   "sources": {
-   "total": 9,
-   "confirmed": 9,
+   "total": 10,
+   "confirmed": 10,
    "unverified": 0,
    "rejected": 1,
    "dropped": 0,
    "by_verification": {
     "registry": 0,
-    "catalog": 9,
+    "catalog": 10,
     "online": 0,
     "unverified": 0
    },
@@ -3252,7 +3281,7 @@
      "unverified": 0
     },
     "Интернет-ресурсы": {
-     "confirmed": 3,
+     "confirmed": 4,
      "unverified": 0
     }
    },
@@ -3499,68 +3528,68 @@
   ],
   "timing": {
    "plan": 0.001,
-   "program_texts": 0.034,
-   "final_attestation": 0.035,
-   "literature": 0.035,
-   "module_content:M1": 0.036,
-   "module_content:M2": 0.037,
-   "module_content:M3": 0.037,
-   "module_content:M4": 0.038,
-   "lectures:M1": 0.025,
-   "seminars:M1": 0.027,
-   "lectures:M2": 0.028,
-   "seminars:M2": 0.029,
-   "lectures:M3": 0.029,
-   "seminars:M3": 0.031,
-   "lectures:M4": 0.031,
-   "seminars:M4": 0.032,
-   "tests:M1": 0.043,
-   "tests:M2": 0.043,
-   "tests:M3": 0.043,
-   "tests:M4": 0.043,
+   "program_texts": 0.027,
+   "final_attestation": 0.028,
+   "literature": 0.029,
+   "module_content:M1": 0.03,
+   "module_content:M2": 0.031,
+   "module_content:M3": 0.032,
+   "module_content:M4": 0.033,
+   "lectures:M1": 0.028,
+   "seminars:M1": 0.03,
+   "lectures:M2": 0.03,
+   "seminars:M2": 0.031,
+   "lectures:M3": 0.032,
+   "seminars:M3": 0.033,
+   "lectures:M4": 0.033,
+   "seminars:M4": 0.034,
+   "tests:M1": 0.058,
+   "tests:M2": 0.059,
+   "tests:M3": 0.059,
+   "tests:M4": 0.059,
    "slides": 0.003,
    "refill": 0.0,
-   "finalize": 0.017,
+   "finalize": 0.135,
    "judge": 0.001
   },
-  "generation_seconds": 1.1,
-  "status": "warnings",
+  "generation_seconds": 1.3,
+  "status": "errors",
   "cost_rub": 0.0,
   "llm_calls": 20
  },
  "history": [],
  "retired_ids": [],
  "meta": {
-  "created_at": "2026-10-22T01:17:19.949594+03:00",
+  "created_at": "2026-10-22T15:52:16.437357+03:00",
   "llm_mode": "mock",
   "generation_mode": "full",
   "skills_version": "",
   "timing": {
    "plan": 0.001,
-   "program_texts": 0.034,
-   "final_attestation": 0.035,
-   "literature": 0.035,
-   "module_content:M1": 0.036,
-   "module_content:M2": 0.037,
-   "module_content:M3": 0.037,
-   "module_content:M4": 0.038,
-   "lectures:M1": 0.025,
-   "seminars:M1": 0.027,
-   "lectures:M2": 0.028,
-   "seminars:M2": 0.029,
-   "lectures:M3": 0.029,
-   "seminars:M3": 0.031,
-   "lectures:M4": 0.031,
-   "seminars:M4": 0.032,
-   "tests:M1": 0.043,
-   "tests:M2": 0.043,
-   "tests:M3": 0.043,
-   "tests:M4": 0.043,
+   "program_texts": 0.027,
+   "final_attestation": 0.028,
+   "literature": 0.029,
+   "module_content:M1": 0.03,
+   "module_content:M2": 0.031,
+   "module_content:M3": 0.032,
+   "module_content:M4": 0.033,
+   "lectures:M1": 0.028,
+   "seminars:M1": 0.03,
+   "lectures:M2": 0.03,
+   "seminars:M2": 0.031,
+   "lectures:M3": 0.032,
+   "seminars:M3": 0.033,
+   "lectures:M4": 0.033,
+   "seminars:M4": 0.034,
+   "tests:M1": 0.058,
+   "tests:M2": 0.059,
+   "tests:M3": 0.059,
+   "tests:M4": 0.059,
    "slides": 0.003,
    "refill": 0.0,
-   "finalize": 0.017,
+   "finalize": 0.135,
    "judge": 0.001,
-   "validate": 0.199
+   "validate": 0.209
   },
   "cost": [
    {
