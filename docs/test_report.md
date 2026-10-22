@@ -2,20 +2,20 @@
 
 Создаётся командой `bash scripts/check.sh` (её же запускает CI). Не править руками — перезапустить проверку.
 
-- Дата: 22.10.2026 17:13 МСК
-- Коммит рабочей копии: a69b35b + незакоммиченные изменения
+- Дата: 22.10.2026 23:25 МСК
+- Коммит рабочей копии: e1e8043
 - Python: 3.12.14
-- Итог: **всё зелёное** — тестов 1003: прошло 1003, упало 0, пропущено 0; время тестов 73,0 с
+- Итог: **всё зелёное** — тестов 1003: прошло 1003, упало 0, пропущено 0; время тестов 74,7 с
 - Тесты идут в режиме `LLM_MODE=mock`: без сети и без расходов. Тесты с настоящей моделью (маркер `llm`) здесь не запускаются.
 
 ## Шаги проверки
 
 | Шаг | Итог | Время, с |
 |---|---|---|
-| ruff check | ✓ ок | 0,1 |
+| ruff check | ✓ ок | 0,6 |
 | ruff check, Python 3.10 | ✓ ок | 0,0 |
-| ruff format --check | ✓ ок | 0,0 |
-| pytest -q | ✓ ок | 75,8 |
+| ruff format --check | ✓ ок | 0,1 |
+| pytest -q | ✓ ок | 79,0 |
 | smoke.py | ✓ ок | 2,5 |
 
 ## Что покрывают тесты
@@ -39,22 +39,22 @@
 
 | Файл | Область | Тестов | Прошло | Упало | Пропущено | Время, с |
 |---|---|---|---|---|---|---|
-| `tests/test_api.py` | Сквозной API в mock | 52 | 52 | 0 | 0 | 4,7 |
-| `tests/test_bibliography.py` | Реестр, образцы, литература | 21 | 21 | 0 | 0 | 0,1 |
+| `tests/test_api.py` | Сквозной API в mock | 52 | 52 | 0 | 0 | 4,9 |
+| `tests/test_bibliography.py` | Реестр, образцы, литература | 21 | 21 | 0 | 0 | 0,2 |
 | `tests/test_calendar.py` | Часы и календарь | 12 | 12 | 0 | 0 | 0,0 |
-| `tests/test_check.py` | Инженерная гигиена | 11 | 11 | 0 | 0 | 0,1 |
+| `tests/test_check.py` | Инженерная гигиена | 11 | 11 | 0 | 0 | 0,2 |
 | `tests/test_check_registry.py` | Реестр, образцы, литература | 12 | 12 | 0 | 0 | 0,0 |
-| `tests/test_clarify.py` | Шаги агента в mock | 30 | 30 | 0 | 0 | 0,1 |
-| `tests/test_config.py` | Надёжность | 17 | 17 | 0 | 0 | 0,5 |
-| `tests/test_content.py` | Шаги агента в mock | 71 | 71 | 0 | 0 | 13,9 |
+| `tests/test_clarify.py` | Шаги агента в mock | 30 | 30 | 0 | 0 | 0,2 |
+| `tests/test_config.py` | Надёжность | 17 | 17 | 0 | 0 | 0,6 |
+| `tests/test_content.py` | Шаги агента в mock | 71 | 71 | 0 | 0 | 14,5 |
 | `tests/test_copycheck.py` | Проверки V01–V46 | 7 | 7 | 0 | 0 | 0,0 |
 | `tests/test_deploy.py` | Развёртывание | 14 | 14 | 0 | 0 | 0,0 |
 | `tests/test_effect.py` | Инженерная гигиена | 31 | 31 | 0 | 0 | 0,0 |
 | `tests/test_hours.py` | Часы и календарь | 27 | 27 | 0 | 0 | 0,6 |
 | `tests/test_ids.py` | Модель данных | 25 | 25 | 0 | 0 | 0,0 |
-| `tests/test_intake.py` | Шаги агента в mock | 24 | 24 | 0 | 0 | 0,3 |
+| `tests/test_intake.py` | Шаги агента в mock | 24 | 24 | 0 | 0 | 0,2 |
 | `tests/test_llm.py` | Надёжность | 34 | 34 | 0 | 0 | 0,1 |
-| `tests/test_methodist_report.py` | Отчёт методисту | 21 | 21 | 0 | 0 | 2,1 |
+| `tests/test_methodist_report.py` | Отчёт методисту | 21 | 21 | 0 | 0 | 2,3 |
 | `tests/test_models.py` | Модель данных | 13 | 13 | 0 | 0 | 0,0 |
 | `tests/test_patch.py` | Точечная правка | 40 | 40 | 0 | 0 | 4,1 |
 | `tests/test_questions.py` | Шаги агента в mock | 27 | 27 | 0 | 0 | 0,0 |
@@ -62,14 +62,14 @@
 | `tests/test_registry.py` | Реестр, образцы, литература | 30 | 30 | 0 | 0 | 0,0 |
 | `tests/test_registry_api.py` | Реестр, образцы, литература | 3 | 3 | 0 | 0 | 0,0 |
 | `tests/test_reliability.py` | Надёжность | 22 | 22 | 0 | 0 | 1,3 |
-| `tests/test_render_docx.py` | Выгрузки и V31 | 29 | 29 | 0 | 0 | 18,7 |
-| `tests/test_render_exports.py` | Выгрузки и V31 | 35 | 35 | 0 | 0 | 7,0 |
+| `tests/test_render_docx.py` | Выгрузки и V31 | 29 | 29 | 0 | 0 | 18,8 |
+| `tests/test_render_exports.py` | Выгрузки и V31 | 35 | 35 | 0 | 0 | 7,2 |
 | `tests/test_report_md.py` | Отчёт методисту | 20 | 20 | 0 | 0 | 7,7 |
 | `tests/test_request_rules.py` | Шаги агента в mock | 101 | 101 | 0 | 0 | 0,0 |
 | `tests/test_review_fixes.py` | Надёжность | 34 | 34 | 0 | 0 | 1,6 |
-| `tests/test_run_open_query.py` | Сквозной API в mock | 13 | 13 | 0 | 0 | 7,9 |
+| `tests/test_run_open_query.py` | Сквозной API в mock | 13 | 13 | 0 | 0 | 8,1 |
 | `tests/test_sessions.py` | Надёжность | 16 | 16 | 0 | 0 | 0,0 |
 | `tests/test_skeleton.py` | Шаги агента в mock | 48 | 48 | 0 | 0 | 0,6 |
 | `tests/test_skills.py` | Шаги агента в mock | 20 | 20 | 0 | 0 | 0,0 |
 | `tests/test_validate.py` | Проверки V01–V46 | 102 | 102 | 0 | 0 | 1,0 |
-| **Всего** | | **1003** | 1003 | 0 | 0 | 73,0 |
+| **Всего** | | **1003** | 1003 | 0 | 0 | 74,7 |
