@@ -538,3 +538,91 @@ def test_option_ids_are_stripped_from_tasks() -> None:
     assert _strip_option_ids("06.042:A/03.6") == ""
     assert _strip_option_ids("Освоить подготовку данных (06.042:A/03.6)") == "Освоить подготовку данных"
     assert _strip_option_ids("Освоить pandas 2.3") == "Освоить pandas 2.3"
+
+
+def _modules(lo_keys: list[list[str]]) -> list[dict]:
+    return [
+        {
+            "key": f"m{i}",
+            "title": f"Модуль {i}",
+            "weight": 2,
+            "topics": [{"key": f"t{i}", "title": f"Тема {i}", "weight": 2, "lo_keys": keys}],
+        }
+        for i, keys in enumerate(lo_keys, start=1)
+    ]
+
+
+def test_skeleton_retry_when_outcome_spreads_over_modules() -> None:
+    """Один РО в темах 3+ модулей и в половине модулей и больше (V43) — повтор каркаса: у модулей нет своих РО
+    (оценка 21.10, п. 5.9: РО в 5 модулях из 8)."""
+    from app.pipeline.skeleton import draft_problem
+
+    spread = _draft(modules=_modules([["c1_lo1"], ["c1_lo1", "c1_lo2"], ["c1_lo1"], ["c1_lo3"]]))
+    problem = draft_problem(spread, ProgramType.DOP)
+    assert "c1_lo1 — в 3 модулях из 4" in problem and "свои результаты" in problem
+    assert draft_problem(spread) == ""  # не «фатально»: без повтора каркас всё равно собирается
+    fine = _draft(modules=_modules([["c1_lo1"], ["c1_lo1"], ["c1_lo2"], ["c1_lo2"], ["c1_lo3"], ["c1_lo3"]]))
+    assert draft_problem(fine, ProgramType.DOP) == ""
+
+
+@pytest.mark.parametrize(
+    "goal",
+    [
+        "Формирование компетенций по защите сетей для подготовки к работе в сфере кибербезопасности",
+        "После курса слушатели готовы к работе инженером",
+        "Обеспечить трудоустройство выпускников",
+    ],
+)
+def test_skeleton_retry_when_goal_promises_a_job(goal: str) -> None:
+    """Обещание готовности к работе в цели (V40, оценка 21.10, п. 4.8) — повтор каркаса с исправлением."""
+    from app.pipeline.skeleton import draft_problem
+
+    assert "обещают готовность к работе" in draft_problem(_draft(goal=goal), ProgramType.PK)
+    honest = _draft(goal="Совершенствование компетенций по защите информации в компьютерных сетях")
+    assert draft_problem(honest, ProgramType.DOP) == ""
+
+
+def test_labor_functions_fit_audience_level() -> None:
+    """Студентам колледжа — ТФ не выше 5 уровня, рядовым специалистам — не выше 6, руководителям — любые
+    (оценка 21.10: ТФ 6–7 уровня для студентов СПО, управленческая B/05.7 для работающих в Excel)."""
+    from app.core.registry import function_level, within_level
+    from app.core.registry_api import LaborFunctionRecord
+    from app.pipeline.skeleton import audience_max_level
+
+    def spec(category: str, entry: str | None = None) -> RequestSpec:
+        return _spec(audience={"category": category, "entry_level": entry})
+
+    assert audience_max_level(spec("студенты колледжа", "3 курс, основы сетей")) == 5
+    assert audience_max_level(spec("сотрудники банков", "работают в Excel")) == 6
+    assert audience_max_level(spec("руководители ИТ-отделов")) == 9
+    functions = [LaborFunctionRecord(otf=c[0], code=c, title=c) for c in ("A/01.5", "B/02.6", "C/06.7")]
+    assert function_level("C/06.7") == 7
+    assert [f.code for f in within_level(functions, 6)] == ["A/01.5", "B/02.6"]
+    assert [f.code for f in within_level(functions, 4)] == ["A/01.5"]  # ниже уровня нет — самые низкие
+    assert within_level(functions, None) == functions
+
+
+@pytest.mark.parametrize(
+    ("text", "anonymized", "expected"),
+    [
+        (
+            "Учителя должны понимать риски и правила безопасного использования ИИ в работе с детьми.",
+            False,
+            True,
+        ),
+        ("Программа для сотрудников банков по анализу данных.", True, True),
+        ("Курс по Excel для бухгалтеров.", False, False),
+    ],
+)
+def test_personal_data_law_for_requests_about_children_or_personal_data(
+    text: str, anonymized: bool, expected: bool
+) -> None:
+    """152-ФЗ — в нормативной базе, если запрос о персональных данных или о безопасности в работе с детьми
+    (оценка 21.10, п. 2.4)."""
+    from app.core.registry import default_registry
+    from app.pipeline.skeleton import personal_data_norms
+
+    spec = _spec(raw_text=text)
+    spec.constraints.anonymized_data = anonymized
+    assert bool(personal_data_norms(spec, default_registry(), ["fz273"])) is expected
+    assert personal_data_norms(spec, default_registry(), ["fz152"]) == []

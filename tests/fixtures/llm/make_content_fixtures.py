@@ -339,13 +339,31 @@ def seminars(kit: Kit, module: Module) -> dict:
     return {"seminars": result}
 
 
+# Разные формулировки, как у живой модели: одинаковые шаблонные вопросы код отбрасывает как повторы
+# (app/core/questions.same_question). Пара «предмет × аспект» не повторяется в пределах 70 вопросов.
+SUBJECTS = (
+    "исходных данных",
+    "порядке действий",
+    "типичной ошибке",
+    "проверке результата",
+    "назначении инструмента",
+    "ограничениях метода",
+    "выборе решения",
+    "оформлении вывода",
+    "настройке параметров",
+    "критериях качества",
+)
+ASPECTS = ("практики", "безопасности", "сроков", "документации", "надёжности", "удобства", "стоимости")
+
+
 def _question(topic_id: str, lo: str, text: str, n: int) -> dict:
     options = [f"Утверждение {letter} к вопросу {n + 1} ({lo})" for letter in "АБВГ"]
+    subject, aspect = SUBJECTS[n % len(SUBJECTS)], ASPECTS[n % len(ASPECTS)]
     return {
         "topic_id": topic_id,
         "lo_ids": [lo],
         "kind": "single",
-        "stem": f"Вопрос {n + 1} по результату «{text[:60]}»: какое утверждение верно?",
+        "stem": f"Вопрос {n + 1} к результату «{text[:40]}»: что верно о {subject} с точки зрения {aspect}?",
         "options": options,
         "correct_answers": [options[n % 4]],
         "explanation": "Верный вариант следует из материала темы.",
@@ -357,7 +375,10 @@ def tests(kit: Kit, module: Module, quotas: dict[str, int], interview: int) -> d
     texts = {o.id: o.text for o in kit.outcomes}
     topic_of = {lo: t.id for t in kit.topics_of(module.id) for lo in t.lo_ids}
     questions = []
-    counter = 0
+    # сквозная нумерация по модулям: у разных модулей разные формулировки и при общем РО
+    all_quotas = content.question_quotas(kit)
+    earlier = [m.id for m in kit.modules_sorted()][: [m.id for m in kit.modules_sorted()].index(module.id)]
+    counter = sum(sum(all_quotas.get(m, {}).values()) for m in earlier)
     for lo, count in quotas.items():
         for _ in range(count):
             questions.append(

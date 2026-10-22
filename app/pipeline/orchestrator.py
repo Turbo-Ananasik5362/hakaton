@@ -558,6 +558,9 @@ class Orchestrator:
         # «шлюз не отвечает»: в волне не прошёл ни один вызов модели, а упавшие — llm_unavailable. Тогда дальше
         # шаги с моделью не запускаются (кроме одной повторной волны); первый успешный вызов снимает режим
         outage: str | None = None
+        # имя упавшего шага → название в его заметке: у повтора название своё («Оценочные средства модуля 5»
+        # вместо «Вопросы собеседования модуля 5», прогон 22.10), и по нему заметка не находилась
+        skipped_titles: dict[str, str] = {}
         while True:
             planned = self.pipeline.generation_steps(kit, set(finished))
             batch = list({s.name: s for s in planned if s.name not in finished}.values())
@@ -574,8 +577,11 @@ class Orchestrator:
                 finished.add(step.name)
                 if isinstance(result, asyncio.CancelledError):
                     raise result
-                if not isinstance(result, BaseException) and step.name.startswith("retry:"):
-                    _drop_skip_note(state.notes, step.title.removesuffix(RETRY_SUFFIX))  # повтор удался
+                if not isinstance(result, BaseException) and step.name.startswith("retry:"):  # повтор удался
+                    original = step.name.removeprefix("retry:")
+                    _drop_skip_note(
+                        state.notes, skipped_titles.get(original, step.title.removesuffix(RETRY_SUFFIX))
+                    )
                 if isinstance(result, BaseException):
                     info = classify(result)
                     extra = {"trace": _trace(result)} if info.kind == ErrorKind.CODE else {}
@@ -586,6 +592,7 @@ class Orchestrator:
                         raise result
                     if not step.name.startswith("retry:"):  # неудачный повтор: заметка о шаге уже есть
                         _add_skip_note(state.notes, step.title, info.message)
+                        skipped_titles[step.name] = step.title
                     self.store.save(state)
 
     async def _run_step(

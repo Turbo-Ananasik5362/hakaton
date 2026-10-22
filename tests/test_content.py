@@ -263,6 +263,35 @@ def test_failed_step_is_retried_once(tmp_path: Path) -> None:
     assert len(retried) == 1 and retried[0]["status"] == "done"
 
 
+class _FlakyInterviewPipeline(DefaultPipeline):
+    """Первый вызов навыка tests падает: у стажировки шаг называется «Вопросы собеседования модуля N»,
+    а его повтор — «Оценочные средства модуля N (повтор)» (прогон 22.10)."""
+
+    failed = False
+
+    def _session_client(self, ctx: StepContext) -> LLMClient:
+        client = super()._session_client(ctx)
+        original = client.complete_json
+        owner = self
+
+        async def complete_json(step: str, *args: Any, **kwargs: Any):  # noqa: ANN202
+            if step == "tests" and not owner.failed:
+                owner.failed = True
+                raise GatewayError("Шлюз вернул HTTP 500", status=500)
+            return await original(step, *args, **kwargs)
+
+        client.complete_json = complete_json  # type: ignore[method-assign]
+        return client
+
+
+def test_skip_note_dropped_when_retry_title_differs(tmp_path: Path) -> None:
+    settings = Settings(sessions_dir=tmp_path / "sessions", llm_mode="mock")
+    body = run(tmp_path, OPEN[5], _FlakyInterviewPipeline(settings))
+    retried = [s for s in body["progress"]["steps"] if s["name"].startswith("retry:tests")]
+    assert retried and all(s["status"] == "done" for s in retried)
+    assert not [n for n in body.get("notes") or [] if "пропущен" in n], body.get("notes")
+
+
 # --------------------------------------------------------------------------------------------------
 # Черновики → объекты комплекта
 # --------------------------------------------------------------------------------------------------
@@ -275,6 +304,11 @@ def test_failed_step_is_retried_once(tmp_path: Path) -> None:
         ("- ПР (4 ч): настройка стенда", "ПР: настройка стенда"),
         ("Работа с данными 2023 года", "Работа с данными 2023 года"),
         ("  ", ""),
+        ("1.1: Подготовить обзор принципов", "Подготовить обзор принципов"),
+        ("T2.3 — Настроить права доступа", "Настроить права доступа"),
+        ("Тема 1.2: Выполнить базовые операции", "Выполнить базовые операции"),
+        ("LO1.2) Описать процесс", "Описать процесс"),
+        ("Python 3.10: новые возможности", "Python 3.10: новые возможности"),
     ],
 )
 def test_clean_item_drops_hours_and_bullets(text: str, expected: str) -> None:
@@ -343,8 +377,8 @@ def test_questions_respect_quotas_and_reject_broken_keys() -> None:
         options=["2 часа", "3 часа"],
         correct_answers=["2 часа"],
     )
-    good2 = good.model_copy(update={"stem": "Что ещё верно?"})
-    good3 = good.model_copy(update={"stem": "А что верно здесь?"})
+    good2 = good.model_copy(update={"stem": "Что ещё верно?", "options": ["а1", "д5", "е6", "ж7"]})
+    good3 = good.model_copy(update={"stem": "А что верно здесь?", "options": ["а1", "з8", "и9", "к10"]})
     extra = [good.model_copy(update={"lo_ids": [los[1]], "stem": "Другой РО"})] if len(los) > 1 else []
     created = apply.apply_questions(
         kit, module, test, [broken, hours, good, good, good2, good3, *extra], {lo: 2}
@@ -599,6 +633,42 @@ def test_truncated_literature_gets_one_compact_retry(tmp_path: Path) -> None:
     assert not [n for n in body.get("notes") or [] if "Литература" in n]
 
 
+class _LongFinalAttestationPipeline(DefaultPipeline):
+    """Ответ навыка final_attestation без короткой приписки обрезан по max_tokens (живой прогон 22.10)."""
+
+    calls: list[bool]
+
+    def _session_client(self, ctx: StepContext) -> LLMClient:
+        client = super()._session_client(ctx)
+        original = client.complete_json
+        calls = self.calls
+
+        async def complete_json(step: str, model: Any, messages: Any, *args: Any, **kwargs: Any):  # noqa: ANN202
+            if step == "final_attestation":
+                compact = content.FA_COMPACT in messages[-1]["content"]
+                calls.append(compact)
+                if not compact:
+                    raise TruncatedResponse("final_attestation", {"completion_tokens": 3500})
+            return await original(step, model, messages, *args, **kwargs)
+
+        client.complete_json = complete_json  # type: ignore[method-assign]
+        return client
+
+
+def test_truncated_final_attestation_gets_one_compact_retry(tmp_path: Path) -> None:
+    settings = Settings(sessions_dir=tmp_path / "sessions", llm_mode="mock")
+    pipeline = _LongFinalAttestationPipeline(settings)
+    pipeline.calls = []
+    body = run(tmp_path, OPEN[3], pipeline)
+    kit = Kit.model_validate(body["kit"])
+    assert kit.final_attestation is not None and kit.final_attestation.criteria
+    assert pipeline.calls[:2] == [
+        False,
+        True,
+    ]  # обрезанный ответ → сразу короткий повтор, не такой же длинный
+    assert not [n for n in body.get("notes") or [] if "Итоговая аттестация" in n]
+
+
 def test_service_ids_become_document_numbers() -> None:
     numbers = {"T5.2": "5.2", "M3": "3"}
     assert (
@@ -619,3 +689,232 @@ def test_skip_note_removed_after_successful_retry() -> None:
     assert notes == ["Шаг «Тексты программы» пропущен: сбой"]
     _drop_skip_note(notes, "Тексты программы")
     assert notes == []
+
+
+def test_program_texts_get_final_attestation_form() -> None:
+    """Тексты программы видят форму ИА: без неё модель писала «защита проекта» при экзамене (оценка 21.10)."""
+    from app.models import FAForm
+    from app.pipeline import content_prompts as prompts
+    from tests.validate_kits import make_pk_kit
+
+    kit = make_pk_kit()
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.EXAM_PRACTICAL
+    kit.final_attestation.form_text = "экзамен с практическим заданием на стенде"
+    line = prompts.describe_fa_line(kit)
+    assert line.startswith("Итоговая аттестация: экзамен") and "на стенде" in line
+    assert "Другие формы" in line
+
+
+def test_final_test_questions_cover_every_module_by_topics() -> None:
+    """Итоговый тест на N вопросов: вопросы у каждого модуля с темами, больше — у модуля с бóльшим числом тем;
+    раньше квота РО уходила первому модулю с этим РО, и темы следующих модулей оставались без вопросов (21.10)."""
+    from app.pipeline.content import question_quotas
+
+    kit = make_pk_kit()
+    for topic in kit.topics:  # один и тот же РО во всех модулях — худший случай для старого правила
+        topic.lo_ids = [kit.outcomes[0].id]
+    modules = [m for m in kit.modules_sorted() if kit.topics_of(m.id)]
+    kit.request.outputs.test_questions = 3 * len(modules)
+    quotas = question_quotas(kit)
+    per_module = {m.id: sum(quotas.get(m.id, {}).values()) for m in modules}
+    assert sum(per_module.values()) == 3 * len(modules)
+    assert all(n >= 1 for n in per_module.values()), per_module
+    topics = {m.id: len(kit.topics_of(m.id)) for m in modules}
+    most, least = max(topics, key=topics.get), min(topics, key=topics.get)
+    assert per_module[most] >= per_module[least]
+    kit.request.outputs.test_questions = 1  # вопросов меньше, чем модулей, — ровно столько, сколько заказано
+    assert sum(n for q in question_quotas(kit).values() for n in q.values()) == 1
+
+
+def test_reworded_question_is_rejected_as_duplicate() -> None:
+    """Тот же вопрос другими словами (те же варианты и верный ответ) или почти та же формулировка — повтор
+    (оценка 21.10: Q1 = Q9 в запросе 1, Q9 = Q10 в запросе 3)."""
+    kit = make_pk_kit()
+    module = kit.modules_sorted()[0]
+    lo = next(x for t in kit.topics_of(module.id) for x in t.lo_ids)
+    test = kit.tests[0]
+    first = QuestionDraft(
+        topic_id="",
+        lo_ids=[lo],
+        stem="Какая команда выведет на экран текст в Python?",
+        options=["print Привет", "print('Привет')", "echo 'Привет'", "output('Привет')"],
+        correct_answers=["print('Привет')"],
+    )
+    reworded = first.model_copy(
+        update={
+            "stem": "Какая команда в Python используется для вывода текста на экран?",
+            "options": ["show 'Привет'", "print('Привет')", "echo 'Привет'", "output('Привет')"],
+        }
+    )
+    near = QuestionDraft(
+        topic_id="",
+        lo_ids=[lo],
+        stem="Какие этапы включает создание простого программного проекта на Python?",
+        options=["Только код", "Планирование, код, проверка", "Только защита", "Только оформление"],
+        correct_answers=["Планирование, код, проверка"],
+    )
+    near_again = near.model_copy(
+        update={
+            "stem": "Какие этапы включает создание простого программного проекта?",
+            "options": ["Код и защита", "Идея, план, код, оформление", "Только тесты", "Только отладка"],
+            "correct_answers": ["Идея, план, код, оформление"],
+        }
+    )
+    other = QuestionDraft(
+        topic_id="",
+        lo_ids=[lo],
+        stem="Что выведет print(2 + 3)?",
+        options=["5", "23", "2 + 3", "ошибка"],
+        correct_answers=["5"],
+    )
+    created = apply.apply_questions(kit, module, test, [first, reworded, near, near_again, other], {lo: 5})
+    stems = [q.stem for q in kit.questions if q.id in created]
+    assert stems == [first.stem, near.stem, other.stem]
+
+
+def test_internship_interview_sees_independent_work_and_covers_topics() -> None:
+    """Собеседование стажировки: модель видит пункты самостоятельной работы (лекций и практики нет), вопросов не
+    меньше, чем тем (оценка 21.10, п. 5.6: в разделе о Git — ни одного вопроса о Git)."""
+    from app.core.registry import default_registry
+    from app.models import WorkKind
+    from tests.validate_kits import make_internship_kit
+
+    kit = make_internship_kit()
+    module = next(m for m in kit.modules_sorted() if content.is_interview_module(kit, m))
+    topics = kit.topics_of(module.id)
+    assert content.interview_quota(kit, module) >= len(topics)
+    topics[0].content[WorkKind.SRS] = ["Настроить ветвление в репозитории Git по заданию руководителя"]
+    generator = content.ContentGenerator(Settings(llm_mode="mock"), default_registry(), lambda ctx: None)
+    call = generator._tests_call(kit, module, {}, content.interview_quota(kit, module), "tests", "key")
+    assert "Настроить ветвление в репозитории Git" in call.values["topics"]
+    assert "по теме модуля на вопрос" in call.values["quotas"]
+
+
+@pytest.mark.parametrize(
+    ("rule", "total", "expected"),
+    [
+        (
+            "Для зачёта нужно набрать не менее 60% и получить не менее 0 по каждому критерию.",
+            100,
+            "«Зачтено» — не меньше 60 баллов из 100 и ни по одному критерию не 0 баллов.",
+        ),
+        (
+            "Зачёт при 70 % суммы баллов.",
+            50,
+            "«Зачтено» — не меньше 35 баллов из 50 и ни по одному критерию не 0 баллов.",
+        ),
+        (
+            "Зачтено, если набрано 5 % баллов.",
+            50,
+            "«Зачтено» — не меньше 30 баллов из 50 и ни по одному критерию не 0 баллов.",
+        ),
+        ("", 51, "«Зачтено» — не меньше 31 балла из 51 и ни по одному критерию не 0 баллов."),
+    ],
+)
+def test_final_attestation_pass_rule_is_built_from_criteria(rule: str, total: float, expected: str) -> None:
+    """Порог ИА считает код: «не менее 0 по каждому критерию» ничего не требовало (оценка 21.10, п. 3.7)."""
+    assert apply.fa_pass_rule(rule, total, 0.6) == expected
+
+
+def test_lecture_does_not_take_topic_of_another_session() -> None:
+    """Модель объединила темы двух занятий в одну лекцию: лекция остаётся у своего занятия, тема другого занятия
+    получит свою лекцию при доборе (оценка 21.10, п. 1.7: слайды занятия 2 про циклы из занятия 3)."""
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    kit.lectures = []
+    module = kit.modules_sorted()[0]
+    first, second = apply.lecture_topics(kit, module)[:2]
+    assert apply.session_of(kit, first) != apply.session_of(kit, second)
+    plan = [PlanItemDraft(title=f"Раздел {i}", theses=["а", "б", "в"]) for i in range(3)]
+    apply.apply_lectures(
+        kit, module, [LectureDraft(topic_ids=[first.id, second.id], title="Обе темы", goal="Цель", plan=plan)]
+    )
+    assert [lec.topic_ids for lec in kit.lectures] == [[first.id]]
+
+
+def test_question_with_service_unavailable_in_russia_is_dropped() -> None:
+    """«Только сервисы России»: вопрос с ChatGPT даже в неверном варианте отбрасывается (оценка 21.10, п. 2.5)."""
+    from app.core import bibliography
+    from app.core.registry import default_registry
+
+    kit = make_pk_kit()
+    kit.request.constraints.ru_services_only = True
+    module = kit.modules_sorted()[0]
+    lo = next(x for t in kit.topics_of(module.id) for x in t.lo_ids)
+    registry = default_registry()
+    bad = QuestionDraft(
+        topic_id="",
+        lo_ids=[lo],
+        stem="Каким сервисом учитель может составить план урока?",
+        options=["GigaChat", "ChatGPT", "Блокнот", "Калькулятор"],
+        correct_answers=["GigaChat"],
+    )
+    good = bad.model_copy(update={"options": ["GigaChat", "Шедеврум", "Блокнот", "Калькулятор"]})
+    created = apply.apply_questions(
+        kit,
+        module,
+        kit.tests[0],
+        [bad, good],
+        {lo: 2},
+        banned=lambda t: bibliography.blocked_service(kit, registry, t),
+    )
+    kept = [q for q in kit.questions if q.id in created]
+    assert len(kept) == 1 and "ChatGPT" not in kept[0].options and "Шедеврум" in kept[0].options
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Цикл for перебирает числа и выводит их:\nfor i in range(3):\n    print(i)",
+            "Цикл for перебирает числа и выводит их:\nfor i in range(3):\n    print(i)",
+        ),
+        (  # перенос, записанный моделью двумя символами, — вне кавычек; «\n» в строке кода — не трогать
+            "Функция приветствия:\\ndef привет():\\n    print('Привет\\nмир')",
+            "Функция приветствия:\ndef привет():\n    print('Привет\\nмир')",
+        ),
+        ("Пример: print('Привет, мир!') — выведет текст.", "Пример: print('Привет, мир!') — выведет текст."),
+        ("- Отступ \n\n   if x > 0:\n       print(x)\n", "Отступ:\nif x > 0:\n    print(x)"),
+    ],
+)
+def test_code_in_lecture_theses_keeps_lines_and_indents(text: str, expected: str) -> None:
+    """Пример кода в тезисе не склеивается в одну строку (оценка 21.10: «for i in range(5): print(i)» в одну
+    строку, примеры через «;» не запускались)."""
+    value = apply.clean_thesis(text)
+    assert value == expected
+    code = value.split("\n", 1)[1] if "\n" in value else ""
+    if code.startswith(("for ", "def ", "if ")):
+        compile(code, "<thesis>", "exec")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Переменные и типы данных\nНа разбор отводится 2 часа практики, затем 1 ч самостоятельной работы",
+        "Тема 1.1: Циклы\n- for\n- while (4 часа)",
+    ],
+)
+def test_thesis_tail_with_hours_is_not_kept_verbatim(text: str) -> None:
+    """Часы из ответа модели не попадают в лекцию без пересчёта и через «хвост кода» тезиса (ревью 22.10)."""
+    value = apply.clean_thesis(text)
+    assert not apply.has_hours(value), value
+    assert "\n" not in value
+
+
+def test_thesis_bullet_list_is_not_code() -> None:
+    assert apply.clean_thesis("Виды циклов\n- for\n- while") == "Виды циклов - for - while"
+
+
+def test_judge_sees_all_question_stems_portfolio_and_interview() -> None:
+    """Смысловая проверка видит все формулировки вопросов, материалы портфолио и вопросы собеседования — без них
+    она пропускала дубли и одинаковые материалы портфолио (оценка 21.10)."""
+    from tests.validate_kits import make_internship_kit
+
+    kit = make_pk_kit()
+    summary = content.judge_summary(kit)
+    assert all(q.stem in summary for q in kit.questions[:40]) or len(kit.questions) <= 5
+    internship = make_internship_kit()
+    summary = content.judge_summary(internship)
+    assert all(q.text in summary for q in internship.interview_questions[:8])

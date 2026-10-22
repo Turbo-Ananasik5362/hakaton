@@ -30,6 +30,8 @@ from app.core.hours import (
 )
 from app.core.ids import IdAllocator, display_label
 from app.core.registry import Registry
+from app.core.subject import without_subject
+from app.core.validate import OVERPROMISE_RE
 from app.llm import LLMClient, LLMError, TruncatedResponse
 from app.models import (
     Audience,
@@ -133,11 +135,53 @@ def labor_function_options(spec: RequestSpec, registry: Registry | None) -> list
         return []
     top_score = ranked[0][0]
     standards = [ps for score, ps in ranked if score >= top_score * PS_SECOND_SHARE]
+    level = audience_max_level(spec)
     return [
         LaborFunctionOption(f"{ps.code}:{tf.code}", ps.code, ps.title, tf.code, tf.title)
         for ps in standards
-        for tf in registry.relevant_labor_functions(ps, query, MAX_FUNCTIONS_PER_PS)
+        for tf in registry.relevant_labor_functions(ps, query, MAX_FUNCTIONS_PER_PS, max_level=level)
     ]
+
+
+STUDENT_RE = re.compile(
+    r"студент\w*\s+(?:\d\s+курс\w*\s+)?(?:колледж|техникум|СПО)|колледж|техникум|\bСПО\b", re.I
+)
+MANAGER_RE = re.compile(
+    r"руководител|начальник|директор|менеджер\w*\s+проект|управлен\w*\s+(?:команд|отдел|проект)", re.I
+)
+
+
+PERSONAL_DATA_RE = re.compile(
+    r"персональн\w*\s+данн|обезличен|(?:безопасн\w*|риск\w*)[^.]{0,80}(?:\bдет(?:и|ей|ьми)\b|учени|обучающ|школьник)",
+    re.I,
+)
+
+
+def personal_data_norms(spec: RequestSpec, registry: Registry | None, have: list[str]) -> list[str]:
+    """152-ФЗ «О персональных данных» — если запрос о персональных или обезличенных данных или о безопасности
+    в работе с детьми и учениками (оценка 21.10, п. 2.4: закон в реестре есть, в программу не попал)."""
+    if registry is None or not (
+        spec.constraints.anonymized_data or PERSONAL_DATA_RE.search(spec.raw_text or "")
+    ):
+        return []
+    law = next((n for n in registry.norms() if n.number == "152-ФЗ" and n.in_force), None)
+    return [law.id] if law is not None and law.id not in have else []
+
+
+def audience_max_level(spec: RequestSpec) -> int:
+    """Наибольший уровень квалификации ТФ для аудитории (оценка 21.10: студентам колледжа — ТФ 6–7 уровня,
+    рядовым сотрудникам — управленческая ТФ 7 уровня). Студенты СПО — 5; руководители — без ограничения (9);
+    остальные слушатели повышения квалификации — 6."""
+    audience = " ".join(
+        x
+        for x in (spec.audience.category, spec.audience.age_or_grade or "", spec.audience.entry_level or "")
+        if x
+    )
+    if STUDENT_RE.search(audience):
+        return 5
+    if MANAGER_RE.search(audience):
+        return 9
+    return 6
 
 
 # --------------------------------------------------------------------------------------------------
@@ -225,8 +269,10 @@ def describe_request(spec: RequestSpec, constraints: HoursConstraints) -> str:
         lines.append(
             f"{fa}." if fa.lower().startswith("итоговая аттестация") else f"Итоговая аттестация: {fa}."
         )
-    if spec.required_topics:
-        labels = "; ".join(f"«{r.label}»" for r in spec.required_topics)
+    # предмет программы из названия — не отдельная тема: иначе модуль «Кибербезопасность: обязательная тема»
+    required = without_subject(spec.required_topics, spec.title)
+    if required:
+        labels = "; ".join(f"«{r.label}»" for r in required)
         lines.append(
             f"Обязательные темы (каждая — отдельная тема или модуль с этим словом в названии): {labels}."
         )
@@ -338,8 +384,37 @@ def draft_problem(draft: SkeletonDraft, ptype: ProgramType | None = None, has_fu
                 "добавь по одному"
             )
         if problems:
+            return "; ".join(problems + _content_problems(draft)) + "."
+    if ptype is not None:
+        problems = _content_problems(draft)
+        if problems:
             return "; ".join(problems) + "."
     return ""
+
+
+def _content_problems(draft: SkeletonDraft) -> list[str]:
+    """Изъяны каркаса, которые модель исправит повтором: обещание трудоустройства в цели (V40) и результат
+    обучения в темах трёх и более модулей при половине модулей и больше (V43) — у модулей нет своих РО."""
+    problems: list[str] = []
+    promise = next((m for m in map(OVERPROMISE_RE.search, [draft.goal, *draft.tasks]) if m), None)
+    if promise:
+        problems.append(
+            f"цель или задачи обещают готовность к работе («{promise.group(0)}») — за объём программы это "
+            "невыполнимо; сформулируй цель как формирование или совершенствование компетенций, без обещаний работы"
+        )
+    total = len(draft.modules)
+    spread = []
+    for competency in draft.competencies:
+        for outcome in competency.outcomes:
+            modules = {m.key for m in draft.modules for t in m.topics if outcome.key in t.lo_keys}
+            if len(modules) >= 3 and len(modules) * 2 >= total:
+                spread.append(f"{outcome.key} — в {len(modules)} модулях из {total}")
+    if spread:
+        problems.append(
+            f"результаты обучения размазаны по модулям ({'; '.join(spread)}): оставь каждый результат в 1–2 "
+            "модулях, а остальным модулям дай свои результаты обучения (добавь их в outcomes компетенций)"
+        )
+    return problems
 
 
 async def ask_llm(
@@ -594,6 +669,7 @@ def build_skeleton(
         if registry is not None
         else []
     )
+    norm_ids += personal_data_norms(spec, registry, norm_ids)
     title = _clean(spec.title)
     if not title:
         title = TYPE_TITLES[ptype].capitalize()

@@ -10,7 +10,7 @@
       <text>Q1 Тема 1.3. Функции и работа с файлами</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать основные типы данных Python и структуры таблиц pandas»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 1 к результату «Знать основные типы данных Python и стру»: что верно о исходных данных с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -21,6 +21,12 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
       <feedback format="html">
@@ -39,12 +45,6 @@
         <text />
       </feedback>
     </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <tags>
       <tag>
         <text>T1.3</text>
@@ -59,7 +59,7 @@
       <text>Q2 Тема 1.3. Функции и работа с файлами</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать основные типы данных Python и структуры таблиц pandas»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 2 к результату «Знать основные типы данных Python и стру»: что верно о порядке действий с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -108,7 +108,7 @@
       <text>Q3 Тема 1.3. Функции и работа с файлами</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь загружать, очищать и объединять таблицы в pandas»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 3 к результату «Уметь загружать, очищать и объединять та»: что верно о типичной ошибке с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -157,7 +157,7 @@
       <text>Q4 Тема 1.3. Функции и работа с файлами</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь загружать, очищать и объединять таблицы в pandas»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 4 к результату «Уметь загружать, очищать и объединять та»: что верно о проверке результата с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -208,10 +208,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q5 Тема 2.3. Очистка и объединение данных клиентов</text>
+      <text>Q5 Тема 2.1. Таблицы pandas: загрузка и просмотр данных</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Уметь загружать, очищать и объединять таблицы в pandas»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 5 к результату «Знать основные типы данных Python и стру»: что верно о назначении инструмента с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -222,26 +222,75 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <tags>
+      <tag>
+        <text>T2.1</text>
+      </tag>
+      <tag>
+        <text>LO1.1</text>
+      </tag>
+    </tags>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>Q6 Тема 2.3. Очистка и объединение данных клиентов</text>
+    </name>
+    <questiontext format="html">
+      <text>&lt;p&gt;Вопрос 6 к результату «Уметь загружать, очищать и объединять та»: что верно о ограничениях метода с точки зрения удобства?&lt;/p&gt;</text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -257,59 +306,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q6 Тема 2.3. Очистка и объединение данных клиентов</text>
-    </name>
-    <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Владеть приёмами подготовки банковских данных к анализу»: какое утверждение верно?&lt;/p&gt;</text>
-    </questiontext>
-    <generalfeedback format="html">
-      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
-    </generalfeedback>
-    <defaultgrade>1</defaultgrade>
-    <penalty>0.3333333</penalty>
-    <hidden>0</hidden>
-    <single>true</single>
-    <shuffleanswers>true</shuffleanswers>
-    <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <tags>
-      <tag>
-        <text>T2.3</text>
-      </tag>
-      <tag>
-        <text>LO1.3</text>
-      </tag>
-    </tags>
-  </question>
-  <question type="multichoice">
-    <name>
       <text>Q7 Тема 2.3. Очистка и объединение данных клиентов</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Владеть приёмами подготовки банковских данных к анализу»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 7 к результату «Владеть приёмами подготовки банковских д»: что верно о выборе решения с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -321,25 +321,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 7&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -355,10 +355,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q24 Тема 2.1. Таблицы pandas: загрузка и просмотр данных</text>
+      <text>Q8 Тема 2.3. Очистка и объединение данных клиентов</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «результат обучения»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 8 к результату «Владеть приёмами подготовки банковских д»: что верно о оформлении вывода с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -369,36 +369,36 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1 ()&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1 ()&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <tags>
       <tag>
-        <text>T2.1</text>
+        <text>T2.3</text>
       </tag>
       <tag>
-        <text>LO1.1</text>
+        <text>LO1.3</text>
       </tag>
     </tags>
   </question>
@@ -409,59 +409,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q8 Тема 3.1. Запросы SQL: выборка и фильтрация</text>
-    </name>
-    <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать устройство реляционных баз данных и язык запросов SQL»: какое утверждение верно?&lt;/p&gt;</text>
-    </questiontext>
-    <generalfeedback format="html">
-      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
-    </generalfeedback>
-    <defaultgrade>1</defaultgrade>
-    <penalty>0.3333333</penalty>
-    <hidden>0</hidden>
-    <single>true</single>
-    <shuffleanswers>true</shuffleanswers>
-    <answernumbering>abc</answernumbering>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <tags>
-      <tag>
-        <text>T3.1</text>
-      </tag>
-      <tag>
-        <text>LO2.1</text>
-      </tag>
-    </tags>
-  </question>
-  <question type="multichoice">
-    <name>
       <text>Q9 Тема 3.1. Запросы SQL: выборка и фильтрация</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать устройство реляционных баз данных и язык запросов SQL»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 9 к результату «Знать устройство реляционных баз данных »: что верно о настройке параметров с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -473,25 +424,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 9&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -507,10 +458,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q10 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
+      <text>Q10 Тема 3.1. Запросы SQL: выборка и фильтрация</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь писать запросы с фильтрами, объединениями и группировк»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 10 к результату «Знать устройство реляционных баз данных »: что верно о критериях качества с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -522,35 +473,35 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 10&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <tags>
       <tag>
-        <text>T3.2</text>
+        <text>T3.1</text>
       </tag>
       <tag>
-        <text>LO2.2</text>
+        <text>LO2.1</text>
       </tag>
     </tags>
   </question>
@@ -559,7 +510,7 @@
       <text>Q11 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь писать запросы с фильтрами, объединениями и группировк»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 11 к результату «Уметь писать запросы с фильтрами, объеди»: что верно о исходных данных с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -570,26 +521,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -608,7 +559,56 @@
       <text>Q12 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть навыком выгрузки нужных данных из базы банка»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 12 к результату «Уметь писать запросы с фильтрами, объеди»: что верно о порядке действий с точки зрения надёжности?&lt;/p&gt;</text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <tags>
+      <tag>
+        <text>T3.2</text>
+      </tag>
+      <tag>
+        <text>LO2.2</text>
+      </tag>
+    </tags>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>Q13 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
+    </name>
+    <questiontext format="html">
+      <text>&lt;p&gt;Вопрос 13 к результату «Владеть навыком выгрузки нужных данных и»: что верно о типичной ошибке с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -620,25 +620,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -654,10 +654,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q13 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
+      <text>Q14 Тема 3.2. Объединение таблиц и агрегаты в SQL</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть навыком выгрузки нужных данных из базы банка»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 14 к результату «Владеть навыком выгрузки нужных данных и»: что верно о проверке результата с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -669,25 +669,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -708,59 +708,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q14 Тема 4.1. Графики для банковских показателей</text>
-    </name>
-    <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать основные статистические показатели и виды графиков»: какое утверждение верно?&lt;/p&gt;</text>
-    </questiontext>
-    <generalfeedback format="html">
-      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
-    </generalfeedback>
-    <defaultgrade>1</defaultgrade>
-    <penalty>0.3333333</penalty>
-    <hidden>0</hidden>
-    <single>true</single>
-    <shuffleanswers>true</shuffleanswers>
-    <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <tags>
-      <tag>
-        <text>T4.1</text>
-      </tag>
-      <tag>
-        <text>LO3.1</text>
-      </tag>
-    </tags>
-  </question>
-  <question type="multichoice">
-    <name>
       <text>Q15 Тема 4.1. Графики для банковских показателей</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать основные статистические показатели и виды графиков»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 15 к результату «Знать основные статистические показатели»: что верно о назначении инструмента с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -771,26 +722,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 15&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 15&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -806,10 +757,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q16 Тема 4.2. Дашборд для руководителя отделения</text>
+      <text>Q16 Тема 4.1. Графики для банковских показателей</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь строить графики и рассчитывать описательную статистику»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 16 к результату «Знать основные статистические показатели»: что верно о ограничениях метода с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -821,35 +772,35 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 16&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 16&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <tags>
       <tag>
-        <text>T4.2</text>
+        <text>T4.1</text>
       </tag>
       <tag>
-        <text>LO3.2</text>
+        <text>LO3.1</text>
       </tag>
     </tags>
   </question>
@@ -858,7 +809,7 @@
       <text>Q17 Тема 4.2. Дашборд для руководителя отделения</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь строить графики и рассчитывать описательную статистику»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 17 к результату «Уметь строить графики и рассчитывать опи»: что верно о выборе решения с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -870,25 +821,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 17&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -907,7 +858,7 @@
       <text>Q18 Тема 4.2. Дашборд для руководителя отделения</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть навыком подготовки аналитического вывода для руковод»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 18 к результату «Уметь строить графики и рассчитывать опи»: что верно о оформлении вывода с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -918,26 +869,75 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 18&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 18&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 18&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 18&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <tags>
+      <tag>
+        <text>T4.2</text>
+      </tag>
+      <tag>
+        <text>LO3.2</text>
+      </tag>
+    </tags>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>Q19 Тема 4.2. Дашборд для руководителя отделения</text>
+    </name>
+    <questiontext format="html">
+      <text>&lt;p&gt;Вопрос 19 к результату «Владеть навыком подготовки аналитическог»: что верно о настройке параметров с точки зрения надёжности?&lt;/p&gt;</text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 19&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 19&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 19&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 19&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -953,10 +953,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q19 Тема 4.2. Дашборд для руководителя отделения</text>
+      <text>Q20 Тема 4.2. Дашборд для руководителя отделения</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть навыком подготовки аналитического вывода для руковод»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 20 к результату «Владеть навыком подготовки аналитическог»: что верно о критериях качества с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -968,25 +968,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 20&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1007,10 +1007,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q20 Тема 5.2. Корреляция и проверка гипотез</text>
+      <text>Q21 Тема 5.1. Описательная статистика</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Уметь строить графики и рассчитывать описательную статистику»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 21 к результату «Знать основные статистические показатели»: что верно о исходных данных с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1021,26 +1021,75 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 21&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 21&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 21&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 21&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <tags>
+      <tag>
+        <text>T5.1</text>
+      </tag>
+      <tag>
+        <text>LO3.1</text>
+      </tag>
+    </tags>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>Q22 Тема 5.2. Корреляция и проверка гипотез</text>
+    </name>
+    <questiontext format="html">
+      <text>&lt;p&gt;Вопрос 22 к результату «Уметь строить графики и рассчитывать опи»: что верно о порядке действий с точки зрения практики?&lt;/p&gt;</text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 22&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 22&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 22&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 22&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1056,10 +1105,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q21 Тема 5.2. Корреляция и проверка гипотез</text>
+      <text>Q23 Тема 5.2. Корреляция и проверка гипотез</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Владеть навыком подготовки аналитического вывода для руковод»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 23 к результату «Владеть навыком подготовки аналитическог»: что верно о типичной ошибке с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1070,26 +1119,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 23&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 23&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 23&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 23&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1103,55 +1152,6 @@
       </tag>
     </tags>
   </question>
-  <question type="multichoice">
-    <name>
-      <text>Q25 Тема 5.1. Описательная статистика</text>
-    </name>
-    <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «результат обучения»: какое утверждение верно?&lt;/p&gt;</text>
-    </questiontext>
-    <generalfeedback format="html">
-      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
-    </generalfeedback>
-    <defaultgrade>1</defaultgrade>
-    <penalty>0.3333333</penalty>
-    <hidden>0</hidden>
-    <single>true</single>
-    <shuffleanswers>true</shuffleanswers>
-    <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <tags>
-      <tag>
-        <text>T5.1</text>
-      </tag>
-      <tag>
-        <text>LO3.1</text>
-      </tag>
-    </tags>
-  </question>
   <question type="category">
     <category>
       <text>$course$/top/Анализ данных на Python/Модуль 6. Итоговый проект</text>
@@ -1159,10 +1159,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q22 Тема 6.1. Проект на обезличенных банковских данных</text>
+      <text>Q24 Тема 6.1. Проект на обезличенных банковских данных</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Владеть приёмами подготовки банковских данных к анализу»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 24 к результату «Владеть приёмами подготовки банковских д»: что верно о проверке результата с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1174,25 +1174,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 24&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 24&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1208,10 +1208,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q23 Тема 6.1. Проект на обезличенных банковских данных</text>
+      <text>Q25 Тема 6.1. Проект на обезличенных банковских данных</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Владеть навыком выгрузки нужных данных из базы банка»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 25 к результату «Владеть навыком выгрузки нужных данных и»: что верно о назначении инструмента с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1222,26 +1222,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 25&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 25&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 25&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 25&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1260,7 +1260,7 @@
       <text>Q26 Тема 6.1. Проект на обезличенных банковских данных</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «результат обучения»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 26 к результату «Владеть навыком подготовки аналитическог»: что верно о ограничениях метода с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1271,26 +1271,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3 ()&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3 ()&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 26&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3 ()&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 26&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3 ()&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 26&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 26&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>

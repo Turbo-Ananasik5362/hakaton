@@ -36,6 +36,16 @@ from app.pipeline.request_rules import (
         ("до 6 ч/день", "hours_per_day", 6),
         ("Итоговая аттестация занимает 2 часа", "fa_hours", 2),
         ("на 36 часов, 4 часа на итоговую аттестацию", "fa_hours", 4),
+        ("Итоговая аттестация — практический экзамен продолжительностью 16 часов", "fa_hours", 16),
+        ("Итоговая аттестация в форме зачёта по итогам программы на 72 часа", "fa_hours", None),
+        ("Итоговая аттестация: защита проекта, самостоятельная работа слушателей 24 часа", "fa_hours", None),
+        (
+            "Итоговая аттестация в форме защиты итогового проекта, на практику отвести 40 часов",
+            "fa_hours",
+            None,
+        ),
+        ("Итоговая аттестация — зачёт, практические занятия 20 часов", "fa_hours", None),
+        ("Итоговая аттестация — тестирование, на лекции 12 часов", "fa_hours", None),
         ("занятия по 90 минут", "session_hours", 2),
         ("двухчасовые занятия", "session_hours", 2),
         ("занятия два раза в неделю", "sessions_per_week", 2),
@@ -291,7 +301,18 @@ def test_spec_conflicts(spec: RequestSpec, expected: list[str]) -> None:
 def test_domain_patterns_skip_generic_words() -> None:
     from app.pipeline.request_rules import domain_patterns
 
-    assert domain_patterns(["банк", "работа", "клиент", "сотрудники"], None) == ["банк", "клиент"]
+    assert domain_patterns(["банк", "работа", "клиент", "сотрудники"], "банк") == ["банк", "клиент"]
+    # «пойти работать в эту сферу» — не слово среды (ложная ошибка V36 в прогоне 21.10)
+    assert domain_patterns(["кредит", "сфера", "отрасль"], "банк") == ["кредит"]
+
+
+def test_no_domain_means_no_domain_patterns() -> None:
+    """Студенты и школьники без профессиональной среды: модель подставляла предмет курса («кибербезопасность»),
+    и V36 требовала его в 70 % заданий."""
+    from app.pipeline.request_rules import domain_patterns
+
+    assert domain_patterns(["кибербезопасность", "сфера"], None) == []
+    assert domain_patterns(["кибербезопасность"], "  ") == []
 
 
 def test_fa_text_is_a_fragment_not_the_whole_request() -> None:
@@ -301,3 +322,12 @@ def test_fa_text_is_a_fragment_not_the_whole_request() -> None:
     )
     fa_text = extract_facts(text).fa_text or ""
     assert fa_text.startswith("в конце зачёт") and "Excel" not in fa_text
+
+
+def test_topic_pattern_ignores_use_and_apply_words() -> None:
+    """«правила безопасного использования ИИ» в запросе и тема «Правила безопасного применения ИИ» — одна тема."""
+    from app.pipeline.request_rules import found_in, topic_pattern
+
+    pattern = topic_pattern("правила безопасного использования ИИ")
+    assert found_in(pattern, "Правила безопасного применения ИИ в работе с детьми")
+    assert not found_in(pattern, "Риски применения ИИ в школе")

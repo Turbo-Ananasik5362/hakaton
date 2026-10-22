@@ -10,7 +10,7 @@
       <text>Q1 Тема 1.1. Что умеют нейросети и где они ошибаются</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать возможности и ограничения нейросетей при подготовке к »: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 1 к результату «Знать возможности и ограничения нейросет»: что верно о исходных данных с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -59,7 +59,7 @@
       <text>Q2 Тема 1.1. Что умеют нейросети и где они ошибаются</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать возможности и ограничения нейросетей при подготовке к »: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 2 к результату «Знать возможности и ограничения нейросет»: что верно о порядке действий с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -70,18 +70,6 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
       <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
       <feedback format="html">
@@ -90,6 +78,18 @@
     </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -108,7 +108,7 @@
       <text>Q3 Тема 1.2. Российские сервисы ИИ для учителя</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь выбирать сервисы ИИ, доступные в России и безопасные д»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 3 к результату «Уметь выбирать сервисы ИИ, доступные в Р»: что верно о типичной ошибке с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -157,7 +157,7 @@
       <text>Q4 Тема 1.2. Российские сервисы ИИ для учителя</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь выбирать сервисы ИИ, доступные в России и безопасные д»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 4 к результату «Уметь выбирать сервисы ИИ, доступные в Р»: что верно о проверке результата с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -168,6 +168,12 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
       <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
       <feedback format="html">
@@ -182,12 +188,6 @@
     </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -211,7 +211,7 @@
       <text>Q5 Тема 2.2. Задания и раздаточные материалы для учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Уметь составлять запросы к нейросети для плана урока и задан»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 5 к результату «Уметь составлять запросы к нейросети для»: что верно о назначении инструмента с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -223,25 +223,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -260,7 +260,7 @@
       <text>Q6 Тема 2.2. Задания и раздаточные материалы для учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Уметь составлять запросы к нейросети для плана урока и задан»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 6 к результату «Уметь составлять запросы к нейросети для»: что верно о ограничениях метода с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -272,25 +272,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -309,7 +309,7 @@
       <text>Q7 Тема 2.3. Иллюстрации и презентации к уроку</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Владеть приёмами доработки материалов, созданных нейросетью»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 7 к результату «Владеть приёмами доработки материалов, с»: что верно о выборе решения с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -321,25 +321,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -358,7 +358,7 @@
       <text>Q8 Тема 2.3. Иллюстрации и презентации к уроку</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Владеть приёмами доработки материалов, созданных нейросетью»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 8 к результату «Владеть приёмами доработки материалов, с»: что верно о оформлении вывода с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -369,26 +369,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -412,7 +412,7 @@
       <text>Q9 Тема 3.1. Проверочные работы с помощью нейросети</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать виды проверочных работ и требования к ним»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 9 к результату «Знать виды проверочных работ и требовани»: что верно о настройке параметров с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -423,26 +423,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 9&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 9&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -461,7 +461,7 @@
       <text>Q10 Тема 3.1. Проверочные работы с помощью нейросети</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать виды проверочных работ и требования к ним»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 10 к результату «Знать виды проверочных работ и требовани»: что верно о критериях качества с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -473,25 +473,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 10&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -510,7 +510,7 @@
       <text>Q11 Тема 3.2. Критерии оценки и проверка ответов учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь готовить проверочную работу и критерии оценки с помощь»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 11 к результату «Уметь готовить проверочную работу и крит»: что верно о исходных данных с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -521,26 +521,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 11&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -559,7 +559,7 @@
       <text>Q12 Тема 3.2. Критерии оценки и проверка ответов учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь готовить проверочную работу и критерии оценки с помощь»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 12 к результату «Уметь готовить проверочную работу и крит»: что верно о порядке действий с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -571,25 +571,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 12&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -608,7 +608,7 @@
       <text>Q13 Тема 3.2. Критерии оценки и проверка ответов учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть навыком проверки заданий, созданных нейросетью, на о»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 13 к результату «Владеть навыком проверки заданий, создан»: что верно о типичной ошибке с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -620,25 +620,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 13&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 13&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -657,7 +657,7 @@
       <text>Q14 Тема 3.2. Критерии оценки и проверка ответов учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть навыком проверки заданий, созданных нейросетью, на о»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 14 к результату «Владеть навыком проверки заданий, создан»: что верно о проверке результата с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -669,25 +669,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -711,7 +711,7 @@
       <text>Q15 Тема 4.2. Этика и защита персональных данных учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать риски использования ИИ в школе и правила защиты персон»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 15 к результату «Знать риски использования ИИ в школе и п»: что верно о назначении инструмента с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -722,26 +722,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 15&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -760,7 +760,7 @@
       <text>Q16 Тема 4.2. Этика и защита персональных данных учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать риски использования ИИ в школе и правила защиты персон»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 16 к результату «Знать риски использования ИИ в школе и п»: что верно о ограничениях метода с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -772,25 +772,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 16&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -809,7 +809,7 @@
       <text>Q17 Тема 4.2. Этика и защита персональных данных учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Владеть правилами этичного использования ИИ на уроке»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 17 к результату «Владеть правилами этичного использования»: что верно о выборе решения с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -821,25 +821,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 17&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 17&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -858,7 +858,7 @@
       <text>Q18 Тема 4.2. Этика и защита персональных данных учеников</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Владеть правилами этичного использования ИИ на уроке»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 18 к результату «Владеть правилами этичного использования»: что верно о оформлении вывода с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -870,25 +870,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>

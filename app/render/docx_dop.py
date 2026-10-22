@@ -15,6 +15,8 @@ from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.shared import Mm, Pt
 
+from app.config import now_msk
+from app.core.ids import display_numbers
 from app.core.registry import Registry
 from app.models import Kit, OutcomeKind, SourceSection, TestScope
 from app.render.common import (
@@ -22,6 +24,7 @@ from app.render.common import (
     DASH,
     FILL_MARK,
     Organization,
+    at_most_hours,
     cell_text,
     font_run,
     format_par,
@@ -31,6 +34,7 @@ from app.render.common import (
     set_doc_defaults,
     shade,
     style_font,
+    up_to_points,
     upper_first,
 )
 from app.render.report_docx import write_report_appendix
@@ -107,7 +111,6 @@ HEADINGS: list[str] = [
     APPENDIX_2,
 ]
 ORDER_LINE = "Приказом № ____ от «____» ____________ ____ г."
-CITY_YEAR = f"{BLANK} {BLANK}"
 
 
 def render_dop(
@@ -218,7 +221,9 @@ def _title_page(w: DocWriter, kit: Kit, org: Organization) -> None:
     _line(w, "ДОПОЛНИТЕЛЬНАЯ ОБЩЕОБРАЗОВАТЕЛЬНАЯ", "center", bold=True, before=90)
     _line(w, "ОБЩЕРАЗВИВАЮЩАЯ ПРОГРАММА", "center", bold=True)
     _line(w, f"«{kit.program.title.strip() or FILL_MARK}»", "center", bold=True)
-    _line(w, CITY_YEAR, "center", bold=True, before=200)
+    # город и год — как в образце и в программе ПК: город из конфигурации организации, год сборки комплекта
+    year = (kit.meta.created_at or now_msk()).year
+    _line(w, f"{org.city or BLANK} {year}", "center", bold=True, before=200)
 
 
 def _explanatory_note(w: DocWriter, kit: Kit, tables: ProgramTables, registry: Registry) -> None:
@@ -292,7 +297,7 @@ def _regime(kit: Kit) -> str:
     if schedule.session_hours:
         return f"занятия по {hours_phrase(schedule.session_hours)}"
     if schedule.hours_per_day_max:
-        return f"не более {hours_phrase(schedule.hours_per_day_max)} в день"
+        return f"{at_most_hours(schedule.hours_per_day_max)} в день"
     return FILL_MARK
 
 
@@ -412,6 +417,17 @@ def _utp_table(w: DocWriter, kit: Kit, tables: ProgramTables) -> None:
 # --------------------------------------------------------------------------------------------------
 
 
+def seminar_criteria(kit: Kit) -> list[str]:
+    """Критерии практических работ для раздела 2.3: работа — строка со всеми её критериями, без повторов работ."""
+    lines: list[str] = []
+    numbers = display_numbers(kit)
+    for seminar in sorted(kit.seminars, key=lambda s: int(numbers.get(s.id, "0") or 0)):
+        texts = list(dict.fromkeys(c.text.strip().rstrip(".") for c in seminar.criteria if c.text.strip()))
+        if texts:
+            lines.append(f"{seminar.title.strip().rstrip('.')} — {'; '.join(texts)}.")
+    return list(dict.fromkeys(lines))
+
+
 def _assessment(w: DocWriter, kit: Kit, tables: ProgramTables) -> None:
     numbers = module_numbers(kit)
     w.heading(SUB["2.3"])
@@ -441,18 +457,19 @@ def _assessment(w: DocWriter, kit: Kit, tables: ProgramTables) -> None:
     w.text_cell(table, last, 1, (fa.expected_result or tables.fa_title) if fa is not None else FILL_MARK)
     w.text_cell(table, last, 2, "Комиссия по критериям итоговой аттестации")
     w.after_table()
-    criteria = list(dict.fromkeys(c.text for s in kit.seminars for c in s.criteria))
-    w.subhead("Основные критерии проверки практических работ")
-    w.bullets(criteria[:8])
-    if len(criteria) > 8 or kit.seminars:
-        w.para("Критерии и баллы по каждому заданию — в Приложении № 1.", first_line=False)
+    criteria = seminar_criteria(kit)
+    if criteria:
+        # все критерии, по работе на строку: обрезанный список выглядел незаполненным разделом (оценка 21.10)
+        w.subhead("Критерии проверки практических работ")
+        w.bullets(criteria)
+        w.para("Баллы по каждому критерию и порог зачёта — в Приложении № 1.", first_line=False)
     w.subhead("Итоговая аттестация")
     text = f"Форма — {tables.fa_title.lower()}, {hours_phrase(tables.fa_hours)}."
     if fa is not None and fa.pass_rule:
         text += f" {upper_first(fa.pass_rule.strip())}"
     w.para(text)
     w.subhead("Критерии оценивания")
-    w.bullets([f"{c.text} — до {c.max_points:g} балл." for c in fa.criteria] if fa is not None else [])
+    w.bullets([f"{c.text} — {up_to_points(c.max_points)}" for c in fa.criteria] if fa is not None else [])
 
     w.heading(SUB["2.4"])
     w.para(

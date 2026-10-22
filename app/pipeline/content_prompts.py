@@ -210,6 +210,17 @@ FA_RULES: dict[FAForm, str] = {
 }
 
 
+def describe_fa_line(kit: Kit) -> str:
+    """Одна строка о форме итоговой аттестации для прозаических разделов программы."""
+    fa = kit.final_attestation
+    form = fa.form if fa is not None else (kit.request.fa_form or FAForm.ZACHET)
+    line = f"Итоговая аттестация: {FA_TITLES[form]}"
+    detail = (fa.form_text if fa is not None and fa.form_text else "") or (kit.request.fa_text or "")
+    if detail:
+        line += f" ({detail.strip().rstrip('.')})"
+    return line + ". Другие формы итоговой аттестации в текстах не называй."
+
+
 def describe_fa(kit: Kit) -> str:
     fa = kit.final_attestation
     request = kit.request

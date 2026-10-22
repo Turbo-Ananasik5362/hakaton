@@ -179,9 +179,26 @@ def _content_slide(prs, slide: Slide) -> None:  # noqa: ANN001
         paragraph = frame.paragraphs[0] if idx == 0 else frame.add_paragraph()
         paragraph.space_after = Pt(10)
         _bullet(paragraph)
-        run = paragraph.add_run()
-        run.text = text
-        _style_run(run, size)
+        _thesis_runs(paragraph, text, size)
+
+
+MONO_FONT = "Courier New"
+
+
+def _thesis_runs(paragraph, text: str, size: int) -> None:  # noqa: ANN001
+    """Тезис: первая строка — текст; строки кода после неё — через перенос строки, моноширинным шрифтом, отступы
+    неразрывными пробелами (python-pptx оставляет «\\n» внутри <a:t>, и PowerPoint склеивает строки)."""
+    head, *code = text.split("\n")
+    run = paragraph.add_run()
+    run.text = head
+    _style_run(run, size)
+    for line in code:
+        paragraph.add_line_break()
+        stripped = line.lstrip(" ")
+        mono = paragraph.add_run()
+        mono.text = "\u00a0" * (len(line) - len(stripped)) + stripped
+        _style_run(mono, max(size - 2, 12))
+        mono.font.name = MONO_FONT
 
 
 def _bullet(paragraph) -> None:  # noqa: ANN001

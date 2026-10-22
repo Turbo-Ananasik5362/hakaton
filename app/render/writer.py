@@ -27,6 +27,7 @@ from app.render.common import (
     repeat_header,
     set_bullet,
     setup_table,
+    up_to_points,
     upper_first,
 )
 from app.render.tables import module_numbers, topic_number
@@ -253,7 +254,7 @@ def write_seminar(w: DocWriter, kit: Kit, seminar: Seminar, numbers: dict[str, s
     w.label_value("Результат", seminar.deliverable)
     if seminar.criteria:
         w.para("Критерии оценивания:", first_line=False, after=1)
-        w.bullets([f"{c.text} — до {num(c.max_points)} балл." for c in seminar.criteria])
+        w.bullets([f"{c.text} — {up_to_points(c.max_points)}" for c in seminar.criteria])
         total = sum(c.max_points for c in seminar.criteria)
         if seminar.pass_threshold is not None:
             w.para(

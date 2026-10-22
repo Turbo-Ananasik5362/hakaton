@@ -211,9 +211,15 @@ def test_overpromise_in_goal(goal: str, flagged: bool) -> None:
     assert bool(found) == flagged
 
 
-def test_preparation_for_work_is_not_a_promise() -> None:
+def test_preparation_for_work_in_a_field_is_a_promise() -> None:
+    """«…для подготовки к работе в сфере …» за 72 ч — обещание подготовки специалиста (чек-лист запроса 4,
+    п. 4.8; оценка 21.10). Обычная формулировка ПК «компетенции, необходимые для работы в сфере» — не обещание."""
     kit = make_pk_kit()
     kit.program.goal = "Сформировать базовые компетенции для подготовки к работе в сфере безопасности."
+    assert [i for i in run(kit, only=["V40"]).issues if i.check == "V40"]
+    kit.program.goal = (
+        "Совершенствование компетенций, необходимых для работы в сфере информационной безопасности."
+    )
     assert not [i for i in run(kit, only=["V40"]).issues if i.check == "V40"]
 
 
@@ -336,6 +342,29 @@ def test_v10_form_text_must_match_form_flags() -> None:
     assert [i for i in run(kit, only=["V10"]).issues if "ЭО и ДОТ не предусмотрены" in i.message]
     kit.texts.form_description = "Стажировка проходит очно, без применения дистанционных технологий."
     assert not run(kit, only=["V10"]).issues
+    # отрицание после упоминания — тоже не обещание (ложное замечание в живом прогоне 21.10)
+    for text in (
+        "Обучение очное. Электронное обучение и дистанционные технологии не используются.",
+        "Дистанционные образовательные технологии при реализации программы не применяются.",
+        "Электронное обучение исключено: все занятия в аудитории.",
+        # «без» на всё перечисление (ложное замечание в живом прогоне 22.10)
+        "Занятия проводятся с применением традиционных методов обучения, без использования электронного обучения "
+        "и дистанционных технологий.",
+    ):
+        kit.texts.form_description = text
+        assert not run(kit, only=["V10"]).issues, text
+    # «без отрыва от работы», «не менее половины» — не отрицание (ревью 22.10)
+    for text in (
+        "Обучение проводится без отрыва от работы с применением дистанционных образовательных технологий.",
+        "Не менее половины занятий проводится в дистанционном формате.",
+    ):
+        kit.texts.form_description = text
+        assert [i for i in run(kit, only=["V10"]).issues if "ЭО и ДОТ не предусмотрены" in i.message], text
+    # отрицание в другом предложении не спасает обещание
+    kit.texts.form_description = (
+        "Занятия проходят с применением дистанционных технологий. Очные встречи не проводятся."
+    )
+    assert [i for i in run(kit, only=["V10"]).issues if "ЭО и ДОТ не предусмотрены" in i.message]
 
 
 def test_v39_real_data_with_anonymized_requirement() -> None:
@@ -345,3 +374,103 @@ def test_v39_real_data_with_anonymized_requirement() -> None:
     assert [i for i in run(kit, only=["V39"]).issues if "обезличенные" in i.message]
     kit.texts.mto = ["Учебная база на реальных, но обезличенных данных"]
     assert not [i for i in run(kit, only=["V39"]).issues if "обезличенные" in i.message]
+
+
+def test_v36_required_work_type_is_satisfied_by_final_attestation() -> None:
+    """«В конце каждый защищает проект — игру или чат-бота» — итоговый проект, а не отдельное задание: вид работы
+    из запроса засчитывается и итоговой аттестацией (ложная ошибка V36 в прогоне 21.10)."""
+    from app.models import TopicRequirement
+
+    kit = make_dop_kit()
+    kit.request.audience.domain_patterns = []
+    req = TopicRequirement(
+        label="проект (игра или чат-бот)", patterns=["прое.{0,40}?игр.{0,40}?или.{0,40}?чат.{0,40}?бот"]
+    )
+    kit.request.constraints.required_seminar_types = [req]
+    for seminar in kit.seminars:
+        seminar.title, seminar.task, seminar.deliverable = (
+            "Практическая работа",
+            "Выполнить упражнение.",
+            "Код",
+        )
+    assert kit.final_attestation is not None
+    kit.final_attestation.expected_result = "Готовый к демонстрации проект на Python (игра или чат-бот)"
+    assert not run(kit, only=["V36"]).issues
+    kit.final_attestation.expected_result = "Готовый к демонстрации проект на Python"
+    kit.final_attestation.requirements = []
+    kit.final_attestation.example_task = None
+    assert [i for i in run(kit, only=["V36"]).issues if "проект (игра или чат-бот)" in i.message]
+
+
+def test_v21_texts_must_name_the_programs_final_attestation_form() -> None:
+    """«Итоговая аттестация проводится в форме защиты проекта» при экзамене — предупреждение (оценка 21.10, п. 4.10)."""
+    from app.models import FAForm
+
+    kit = make_pk_kit()
+    assert kit.final_attestation is not None
+    kit.final_attestation.form = FAForm.EXAM_PRACTICAL
+    kit.texts.org_process = (
+        "Обучение очное. Итоговая аттестация проводится в форме защиты проекта перед комиссией."
+    )
+    found = [i for i in run(kit, only=["V21"]).issues if "итоговая аттестация названа" in i.message]
+    assert found and "защита проекта" in found[0].message and "экзамен" in found[0].message
+    kit.texts.org_process = "Обучение очное. Итоговая аттестация — экзамен с практическим заданием на стенде."
+    assert not [i for i in run(kit, only=["V21"]).issues if "итоговая аттестация названа" in i.message]
+    # «проект» в другом смысле, не про итоговую аттестацию, — не форма ИА
+    kit.texts.org_process = (
+        "Слушатели выполняют учебный проект по теме модуля. Итоговая аттестация — экзамен."
+    )
+    assert not [i for i in run(kit, only=["V21"]).issues if "итоговая аттестация названа" in i.message]
+
+
+def test_v18_flags_the_same_question_in_other_words() -> None:
+    kit = make_pk_kit()
+    test = kit.tests[0]
+    first = next(q for q in kit.questions if q.id in test.question_ids)
+    twin = first.model_copy(update={"id": "Q900", "stem": first.stem + " Выберите один ответ."})
+    kit.questions.append(twin)
+    test.question_ids.append("Q900")
+    found = [i for i in run(kit, only=["V18"]).issues if "тот же вопрос другими словами" in i.message]
+    assert found and set(found[0].target_ids) == {"Q900", first.id}
+    assert not [i for i in run(make_pk_kit(), only=["V18"]).issues if "другими словами" in i.message]
+
+
+def test_v20_python_example_in_lecture_must_compile() -> None:
+    """Пример кода в тезисе лекции программы по Python, который не компилируется, — предупреждение."""
+    kit = make_dop_kit()
+    kit.program.title = "Первые шаги в Python"
+    lecture = kit.lectures[0]
+    lecture.plan[0].theses = ["Цикл выводит числа:\nfor i in range(3):\nprint(i)"]  # потерян отступ
+    found = [i for i in run(kit, only=["V20"]).issues if "пример кода не запускается" in i.message]
+    assert found and lecture.id in found[0].target_ids
+    lecture.plan[0].theses = ["Цикл выводит числа:\nfor i in range(3):\n    print(i)"]
+    assert not [i for i in run(kit, only=["V20"]).issues if "пример кода не запускается" in i.message]
+
+
+def test_v33_program_subject_is_not_a_separate_topic() -> None:
+    """Прогон 22.10: «Кибербезопасность для студентов колледжа» — V33 требовал отдельную тему «кибербезопасность»,
+    хотя это предмет всей программы. Тема внутри программы по-прежнему обязательна."""
+    from app.models import TopicRequirement
+
+    kit = make_pk_kit()
+    kit.request.title = "Статистика для аналитиков"
+    kit.request.required_topics = [TopicRequirement(label="статистика", patterns=["статистик"])]
+    assert not [
+        i for i in validate(kit, ValidationContext(registry=make_registry())).issues if i.check == "V33"
+    ]
+    kit.request.required_topics.append(TopicRequirement(label="регрессия", patterns=["регресси"]))
+    found = [i for i in validate(kit, ValidationContext(registry=make_registry())).issues if i.check == "V33"]
+    assert [i.message for i in found] == [
+        "Нет отдельной темы или модуля «регрессия» с часами, хотя это требование запроса."
+    ]
+
+
+def test_final_attestation_without_criteria_covers_nothing() -> None:
+    """Прогон 22.10: у ИА 0 критериев, а матрица покрытия засчитывала её как средство оценки всем РО."""
+    from app.core.validate import coverage_matrix
+
+    kit = make_pk_kit()
+    assert kit.final_attestation is not None and kit.final_attestation.lo_ids
+    assert any("FA" in c.assessment_ids for c in coverage_matrix(kit))
+    kit.final_attestation.criteria = []
+    assert not any("FA" in c.assessment_ids for c in coverage_matrix(kit))

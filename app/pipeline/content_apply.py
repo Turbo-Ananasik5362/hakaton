@@ -10,13 +10,16 @@ from __future__ import annotations
 import hashlib
 import math
 import re
-from collections.abc import Callable, Iterable, Sequence
+import textwrap
+from collections.abc import Callable, Collection, Iterable, Sequence
 from typing import TypeVar
 
 from app.config import DEFAULT_LIMITS
 from app.core.ids import IdAllocator
+from app.core.questions import rewrite_option_refs, same_question
 from app.core.validate import FREE_HOURS_RE, HOURS_PATTERN
 from app.models import (
+    CalendarMode,
     Criterion,
     CriterionDraft,
     FAForm,
@@ -68,6 +71,10 @@ HOURS_MENTION_RE = FREE_HOURS_RE
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9«\"(])")  # «ак. ч. аудиторной» — не конец предложения
 TITLE_ID_RE = re.compile(r"^(?:[TТ]\d+\.\d+|тема\s+\d+(?:\.\d+)?)\s*[—–:.-]?\s*", re.IGNORECASE)
 BULLET_RE = re.compile(r"^\s*(?:[-–—•*·]|\d+[.)]|[a-zа-я][.)])\s+", re.IGNORECASE)
+# Служебная метка темы или РО в начале пункта: «1.1:», «T1.1:», «LO2.3 —», «Тема 1.2:» (живой прогон 21.10)
+SERVICE_LABEL_RE = re.compile(
+    r"^\s*(?:(?:тема|раздел|модуль)\s+|[TТ]|LO|РО\s*)?\d+\.\d+(?:\.\d+)?\s*(?::|—|–|-|\))\s+", re.IGNORECASE
+)
 ID_RE = re.compile(r"[A-Z]{1,2}\d+(?:\.\d+)?")
 CYR_TO_LAT = str.maketrans("ТОСМ", "TOCM")  # кириллица, похожая на латиницу ID: «Т1.2», «М2»
 
@@ -91,8 +98,9 @@ def has_hours(text: str) -> bool:
 
 
 def clean_item(text: str | None) -> str:
-    """Пункт списка: без маркера; метка «(4 ч)» вырезается, пункт с другим упоминанием часов выбрасывается."""
-    value = PAREN_HOURS_RE.sub("", BULLET_RE.sub("", clean(text))).strip(" ,;:")
+    """Пункт списка: без маркера и служебной метки темы («1.1:»); метка «(4 ч)» вырезается, пункт с другим
+    упоминанием часов выбрасывается."""
+    value = PAREN_HOURS_RE.sub("", SERVICE_LABEL_RE.sub("", BULLET_RE.sub("", clean(text)))).strip(" ,;:")
     return "" if has_hours(value) else clean(value)
 
 
@@ -113,6 +121,77 @@ def clean_prose(text: str | None) -> str:
         value[a:b] for a, b in bounds if value[a:b].strip() and not any(s < b and e > a for s, e in spans)
     ]
     return clean(" ".join(kept))
+
+
+def _split_literal_newlines(text: str) -> str:
+    """«def f():\\n    print(1)» — модель написала перенос двумя символами: вне кавычек это перенос строки,
+    внутри строкового литерала («print("a\\nb")») — часть кода, его не трогаем."""
+    if "\\n" not in text or "\n" in text:
+        return text
+    out: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            if ch == "\\" and i + 1 < len(text):
+                out.append(text[i : i + 2])
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif text.startswith("\\n", i):
+            out.append("\n")
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+CODE_MARK_RE = re.compile(r"[(){}\[\]=]|:\s*$|^\s{2,}\S|^\s*(?:>>>|\$\s|#)")
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-•*–—]|\d+[.)])\s+")
+
+
+def _looks_like_code(lines: list[str]) -> bool:
+    """Строки похожи на код: скобки, присваивание, двоеточие в конце, отступ, приглашение консоли — и это
+    не маркированный список."""
+    if not lines or all(LIST_ITEM_RE.match(line) for line in lines):
+        return False
+    return any(CODE_MARK_RE.search(line) for line in lines)
+
+
+def clean_thesis(text: str | None) -> str:
+    """Тезис лекции. Пример кода — с новой строки после пояснения («что делает и что выведет:»): строки кода
+    сохраняются с отступами, а не склеиваются в одну через пробел (иначе пример не запускается, оценка 21.10)."""
+    raw = _split_literal_newlines((text or "").strip())
+    if "\n" not in raw:
+        return clean_item(raw)
+    head, *rest = raw.split("\n")
+    lines = [line.rstrip().replace("\t", "    ") for line in rest if line.strip()]
+    # хвост сохраняется дословно, только если это код и в нём нет часов: часы из ответа модели в документ
+    # без пересчёта не попадают (правило 2), а список «- for / - while» — не код и склеивается, как раньше
+    if any(has_hours(line) for line in lines) or not _looks_like_code(lines):
+        return clean_item(" ".join(raw.split()))
+    code = textwrap.dedent("\n".join(lines)).strip("\n")
+    head = clean_item(head)
+    if not code:
+        return head
+    return f"{head.rstrip('.')}:\n{code}" if head else code
+
+
+def clean_theses(items: Iterable[str], limit: int) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        value = clean_thesis(item)
+        key = " ".join(value.lower().split())
+        if value and key not in seen:
+            seen.add(key)
+            result.append(value)
+    return result[:limit]
 
 
 def clean_items(items: Iterable[str], limit: int = MAX_ITEMS) -> list[str]:
@@ -251,13 +330,20 @@ def apply_lectures(
     pairs = match_to_topics(drafts, topics, lambda d: d.topic_ids)
     # модель иногда объединяет несколько тем в одну лекцию (topic_ids: [T2.1, T2.2, T2.3]) — лекция покрывает все
     # свои темы, которые не заняты другой лекцией, а не только первую (иначе у остальных нет лекции, V20)
+    # — но при графике по занятиям только темы того же занятия: лекция занятия 2 с темой занятия 3 давала слайды
+    # занятия 2 про циклы из занятия 3 (оценка 21.10, п. 1.7); тема другого занятия получит свою лекцию при доборе
     wanted = {t.id for t in topics}
+    by_id = {t.id: t for t in topics}
+    per_session = kit.calendar is not None and kit.calendar.mode == CalendarMode.SESSIONS
     claimed = {topic.id for topic, _ in pairs} | {tid for lec in kit.lectures for tid in lec.topic_ids}
     for topic, draft in pairs:
+        session = session_of(kit, topic)
         extra = [
             tid
             for tid in dict.fromkeys(norm_id(x) for x in draft.topic_ids)
-            if tid in wanted and tid not in claimed
+            if tid in wanted
+            and tid not in claimed
+            and (not per_session or session_of(kit, by_id[tid]) == session)
         ]
         claimed |= set(extra)
         plan: list[PlanItem] = []
@@ -266,7 +352,7 @@ def apply_lectures(
             if not title:
                 continue
             los = valid_los(item.lo_ids, module_los) or list(topic.lo_ids)
-            plan.append(PlanItem(title=title, theses=clean_items(item.theses, MAX_THESES), lo_ids=los))
+            plan.append(PlanItem(title=title, theses=clean_theses(item.theses, MAX_THESES), lo_ids=los))
         glossary: list[GlossaryItem] = []
         seen: set[str] = set()
         for entry in draft.glossary:
@@ -409,6 +495,7 @@ def _question(
     correct = answer_indices(options, draft.correct_answers)
     if not correct or len(correct) == len(options):
         return None
+    explanation = rewrite_option_refs(clean_prose(draft.explanation), options, correct)  # до перемешивания
     options, correct = shuffle_options(stem, options, correct)
     kind = QuestionKind.MULTIPLE if len(correct) > 1 else QuestionKind.SINGLE
     return TestQuestion(
@@ -420,15 +507,25 @@ def _question(
         stem=stem,
         options=options,
         correct=correct,
-        explanation=clean_prose(draft.explanation),
+        explanation=explanation,
         difficulty=min(3, max(1, draft.difficulty)),
     )
 
 
 def apply_questions(
-    kit: Kit, module: Module, test: Test, drafts: Sequence[QuestionDraft], quotas: dict[str, int]
+    kit: Kit,
+    module: Module,
+    test: Test,
+    drafts: Sequence[QuestionDraft],
+    quotas: dict[str, int],
+    replacing: Collection[str] = (),
+    banned: Callable[[str], str | None] | None = None,
 ) -> list[str]:
-    """Вопросы в тест: на каждый РО — не больше его квоты; вопрос без годного ключа или с часами отбрасывается."""
+    """Вопросы в тест: на каждый РО — не больше его квоты; вопрос без годного ключа или с часами отбрасывается,
+    повтор уже заданного вопроса по смыслу — тоже (core/questions.same_question). replacing — вопросы, которые
+    правка заменяет: с ними сравнивается только точная формулировка (усложнённый вариант похож на прежний).
+    banned — недоступный по запросу сервис в тексте (ChatGPT при «только сервисы России»): такой вопрос
+    отбрасывается целиком, даже если сервис только в неверном варианте (оценка 21.10, п. 2.5); добор доберёт."""
     topics = kit.topics_of(module.id)
     topic_ids = {t.id for t in topics}
     topic_of_lo: dict[str, str] = {}
@@ -459,6 +556,16 @@ def apply_questions(
         question = _question(draft, alloc.question(), test.id, topic_id, los)
         if question is None:
             continue
+        if banned is not None and any(
+            banned(x) for x in (question.stem, *question.options, question.explanation)
+        ):
+            continue
+        if any(
+            same_question(question.stem, question.options, question.correct, q.stem, q.options, q.correct)
+            for q in kit.questions
+            if q.id not in replacing
+        ):
+            continue  # тот же вопрос другими словами (оценка 21.10: Q1 = Q9, Q9 = Q10)
         stems.add(_answer_key(question.stem))
         kit.questions.append(question)
         test.question_ids.append(question.id)
@@ -547,13 +654,35 @@ def apply_final_attestation(
     fa.report_requirements = clean_items(draft.report_requirements, 10)
     fa.criteria = _criteria("FA", draft.criteria, alloc)
     total = sum(c.max_points for c in fa.criteria)
-    fa.pass_rule = clean_prose(draft.pass_rule)
-    if not fa.pass_rule and total > 0:
-        fa.pass_rule = (
-            f"«Зачтено» — не меньше {_fmt(_threshold(None, total, pass_share) or 0)} баллов из {_fmt(total)}."
-        )
+    fa.pass_rule = fa_pass_rule(clean_prose(draft.pass_rule), total, pass_share)
     fa.procedure = clean_items(draft.procedure, 8)
     kit.final_attestation = fa
+
+
+RULE_SHARE_RE = re.compile(r"(\d{2})\s*%")
+
+
+def fa_pass_rule(model_rule: str, total: float, pass_share: float) -> str:
+    """Порог «зачтено» по сумме баллов критериев считает код; доля — из ответа модели («не менее 70 %»), если она
+    разумная (50–90 %), иначе по умолчанию. Модель писала «не менее 0 баллов по каждому критерию» — условие, которое
+    ничего не требует (оценка 21.10, п. 3.7); теперь любой критерий с нулём — «не зачтено»."""
+    if total <= 0:
+        return model_rule
+    found = RULE_SHARE_RE.search(model_rule or "")
+    share = int(found.group(1)) / 100 if found and 50 <= int(found.group(1)) <= 90 else pass_share
+    threshold = _threshold(None, total, share) or 0
+    return (
+        f"«Зачтено» — не меньше {_fmt(threshold)} {_points_gen(threshold)} из {_fmt(total)} и ни по одному "
+        "критерию не 0 баллов."
+    )
+
+
+def _points_gen(value: float) -> str:
+    """«не меньше 31 балла», «не меньше 60 баллов», «не меньше 30,5 балла»."""
+    n = int(value)
+    if value != n or (n % 10 == 1 and n % 100 != 11):
+        return "балла"
+    return "баллов"
 
 
 def _fmt(value: float) -> str:

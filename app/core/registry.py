@@ -161,6 +161,24 @@ def _applies_key(program_type: ProgramType | str) -> str:
 # --------------------------------------------------------------------------------------------------
 
 
+def function_level(code: str) -> int | None:
+    """Уровень квалификации ТФ из кода: «C/06.7» → 7."""
+    match = re.search(r"\.(\d)\s*$", code)
+    return int(match.group(1)) if match else None
+
+
+def within_level(functions: list[LaborFunctionRecord], max_level: int | None) -> list[LaborFunctionRecord]:
+    """ТФ не выше уровня аудитории; если таких нет — ТФ самого низкого уровня стандарта."""
+    if max_level is None:
+        return functions
+    levels = [function_level(f.code) for f in functions]
+    fitting = [f for f, lvl in zip(functions, levels, strict=True) if lvl is None or lvl <= max_level]
+    if fitting:
+        return fitting
+    lowest = min((lvl for lvl in levels if lvl is not None), default=None)
+    return [f for f, lvl in zip(functions, levels, strict=True) if lvl == lowest]
+
+
 class Registry(InMemoryRegistry):
     """Реестр из файлов data/registry. Реализует RegistryView и добавляет нечёткий поиск."""
 
@@ -282,11 +300,13 @@ class Registry(InMemoryRegistry):
         return cached
 
     def relevant_labor_functions(
-        self, standard: ProfStandardRecord, text: str, limit: int
+        self, standard: ProfStandardRecord, text: str, limit: int, max_level: int | None = None
     ) -> list[LaborFunctionRecord]:
         """Не больше limit ТФ стандарта, ближайших к тексту запроса, в исходном порядке. Слова, которые есть
-        в большинстве ТФ стандарта («в рамках … сопровождению ИС»), не различают ТФ и не учитываются."""
-        functions = list(standard.labor_functions)
+        в большинстве ТФ стандарта («в рамках … сопровождению ИС»), не различают ТФ и не учитываются.
+        max_level — уровень квалификации аудитории: ТФ выше него не предлагаются (если таких нет — ТФ самого
+        низкого уровня стандарта)."""
+        functions = within_level(list(standard.labor_functions), max_level)
         if len(functions) <= limit:
             return functions
         stems = [_stems(f.title) for f in functions]

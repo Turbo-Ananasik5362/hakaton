@@ -16,6 +16,7 @@ from docx import Document
 from docx.oxml.ns import qn
 
 from app.config import ROOT, now_msk
+from app.core.hours import fmt_hours
 from app.core.registry import Registry
 from app.models import Kit, ProgramType, SourceSection
 from app.render.common import (
@@ -23,6 +24,7 @@ from app.render.common import (
     FILL_MARK,
     Organization,
     add_cell_block,
+    at_most_hours,
     cell_text,
     font_run,
     format_par,
@@ -305,7 +307,7 @@ def _volume(w: DocWriter, tables: ProgramTables) -> None:
     if v.weeks and v.days:
         term = f"{v.weeks} нед. ({v.days} учебных дн.)"
         if v.hours_per_day:
-            term += f", не более {hours_phrase(v.hours_per_day)} в день"
+            term += f", {at_most_hours(v.hours_per_day)} в день"
     w.bullets(
         [
             contact,
@@ -325,13 +327,51 @@ def _section_2(w: DocWriter, kit: Kit, tables: ProgramTables) -> None:
     w.heading(H2, level=1, page_break=True)
     w.heading(SUB["2.1"])
     _plan_table(w, tables.plan, PK_PLAN_HEADER, [544, 1947, 1939, 841, 842, 841, 842, 1842])
+    _distance_split(w, tables.plan)
     w.heading(SUB["2.2"])
     _plan_table(w, tables.utp, PK_UTP_HEADER, [640, 2008, 1748, 850, 850, 850, 850, 1842])
+    _distance_split(w, tables.utp)
     w.heading(SUB["2.3"])
     _calendar(w, tables)
     w.heading(SUB["2.4"])
     _work_program(w, kit, tables)
     _assessment(w, kit, tables)
+
+
+def distance_split_lines(rows: list[PlanRow]) -> list[str]:
+    """Очные и дистанционные часы контактной работы по разделам (и темам — для УТП) и всего: в таблице шаблона
+    колонки ДОТ нет, а очно-заочная программа с ДОТ должна разделять их явно (оценка 21.10, п. 2.2)."""
+    topics = [r for r in rows if r.kind == "topic"]
+    modules = [r for r in rows if r.kind == "module"]
+    parts = topics or modules  # УТП — по темам, учебный план — по разделам
+    if not any(r.hours.distance > 0 for r in parts):
+        return []
+    lines = []
+    for row in parts:
+        contact, distance = row.hours.contact, row.hours.distance
+        if contact <= 0:
+            continue
+        label = f"{row.number} {row.title}".strip()
+        lines.append(
+            f"{label}: очно — {fmt_hours(max(contact - distance, 0))} ч, с применением ДОТ — {fmt_hours(distance)} ч"
+        )
+    total_contact = sum(r.hours.contact for r in parts)
+    total_distance = sum(r.hours.distance for r in parts)
+    lines.append(
+        f"Всего контактной работы: очно — {fmt_hours(total_contact - total_distance)} ч, с применением ДОТ — "
+        f"{fmt_hours(total_distance)} ч"
+    )
+    return lines
+
+
+def _distance_split(w: DocWriter, rows: list[PlanRow]) -> None:
+    lines = distance_split_lines(rows)
+    if lines:
+        w.para(
+            "Контактная работа в очной форме и с применением дистанционных образовательных технологий:",
+            first_line=False,
+        )
+        w.bullets(lines)
 
 
 def _plan_table(w: DocWriter, rows: list[PlanRow], header: list[str], widths: list[int]) -> None:
@@ -370,7 +410,7 @@ def _calendar(w: DocWriter, tables: ProgramTables) -> None:
     if not tables.calendar:
         w.para(FILL_MARK)
         return
-    regime = f", не более {hours_phrase(v.hours_per_day)} в день" if v.hours_per_day else ""
+    regime = f", {at_most_hours(v.hours_per_day)} в день" if v.hours_per_day else ""
     w.para(
         f"Срок обучения — {v.weeks} нед., {v.days} учебных дн.{regime}. Даты начала и окончания обучения "
         "устанавливаются приказом о зачислении слушателей."

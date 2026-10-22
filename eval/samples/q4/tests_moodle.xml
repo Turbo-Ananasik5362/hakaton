@@ -10,7 +10,7 @@
       <text>Q1 Тема 1.2. Требования к защите информации</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать основные требования к защите информации в организации»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 1 к результату «Знать основные требования к защите инфор»: что верно о исходных данных с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -21,12 +21,6 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
       <feedback format="html">
@@ -45,6 +39,12 @@
         <text />
       </feedback>
     </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <tags>
       <tag>
         <text>T1.2</text>
@@ -59,7 +59,7 @@
       <text>Q2 Тема 1.2. Требования к защите информации</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать основные требования к защите информации в организации»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 2 к результату «Знать основные требования к защите инфор»: что верно о порядке действий с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -108,7 +108,7 @@
       <text>Q3 Тема 1.3. Оценка рисков для информационной системы</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь оценивать угрозы для простой информационной системы»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 3 к результату «Уметь оценивать угрозы для простой инфор»: что верно о типичной ошибке с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -119,6 +119,12 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
       <feedback format="html">
@@ -137,12 +143,6 @@
         <text />
       </feedback>
     </answer>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <tags>
       <tag>
         <text>T1.3</text>
@@ -157,7 +157,7 @@
       <text>Q4 Тема 1.3. Оценка рисков для информационной системы</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь оценивать угрозы для простой информационной системы»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 4 к результату «Уметь оценивать угрозы для простой инфор»: что верно о проверке результата с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -206,7 +206,7 @@
       <text>Q5 Тема 1.3. Оценка рисков для информационной системы</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть навыком оформления результатов проверки защищённости»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 5 к результату «Владеть навыком оформления результатов п»: что верно о назначении инструмента с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -217,6 +217,12 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
       <feedback format="html">
@@ -235,12 +241,6 @@
         <text />
       </feedback>
     </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <tags>
       <tag>
         <text>T1.3</text>
@@ -255,7 +255,7 @@
       <text>Q6 Тема 1.3. Оценка рисков для информационной системы</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть навыком оформления результатов проверки защищённости»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 6 к результату «Владеть навыком оформления результатов п»: что верно о ограничениях метода с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -266,12 +266,6 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="0" format="html">
       <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
@@ -286,6 +280,12 @@
     </answer>
     <answer fraction="100" format="html">
       <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -309,7 +309,7 @@
       <text>Q7 Тема 2.3. Обнаружение вторжений</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать назначение межсетевых экранов, средств защиты от вредо»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 7 к результату «Знать назначение межсетевых экранов, сре»: что верно о выборе решения с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -320,26 +320,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 7&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 7&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -358,7 +358,7 @@
       <text>Q8 Тема 2.3. Обнаружение вторжений</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать назначение межсетевых экранов, средств защиты от вредо»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 8 к результату «Знать назначение межсетевых экранов, сре»: что верно о оформлении вывода с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -370,25 +370,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 8&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 8&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -407,7 +407,7 @@
       <text>Q9 Тема 2.2. Защищённые протоколы и удалённый доступ</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь настраивать базовые параметры защиты сети и операционн»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 9 к результату «Уметь настраивать базовые параметры защи»: что верно о настройке параметров с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -419,25 +419,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 9&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 9&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -456,7 +456,7 @@
       <text>Q10 Тема 2.2. Защищённые протоколы и удалённый доступ</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь настраивать базовые параметры защиты сети и операционн»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 10 к результату «Уметь настраивать базовые параметры защи»: что верно о критериях качества с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -468,25 +468,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 10&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -505,7 +505,7 @@
       <text>Q11 Тема 2.3. Обнаружение вторжений</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть приёмами проверки настроек защиты на учебном стенде»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 11 к результату «Владеть приёмами проверки настроек защит»: что верно о исходных данных с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -517,25 +517,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 11&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -554,7 +554,7 @@
       <text>Q12 Тема 2.3. Обнаружение вторжений</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть приёмами проверки настроек защиты на учебном стенде»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 12 к результату «Владеть приёмами проверки настроек защит»: что верно о порядке действий с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -566,25 +566,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 12&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -608,7 +608,7 @@
       <text>Q13 Тема 3.3. Учётные записи и разграничение доступа</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Уметь настраивать базовые параметры защиты сети и операционн»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 13 к результату «Уметь настраивать базовые параметры защи»: что верно о типичной ошибке с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -620,25 +620,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 13&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -657,7 +657,7 @@
       <text>Q14 Тема 3.2. Безопасная настройка Windows</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Владеть приёмами проверки настроек защиты на учебном стенде»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 14 к результату «Владеть приёмами проверки настроек защит»: что верно о проверке результата с точки зрения стоимости?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -668,26 +668,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 14&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 14&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -711,7 +711,7 @@
       <text>Q15 Тема 4.3. Реагирование на инциденты</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Знать типовые инциденты безопасности и порядок реагирования »: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 15 к результату «Знать типовые инциденты безопасности и п»: что верно о назначении инструмента с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -723,25 +723,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 15&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 15&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 15&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -760,7 +760,7 @@
       <text>Q16 Тема 4.3. Реагирование на инциденты</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Знать типовые инциденты безопасности и порядок реагирования »: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 16 к результату «Знать типовые инциденты безопасности и п»: что верно о ограничениях метода с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -772,25 +772,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 16&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -809,7 +809,7 @@
       <text>Q17 Тема 4.2. Системы мониторинга событий безопасности</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Уметь находить признаки атаки в журналах событий»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 17 к результату «Уметь находить признаки атаки в журналах»: что верно о выборе решения с точки зрения сроков?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -821,25 +821,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 17&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 17&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -858,7 +858,7 @@
       <text>Q18 Тема 4.2. Системы мониторинга событий безопасности</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Уметь находить признаки атаки в журналах событий»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 18 к результату «Уметь находить признаки атаки в журналах»: что верно о оформлении вывода с точки зрения документации?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -869,26 +869,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 18&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 18&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -907,7 +907,7 @@
       <text>Q19 Тема 4.3. Реагирование на инциденты</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 5 по результату «Владеть навыком разбора простого инцидента по шагам»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 19 к результату «Владеть навыком разбора простого инциден»: что верно о настройке параметров с точки зрения надёжности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -918,26 +918,26 @@
     <single>true</single>
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 5&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 19&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 5&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 19&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 19&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 19&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -956,7 +956,7 @@
       <text>Q20 Тема 4.3. Реагирование на инциденты</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 6 по результату «Владеть навыком разбора простого инцидента по шагам»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 20 к результату «Владеть навыком разбора простого инциден»: что верно о критериях качества с точки зрения удобства?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -968,25 +968,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 6&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 20&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1007,59 +1007,10 @@
   </question>
   <question type="multichoice">
     <name>
-      <text>Q21 Тема 5.1. Поиск уязвимостей на стенде</text>
-    </name>
-    <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 1 по результату «Владеть приёмами проверки настроек защиты на учебном стенде»: какое утверждение верно?&lt;/p&gt;</text>
-    </questiontext>
-    <generalfeedback format="html">
-      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
-    </generalfeedback>
-    <defaultgrade>1</defaultgrade>
-    <penalty>0.3333333</penalty>
-    <hidden>0</hidden>
-    <single>true</single>
-    <shuffleanswers>true</shuffleanswers>
-    <answernumbering>abc</answernumbering>
-    <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 1&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <tags>
-      <tag>
-        <text>T5.1</text>
-      </tag>
-      <tag>
-        <text>LO1.3</text>
-      </tag>
-    </tags>
-  </question>
-  <question type="multichoice">
-    <name>
       <text>Q22 Тема 5.1. Поиск уязвимостей на стенде</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 2 по результату «Уметь оценивать угрозы для простой информационной системы»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 22 к результату «Уметь оценивать угрозы для простой инфор»: что верно о порядке действий с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1071,25 +1022,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 22&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 2&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 22&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 2&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 22&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 22&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1108,7 +1059,7 @@
       <text>Q23 Тема 5.2. Разбор инцидента на стенде</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 3 по результату «Владеть навыком разбора простого инцидента по шагам»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 23 к результату «Владеть навыком разбора простого инциден»: что верно о типичной ошибке с точки зрения безопасности?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1120,25 +1071,25 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Г к вопросу 23&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 23&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 23&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 3&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 3&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 23&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
@@ -1157,7 +1108,56 @@
       <text>Q24 Тема 5.2. Разбор инцидента на стенде</text>
     </name>
     <questiontext format="html">
-      <text>&lt;p&gt;Вопрос 4 по результату «Владеть навыком оформления результатов проверки защищённости»: какое утверждение верно?&lt;/p&gt;</text>
+      <text>&lt;p&gt;Вопрос 24 к результату «Владеть навыком оформления результатов п»: что верно о проверке результата с точки зрения сроков?&lt;/p&gt;</text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение А к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Б к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение В к вопросу 24&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <tags>
+      <tag>
+        <text>T5.2</text>
+      </tag>
+      <tag>
+        <text>LO3.3</text>
+      </tag>
+    </tags>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>Q25 Тема 5.1. Поиск уязвимостей на стенде</text>
+    </name>
+    <questiontext format="html">
+      <text>&lt;p&gt;Вопрос 1 к результату «результат обучения»: что верно о исходных данных с точки зрения практики?&lt;/p&gt;</text>
     </questiontext>
     <generalfeedback format="html">
       <text>&lt;p&gt;Верный вариант следует из материала темы.&lt;/p&gt;</text>
@@ -1169,35 +1169,35 @@
     <shuffleanswers>true</shuffleanswers>
     <answernumbering>abc</answernumbering>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение В к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение В к вопросу 1 ()&lt;/p&gt;</text>
+      <feedback format="html">
+        <text />
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>&lt;p&gt;Утверждение Г к вопросу 1 ()&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="100" format="html">
-      <text>&lt;p&gt;Утверждение Г к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение А к вопросу 1 ()&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение А к вопросу 4&lt;/p&gt;</text>
-      <feedback format="html">
-        <text />
-      </feedback>
-    </answer>
-    <answer fraction="0" format="html">
-      <text>&lt;p&gt;Утверждение Б к вопросу 4&lt;/p&gt;</text>
+      <text>&lt;p&gt;Утверждение Б к вопросу 1 ()&lt;/p&gt;</text>
       <feedback format="html">
         <text />
       </feedback>
     </answer>
     <tags>
       <tag>
-        <text>T5.2</text>
+        <text>T5.1</text>
       </tag>
       <tag>
-        <text>LO3.3</text>
+        <text>LO1.3</text>
       </tag>
     </tags>
   </question>

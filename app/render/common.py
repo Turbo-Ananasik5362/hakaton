@@ -77,9 +77,27 @@ def hours_word(value: float) -> str:
     return plural(int(round(value)), "час", "часа", "часов")
 
 
+def up_to_points(value: float) -> str:
+    """«до 1 балла», «до 3 баллов», «до 21 балла», «до 0,5 балла» — родительный падеж после «до»
+    (прогон 22.10: «до 3 балл.» 36 раз в программе для школьников)."""
+    if abs(value - round(value)) > 1e-9:
+        return f"до {fmt_hours(value)} балла"
+    n = int(round(value))
+    word = "балла" if n % 10 == 1 and n % 100 != 11 else "баллов"
+    return f"до {n} {word}"
+
+
 def hours_phrase(value: float) -> str:
     """«2 часа», «0,5 часа», «6 часов»."""
     return f"{fmt_hours(value)} {hours_word(value)}"
+
+
+def at_most_hours(value: float) -> str:
+    """«не более 4 часов», «не более 1 часа», «не более 0,5 часа»: после «более» — родительный падеж."""
+    whole = abs(value - round(value)) <= 1e-9
+    n = int(round(value))
+    word = "часа" if not whole or (n % 10 == 1 and n % 100 != 11) else "часов"
+    return f"не более {fmt_hours(value)} {word}"
 
 
 def parse_num(text: str) -> float | None:

@@ -574,13 +574,16 @@ def test_pk_skeleton_without_function_or_practical_experience_is_corrected() -> 
         comp.tf_ids = comp.tf_ids or ["06.015:C/11.6"]
         if not any(o.kind == OutcomeKind.MASTER for o in comp.outcomes):
             comp.outcomes[0].kind = OutcomeKind.MASTER
-    assert skeleton.draft_problem(draft, ProgramType.PK, has_functions=True) == ""
+    # в заготовке один РО в 3 модулях из 5 — это отдельная причина повтора (V43); здесь проверяются ТФ и опыт
+    good = skeleton.draft_problem(draft, ProgramType.PK, has_functions=True)
+    assert "трудовых функций" not in good and "практический опыт" not in good
     draft.competencies[0].tf_ids = []
     for outcome in draft.competencies[-1].outcomes:
         outcome.kind = OutcomeKind.KNOW
     problem = skeleton.draft_problem(draft, ProgramType.PK, has_functions=True)
     assert "нет трудовых функций" in problem and "практический опыт" in problem
-    assert skeleton.draft_problem(draft, ProgramType.DOP) == ""  # у общеразвивающей нет ТФ и опыта
+    dop = skeleton.draft_problem(draft, ProgramType.DOP)  # у общеразвивающей нет ТФ и опыта
+    assert "трудовых функций" not in dop and "практический опыт" not in dop
 
 
 def test_negated_classroom_mentions_are_not_flagged() -> None:

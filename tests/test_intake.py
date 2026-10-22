@@ -254,3 +254,26 @@ def test_internship_has_no_seminar_requirements() -> None:
     draft = IntakeDraft(required_seminar_types=["отчёт о стажировке"])
     spec = build_spec(text, extract_facts(text), draft, None)
     assert spec.program_type == ProgramType.PK_INTERNSHIP and spec.constraints.required_seminar_types == []
+
+
+def test_single_required_topic_equal_to_subject_is_not_a_topic() -> None:
+    """Предмет программы из названия — не обязательная тема (модель делала модуль «…: обязательная тема»);
+    несколько тем из названия — крайние точки диапазона, они остаются."""
+    from app.core.subject import without_subject
+    from app.models import TopicRequirement
+    from app.pipeline.request_rules import topic_pattern
+
+    def req(label: str) -> TopicRequirement:
+        return TopicRequirement(label=label, patterns=[topic_pattern(label)])
+
+    subject = [req("кибербезопасность")]
+    assert without_subject(subject, "Кибербезопасность для студентов колледжа") == []
+    school = [req("Python")]
+    assert without_subject(school, "Первые шаги в Python") == []
+    tool = [req("Python"), req("pandas")]  # «на Python» — средство: тема по нему может быть нужна
+    assert [r.label for r in without_subject(tool, "Анализ данных на Python")] == ["Python", "pandas"]
+    ends = [req("Linux"), req("CI/CD")]
+    assert [r.label for r in without_subject(ends, "DevOps-инженер от Linux до CI/CD")] == ["Linux", "CI/CD"]
+    inside = [req("сводные таблицы")]
+    assert [r.label for r in without_subject(inside, "Excel для бухгалтеров")] == ["сводные таблицы"]
+    assert without_subject(subject, None) == subject

@@ -97,6 +97,10 @@ MAX_SPLIT_DEPTH = 2
 # Добор отличается от исходного запроса и текстом: иначе ключ кеша совпадёт и вернётся тот же негодный ответ
 # (живой прогон 20.10: тест модуля 1 с повторяющимися вариантами дважды пришёл из кеша)
 LITERATURE_COMPACT = "Ответ должен быть коротким: candidates — пустой список; выбери из каталога не больше 10 изданий и ресурсов."
+FA_COMPACT = (
+    "Ответ должен быть коротким: 3–4 требования, 3 критерия, не больше 3 элементов портфолио и 4 шагов процедуры; "
+    "каждое поле — одно предложение, без повторов."
+)
 REFILL_SEMINAR_NOTE = (
     "Это добор: к этим темам заданий пока нет — нужно ровно одно задание на каждую тему из списка."
 )
@@ -155,13 +159,7 @@ def question_quotas(kit: Kit, limits: GenerationLimits = DEFAULT_LIMITS) -> dict
     quotas: dict[str, dict[str, int]] = {}
     wanted = kit.request.outputs.test_questions
     if wanted:
-        los = list(owner)
-        base, extra = divmod(wanted, len(los)) if los else (0, 0)
-        for i, lo in enumerate(los):
-            count = base + (1 if i < extra else 0)
-            if count > 0:
-                quotas.setdefault(owner[lo], {})[lo] = count
-        return quotas
+        return _final_test_quotas(kit, wanted, owner)
     for module in kit.modules_sorted():
         if is_interview_module(kit, module):
             continue
@@ -172,10 +170,42 @@ def question_quotas(kit: Kit, limits: GenerationLimits = DEFAULT_LIMITS) -> dict
     return quotas
 
 
+def _final_test_quotas(kit: Kit, wanted: int, owner: dict[str, str]) -> dict[str, dict[str, int]]:
+    """Итоговый тест заданного размера: вопросы делятся между модулями по числу тем (наибольшие остатки, каждому
+    модулю хотя бы один, если вопросов хватает), внутри модуля — по его РО, сначала по тем, что он раскрывает
+    первым. Раньше квота РО целиком уходила первому модулю с этим РО, и темы следующих модулей оставались без
+    вопросов (оценка 21.10: вопросы только по 2 модулям из 3)."""
+    modules = [m for m in kit.modules_sorted() if prompts.module_outcome_ids(kit, m) and kit.topics_of(m.id)]
+    if not modules:
+        return {}
+    weights = [len(kit.topics_of(m.id)) for m in modules]
+    floor = 1 if wanted >= len(modules) else 0
+    shares = [floor + (wanted - floor * len(modules)) * w / sum(weights) for w in weights]
+    counts = [int(s) for s in shares]
+    order = sorted(range(len(modules)), key=lambda i: (counts[i] - shares[i], i))  # наибольшие остатки
+    for i in order[: wanted - sum(counts)]:
+        counts[i] += 1
+    quotas: dict[str, dict[str, int]] = {}
+    for module, count in zip(modules, counts, strict=True):
+        los = prompts.module_outcome_ids(kit, module)
+        los = [lo for lo in los if owner.get(lo) == module.id] + [
+            lo for lo in los if owner.get(lo) != module.id
+        ]
+        for i in range(count):
+            lo = los[i % len(los)]
+            quotas.setdefault(module.id, {})[lo] = quotas.get(module.id, {}).get(lo, 0) + 1
+    return quotas
+
+
 def interview_quota(kit: Kit, module: Module, limits: GenerationLimits = DEFAULT_LIMITS) -> int:
     if not is_interview_module(kit, module):
         return 0
-    return max(limits.min_interview_per_module, len(prompts.module_outcome_ids(kit, module)))
+    # вопрос на каждую тему и на каждый результат модуля (оценка 21.10: в разделе о Git — ни одного вопроса о Git)
+    return max(
+        limits.min_interview_per_module,
+        len(prompts.module_outcome_ids(kit, module)),
+        len(kit.topics_of(module.id)),
+    )
 
 
 def module_test(kit: Kit, module: Module) -> Test | None:
@@ -601,7 +631,8 @@ class ContentGenerator:
         values = {
             "program": prompts.describe_program(kit, self.registry),
             "modules": prompts.describe_modules(kit),
-            "fields": prompts.describe_text_fields(kit),
+            # форма ИА: без неё тексты обещали «защиту проекта» при экзамене или портфолио (оценка 21.10)
+            "fields": prompts.describe_text_fields(kit) + "\n\n" + prompts.describe_fa_line(kit),
         }
         with self._costed(kit, client):
             draft = await self._ask(client, _Call("program_texts", values, ProgramTextsDraft, self._key(kit)))
@@ -616,9 +647,18 @@ class ContentGenerator:
             "modules": prompts.describe_modules(kit),
         }
         with self._costed(kit, client):
-            draft = await self._ask(
-                client, _Call("final_attestation", values, FinalAttestationDraft, self._key(kit))
-            )
+            try:
+                draft = await self._ask(
+                    client, _Call("final_attestation", values, FinalAttestationDraft, self._key(kit))
+                )
+            except TruncatedResponse:
+                # живой прогон 22.10: 4 из 5 ответов упёрлись в max_tokens (обычный — 1200–1400 токенов) —
+                # один короткий повтор с другим ключом кеша вместо второго такого же длинного
+                values["modules"] += "\n\n" + FA_COMPACT
+                draft = await self._ask(
+                    client,
+                    _Call("final_attestation", values, FinalAttestationDraft, self._key(kit, "compact")),
+                )
             apply.apply_final_attestation(kit, draft, self.limits.fa_pass_share)  # type: ignore[arg-type]
 
     async def _literature(self, kit: Kit, ctx: StepContext) -> None:
@@ -784,8 +824,9 @@ class ContentGenerator:
             )
         elif interview:
             lines.append(
-                f"Вопросы собеседования (interview) — не меньше {interview}, каждый результат модуля проверяется хотя бы "
-                "одним вопросом; у каждого — answer_points (что должно прозвучать) и criteria."
+                f"Вопросы собеседования (interview) — не меньше {interview}: по теме модуля на вопрос, по порядку тем, "
+                "каждый результат модуля проверяется хотя бы одним вопросом; у каждого — answer_points (что должно "
+                "прозвучать) и criteria."
             )
         else:
             lines.append("Вопросы собеседования (interview) не нужны — оставь список пустым.")
@@ -793,7 +834,15 @@ class ContentGenerator:
         values = {
             "program": prompts.describe_program(kit, self.registry),
             "module": prompts.module_label(kit, module),
-            "topics": prompts.describe_topics(kit, kit.topics_of(module.id), (WorkKind.LK, WorkKind.PR)),
+            # собеседование стажировки — по самостоятельной работе: лекций и практики у неё нет, и вопросы уходили
+            # в чужие разделы (оценка 21.10, п. 5.6)
+            "topics": prompts.describe_topics(
+                kit,
+                kit.topics_of(module.id),
+                (WorkKind.LK, WorkKind.PR, WorkKind.LB, WorkKind.SRS)
+                if interview
+                else (WorkKind.LK, WorkKind.PR),
+            ),
             "outcomes": prompts.describe_outcomes(kit, los),
             "quotas": "\n".join(lines),
         }
@@ -909,7 +958,14 @@ class ContentGenerator:
             )
             kit.tests.append(test)
         if test is not None:
-            apply.apply_questions(kit, module, test, draft.questions, quotas)
+            apply.apply_questions(
+                kit,
+                module,
+                test,
+                draft.questions,
+                quotas,
+                banned=lambda text: bibliography.blocked_service(kit, self.registry, text),
+            )
         if interview or interview_los:
             limit = max(interview, len(interview_los))  # лишние вопросы модели отбрасываются
             apply.apply_interview(kit, module, draft.interview, limit, focus=interview_los)
@@ -1166,6 +1222,7 @@ class ContentGenerator:
                 kit.meta.generation_notes.append(
                     f"Литературу по теме программы подобрать не удалось — разделы списка литературы: «{FILL_MARK}»."
                 )
+        bibliography.add_service_resources(kit, self.registry)
         kit.texts.software = software_list(kit, self.registry)
         _order_final_test(kit)
         empty = [t.id for t in kit.tests if t.scope == TestScope.MODULE and not t.question_ids]
@@ -1520,6 +1577,8 @@ def judge_summary(kit: Kit) -> str:
         if fa.procedure:
             lines.append("Процедура ИА: " + "; ".join(fa.procedure))
         lines.append(f"Порог ИА: {fa.pass_rule}")
+        for item in fa.portfolio_items:  # без них судья не видел одинаковых «Учебный материал 1/2/3» (21.10)
+            lines.append(f"Материал портфолио «{item.title}»: {'; '.join(item.requirements)}")
     for seminar in kit.seminars[:6]:
         lines.append(
             f"Задание «{seminar.title}»: {seminar.situation} Шаги: {'; '.join(seminar.steps)}. Сдаёт: "
@@ -1532,6 +1591,10 @@ def judge_summary(kit: Kit) -> str:
             f"Вопрос: {question.stem} Варианты: {' | '.join(question.options)}. Ключ: {right}. "
             f"Пояснение: {question.explanation}"
         )
+    if len(kit.questions) > 5:  # все формулировки коротко: повторы видны только целиком (21.10: Q1 = Q9)
+        lines.append("Все формулировки вопросов теста: " + " | ".join(q.stem for q in kit.questions[:40]))
+    for question in kit.interview_questions[:8]:
+        lines.append(f"Вопрос собеседования ({numbers.get(question.module_id, '')}): {question.text}")
     for lecture in [*kit.lectures[:1], *kit.lectures[-1:]][: 2 if len(kit.lectures) > 1 else 1]:
         plan = "; ".join(f"{p.title}: {', '.join(p.theses[:3])}" for p in lecture.plan)
         lines.append(f"План лекции «{lecture.title}»: {plan}")

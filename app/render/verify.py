@@ -17,7 +17,7 @@ from docx.table import Table, _Row
 
 from app.core.hours import fmt_hours
 from app.core.validate import ORDER_FILLED_RES
-from app.models import FixBy, Issue, Kit, ProgramType, Severity, WorkKind
+from app.models import FixBy, Issue, Kit, Severity, WorkKind
 from app.render.common import BLANK, parse_num
 from app.render.tables import (
     CALENDAR_HEADER,
@@ -149,16 +149,6 @@ def _check_requisites(document, kit: Kit) -> list[_Found]:  # noqa: ANN001
                     Severity.ERROR,
                     "В таблице кадрового обеспечения заполнены ФИО, степени или должности — они должны быть «____».",
                     f"staffing filled: {filled[:3]}",
-                )
-            )
-    if kit.program.type == ProgramType.DOP:
-        texts = [p.text.strip() for p in document.paragraphs]
-        if f"{BLANK} {BLANK}" not in texts:
-            out.append(
-                _Found(
-                    Severity.ERROR,
-                    "Город и год на титуле ДОП должны быть пустыми полями «____».",
-                    "city/year",
                 )
             )
     return out

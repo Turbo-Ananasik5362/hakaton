@@ -52,6 +52,7 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
             "test_clarify.py",
             "test_skeleton.py",
             "test_content.py",
+            "test_questions.py",
             "test_skills.py",
         ),
     ),
@@ -99,7 +100,7 @@ AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
     "Инженерная гигиена": (
         "этот отчёт, scripts/check.sh и CI; в коде нет маркеров незавершённой работы",
-        ("test_check.py",),
+        ("test_check.py", "test_effect.py"),
     ),
 }
 

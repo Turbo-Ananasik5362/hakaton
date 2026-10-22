@@ -330,3 +330,50 @@ def test_all_files_download_through_api(tmp_path: Path) -> None:
     )
     assert kit_export(kit) == body["kit"]
     assert not [i for i in body["report"]["issues"] if i["check"] == "V31"]
+
+
+@pytest.mark.parametrize(
+    ("hours", "expected"),
+    [
+        (4, "не более 4 часов"),
+        (1, "не более 1 часа"),
+        (21, "не более 21 часа"),
+        (11, "не более 11 часов"),
+        (0.5, "не более 0,5 часа"),
+        (6, "не более 6 часов"),
+        (2, "не более 2 часов"),
+    ],
+)
+def test_at_most_hours_uses_genitive(hours: float, expected: str) -> None:
+    """«не более 4 часа в день» в программе (оценка 21.10): после «более» — родительный падеж."""
+    from app.render.common import at_most_hours
+
+    assert at_most_hours(hours) == expected
+
+
+def test_code_lines_in_slides_are_line_breaks_in_monospace(tmp_path: Path) -> None:
+    """Строки кода в тезисе — переносы строк (<a:br/>) моноширинным шрифтом с отступами, а не «\\n» внутри текста."""
+    from pptx import Presentation
+
+    from app.render.pptx import MONO_FONT, _thesis_runs
+
+    prs = Presentation()
+    box = prs.slides.add_slide(prs.slide_layouts[6]).shapes.add_textbox(0, 0, 100, 100)
+    paragraph = box.text_frame.paragraphs[0]
+    _thesis_runs(paragraph, "Цикл:\nfor i in range(3):\n    print(i)", 20)
+    xml = paragraph._p.xml
+    assert xml.count("<a:br") == 2 and "\n" not in "".join(r.text for r in paragraph.runs)
+    runs = paragraph.runs
+    assert [r.font.name for r in runs[1:]] == [MONO_FONT, MONO_FONT]
+    assert runs[2].text == " " * 4 + "print(i)"
+
+
+@pytest.mark.parametrize(
+    ("points", "expected"),
+    [(3, "до 3 баллов"), (1, "до 1 балла"), (21, "до 21 балла"), (11, "до 11 баллов"), (0.5, "до 0,5 балла")],
+)
+def test_up_to_points_uses_genitive(points: float, expected: str) -> None:
+    """«до 3 балл.» 36 раз в программе для школьников (прогон 22.10): после «до» — родительный падеж."""
+    from app.render.common import up_to_points
+
+    assert up_to_points(points) == expected

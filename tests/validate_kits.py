@@ -608,21 +608,33 @@ def _seminar(sem_id: str, topic_id: str, lo_ids: list[str], title: str) -> Semin
     )
 
 
+# Разные вопросы о разном: одинаковые формулировки и варианты V18 считает повтором (core/questions.same_question)
+SUBJECTS = (
+    "исходных данных",
+    "порядке действий",
+    "типичной ошибке",
+    "проверке результата",
+    "выборе инструмента",
+)
+ASPECTS = ("практики", "безопасности", "сроков", "документации", "надёжности", "удобства", "стоимости")
+
+
 def _questions(test_id: str, plan: list[tuple[str, list[str]]], start: int = 1) -> list[TestQuestion]:
     result = []
     for n, (topic_id, lo_ids) in enumerate(plan, start=start):
+        subject, aspect = SUBJECTS[n % len(SUBJECTS)], ASPECTS[n % len(ASPECTS)]
         result.append(
             TestQuestion(
                 id=f"Q{n}",
                 test_id=test_id,
                 topic_id=topic_id,
                 lo_ids=lo_ids,
-                stem=f"Какое утверждение о теме занятия верно (вопрос {n})?",
+                stem=f"Какое утверждение о {subject} с точки зрения {aspect} верно (вопрос {n})?",
                 options=[
-                    "Первое верное утверждение",
-                    "Неверное утверждение",
-                    "Ещё одно неверное",
-                    "Совсем не так",
+                    f"Верное утверждение {n}",
+                    f"Неверное утверждение {n}",
+                    f"Ещё одно неверное {n}",
+                    f"Совсем не так {n}",
                 ],
                 correct=[0],
                 explanation="Верен первый вариант: он соответствует материалу занятия.",

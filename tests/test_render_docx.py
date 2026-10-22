@@ -8,8 +8,9 @@ import docx
 import pytest
 from docx.oxml.ns import qn
 
-from app.config import Settings
+from app.config import Settings, now_msk
 from app.core.copycheck import copy_ratio
+from app.core.hours import fmt_hours
 from app.core.registry import default_registry
 from app.models import (
     Kit,
@@ -165,7 +166,8 @@ def test_dop_layout_follows_spec(tmp_path: Path) -> None:
     for idx, table in enumerate(document.tables):  # учебный план и УТП (2, 3) — в альбомной секции
         assert grid_width(table) <= (DOP_LANDSCAPE_TW if idx in (2, 3) else DOP_PORTRAIT_TW)
     texts = [p.text for p in document.paragraphs]
-    assert f"{BLANK} {BLANK}" in texts  # город и год
+    year = (kit.meta.created_at or now_msk()).year
+    assert f"Магас {year}" in texts and f"{BLANK} {BLANK}" not in texts  # город и год, как в образце и в ПК
     assert any("273-ФЗ" in t for t in texts) and any("№ 629" in t for t in texts)
     assert any(t.rows[0].cells[0].text == "Дата начала обучения" for t in document.tables)
     staffing = next(t for t in document.tables if "ФИО преподавателя" in t.rows[0].cells[2].text)
@@ -332,3 +334,34 @@ def test_form_kind_text_is_rendered(tmp_path: Path) -> None:
     path, _ = render(kit, tmp_path)
     texts = [p.text for p in docx.Document(str(path)).paragraphs]
     assert any(t.startswith("Форма обучения — заочная") for t in texts)
+
+
+def test_dop_assessment_lists_every_seminar_criterion(tmp_path: Path) -> None:
+    """2.3 ДОП: критерии всех практических работ, без обрезки списка (обрезанный выглядел незаполненным)."""
+    kit = load(1)
+    for seminar in kit.seminars:  # много критериев: прежний вывод обрезал на восьми
+        seminar.criteria = [*seminar.criteria, *seminar.criteria[:1]]
+    lines = docx_dop.seminar_criteria(kit)
+    assert len(lines) == len([s for s in kit.seminars if s.criteria])
+    every = {c.text.strip().rstrip(".") for s in kit.seminars for c in s.criteria}
+    assert all(any(text in line for line in lines) for text in every)
+    path, _ = render(kit, tmp_path)
+    texts = [p.text for p in docx.Document(str(path)).paragraphs]
+    assert all(line in texts for line in lines)
+
+
+def test_pk_with_distance_learning_splits_contact_hours(tmp_path: Path) -> None:
+    """Очно-заочная программа с ДОТ: под учебным планом и УТП — очные часы и часы с ДОТ по разделам и темам
+    (оценка 21.10, п. 2.2: разбивка была одной цифрой только в 1.8)."""
+    from app.render.docx_pk import distance_split_lines
+
+    kit = load(3)
+    tables = build_tables(kit)
+    plan_lines = distance_split_lines(tables.plan)
+    assert plan_lines and plan_lines[-1].startswith("Всего контактной работы")
+    volume = tables.volume
+    assert f"с применением ДОТ — {fmt_hours(volume.distance)} ч" in plan_lines[-1]
+    path, issues = render(kit, tmp_path)
+    texts = [p.text for p in docx.Document(str(path)).paragraphs]
+    assert all(line in texts for line in plan_lines)
+    assert not [i for i in issues if i.severity.value == "error"]

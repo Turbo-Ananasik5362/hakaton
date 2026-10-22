@@ -247,3 +247,93 @@ def test_unverified_catalog_record_is_marked() -> None:
         bibliography.ShortlistItem(key="lit:raw_book", record=record), SourceSection.MAIN, "SRC1", []
     )
     assert source.verification == Verification.UNVERIFIED
+
+
+def test_beginners_get_no_advanced_or_off_topic_books() -> None:
+    """Школьникам без опыта — без «продвинутых», вузовских и профильных книг не по темам программы и без книг,
+    совпавших с темами только общим тегом «основы» (оценка 21.10: TDD с Django, анализ данных, «К вершинам
+    мастерства» и учебник по защите информации в курсе Python для 8–9 классов)."""
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    kit.program.title = "Первые шаги в Python"
+    for topic in kit.topics:
+        topic.tags = ["python", "основы", "тестирование"]
+    keys = {i.key for i in bibliography.shortlist(kit, default_registry())}
+    assert "lit:python_matthes_2024" in keys
+    for unwanted in (
+        "python_ramalho_2022",
+        "testing_percival_2018",
+        "data_mckinney_2023",
+        "security_baranova_2026",
+    ):
+        assert f"lit:{unwanted}" not in keys, unwanted
+    # тот же каталог для слушателей с опытом: продвинутое издание по теме допустимо
+    adults = make_pk_kit()
+    for topic in adults.topics:
+        topic.tags = ["python", "программирование"]
+    adults.request.raw_text = "Программа для разработчиков на Python"
+    assert "lit:python_ramalho_2022" in {i.key for i in bibliography.shortlist(adults, default_registry())}
+
+
+def test_ai_services_named_in_program_become_internet_resources() -> None:
+    """Сервисы из программы, доступные в России, — официальные сайты в «Интернет-ресурсах»; самопроверка их узнаёт
+    (оценка 21.10: раздел был пуст у программы для учителей)."""
+    kit = make_pk_kit()
+    kit.sources = []
+    kit.topics[0].tags = ["нейросети"]
+    kit.topics[0].content = {k: v for k, v in kit.topics[0].content.items()}
+    kit.topics[0].title = "Подготовка плана урока в GigaChat и иллюстраций в Kandinsky"
+    registry = default_registry()
+    items = bibliography.shortlist(kit, registry)
+    services = [i for i in items if i.key.startswith("svc:")]
+    assert {i.key for i in services} >= {"svc:gigachat", "svc:kandinsky"}
+    picks = [CatalogPick(catalog_id=i.key, section=SourceSection.INTERNET) for i in services]
+    result = bibliography.build_sources(kit, registry, items, picks, [], 2026)
+    internet = [s for s in result.sources if s.section == SourceSection.INTERNET]
+    assert internet and all(s.url and "официальный сайт" in s.title for s in internet)
+    kit.sources = result.sources
+    report = validate(kit, ValidationContext(registry=registry), only=["V23"])
+    assert not [i for i in report.issues if i.severity.value == "error"], report.issues
+
+
+def test_services_named_only_in_materials_become_internet_resources() -> None:
+    """Прогон 22.10: сервисы названы в заданиях и вопросах, а не в названиях тем — литература (она идёт параллельно
+    с содержанием) их не видит; после генерации сайты сервисов добавляются. Недоступные в России — нет,
+    один адрес — одна строка, повторный вызов ничего не дублирует."""
+    kit = make_pk_kit()
+    kit.sources = [s for s in kit.sources if s.section != SourceSection.INTERNET]
+    kit.seminars[0].task = "Подготовьте план урока в GigaChat и иллюстрацию в Kandinsky, сравните с ChatGPT."
+    registry = default_registry()
+    added = bibliography.add_service_resources(kit, registry)
+    assert "GigaChat" in added and "ChatGPT" not in added
+    internet = [s for s in kit.sources if s.section == SourceSection.INTERNET]
+    assert internet and all(s.url and "официальный сайт" in s.title for s in internet)
+    assert len({s.url for s in internet}) == len(internet)
+    assert len({s.id for s in kit.sources}) == len(kit.sources)
+    assert bibliography.add_service_resources(kit, registry) == []
+    report = validate(kit, ValidationContext(registry=registry), only=["V23"])
+    ids = {s.id for s in internet}  # книги тестового комплекта есть только в тестовом реестре — их не смотрим
+    assert not [i for i in report.issues if i.severity.value == "error" and set(i.target_ids) & ids], (
+        report.issues
+    )
+
+
+def test_non_beginners_keep_books_beyond_topic_tags() -> None:
+    """Прогон 22.10, пункт 2.8: учителям («ИИ в работе учителя») сужение «только книги с тегом темы» оставило одни
+    книги по ML на Python — теги тем русские, а у книг об ИИ в образовании теги «ai», «education»."""
+    from tests.validate_kits import make_dop_kit
+
+    kit = make_dop_kit()
+    kit.program.title = "Искусственный интеллект в работе учителя"
+    kit.program.audience.age_or_grade = None
+    kit.request.raw_text = "Программа для учителей школ: применение нейросетей в работе"
+    kit.request.audience.category = "учителя общеобразовательных школ"
+    kit.request.audience.entry_level = "базовые навыки работы с компьютером"
+    for topic in kit.topics:
+        topic.tags = ["искусственный интеллект", "нейросети", "основы", "этика"]
+    books = [i for i in bibliography.shortlist(kit, default_registry()) if i.key.startswith("lit:")]
+    assert [i for i in books if bibliography.on_topic(kit, i)]
+    assert [i for i in books if not bibliography.on_topic(kit, i)], [
+        i.key for i in books
+    ]  # не только по тегу темы

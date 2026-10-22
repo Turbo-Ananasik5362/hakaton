@@ -22,7 +22,14 @@ from typing import Literal
 from app.config import DEFAULT_LIMITS
 from app.core.ids import IdAllocator
 from app.core.registry import Registry, is_verified, title_similarity
-from app.core.registry_api import LiteratureRecord, ToolRecord, fold_yo, name_pattern, normalize_text
+from app.core.registry_api import (
+    AIServiceRecord,
+    LiteratureRecord,
+    ToolRecord,
+    fold_yo,
+    name_pattern,
+    normalize_text,
+)
 from app.core.validate import isbn_valid
 from app.models import (
     BookCandidate,
@@ -62,15 +69,20 @@ REJECTED_NOTE_PREFIX = "Модель предложила источник"  # �
 
 @dataclass(frozen=True)
 class ShortlistItem:
-    key: str  # «lit:python_lutz_2019» или «doc:pandas» — то, чем модель отвечает в catalog_id
-    record: LiteratureRecord | ToolRecord
+    key: str  # «lit:python_lutz_2019», «doc:pandas» или «svc:gigachat» — то, чем модель отвечает в catalog_id
+    record: LiteratureRecord | ToolRecord | AIServiceRecord
 
     @property
     def is_doc(self) -> bool:
-        return isinstance(self.record, ToolRecord) or getattr(self.record, "kind", "book") == "doc"
+        return (
+            isinstance(self.record, (ToolRecord, AIServiceRecord))
+            or getattr(self.record, "kind", "book") == "doc"
+        )
 
     def describe(self) -> str:
         record = self.record
+        if isinstance(record, AIServiceRecord):
+            return f"{self.key} — {record.name}: официальный сайт сервиса ({record.url}) [интернет-ресурс]"
         if isinstance(record, ToolRecord):
             return (
                 f"{self.key} — {record.name}: официальная документация ({record.docs_url}) [интернет-ресурс]"
@@ -119,6 +131,57 @@ def mentioned_tools(
     return [tool for _, tool in found[:limit]]
 
 
+def mentioned_services(kit: Kit, registry: Registry, limit: int = MAX_TOOL_DOCS) -> list[AIServiceRecord]:
+    """ИИ-сервисы реестра, доступные в России, с официальным адресом, которые упомянуты в программе, — интернет-
+    ресурсы (оценка 21.10: раздел «Интернет-ресурсы» программы для учителей был пуст, хотя GigaChat, Алиса
+    и Kandinsky в программе есть, а их адреса — в реестре)."""
+    found = registry.mentioned_ai_services(program_text(kit))
+    return [s for s, _ in found if s.available_in_ru and s.url][:limit]
+
+
+MATERIAL_FIELDS = frozenset(
+    {
+        "modules",
+        "topics",
+        "lectures",
+        "seminars",
+        "questions",
+        "interview_questions",
+        "final_attestation",
+        "texts",
+    }
+)
+
+
+def materials_text(kit: Kit) -> str:
+    """Весь текст материалов комплекта: лекции, задания, вопросы, аттестация и тексты программы."""
+    return json.dumps(kit.model_dump(mode="json", include=set(MATERIAL_FIELDS)), ensure_ascii=False)
+
+
+def add_service_resources(kit: Kit, registry: Registry) -> list[str]:
+    """Интернет-ресурсы — официальные сайты ИИ-сервисов реестра, доступных в России, которые упомянуты в готовых
+    материалах. Литература подбирается параллельно с содержанием и видит только названия тем, а сервисы называют
+    лекции, задания и тесты (прогон 22.10: в программе для учителей GigaChat, Алиса, Kandinsky, Шедеврум — а раздел
+    «Интернет-ресурсы» пуст). Возвращает названия добавленных сервисов."""
+    have = {s.registry_id for s in kit.sources if s.registry_id}
+    urls = {s.url for s in kit.sources if s.url}
+    found: list[AIServiceRecord] = []
+    for service, _ in registry.mentioned_ai_services(materials_text(kit)):
+        if service.available_in_ru and service.url and service.id not in have and service.url not in urls:
+            found.append(service)
+            urls.add(service.url)  # Kandinsky и GigaChat — один адрес giga.chat: одна строка
+    room = MAX_PER_SECTION.get(SourceSection.INTERNET, 6) - sum(
+        1 for s in kit.sources if s.section == SourceSection.INTERNET
+    )
+    alloc = IdAllocator(kit)
+    added: list[str] = []
+    for service in found[: max(0, min(room, MAX_TOOL_DOCS))]:
+        item = ShortlistItem(f"svc:{service.id}", service)
+        kit.sources.append(_source_from_item(item, SourceSection.INTERNET, alloc.source(), []))
+        added.append(service.name)
+    return added
+
+
 def blocked_service(kit: Kit, registry: Registry, text: str) -> str | None:
     """При требовании «только сервисы России» — название недоступного сервиса, упомянутого в тексте."""
     if not kit.request.constraints.ru_services_only:
@@ -132,20 +195,52 @@ def blocked_service(kit: Kit, registry: Registry, text: str) -> str | None:
 HIGHER_ED_RE = re.compile(r"для\s+(?:студентов\s+)?вуз|бакалавр|магистр|высш\w+\s+(?:учебн|образован)", re.I)
 
 
-def _level_fits(kit: Kit, record: LiteratureRecord) -> bool:
-    """Для школьников (ДОП с возрастом / классами) — без вузовских учебников."""
+BEGINNER_RE = re.compile(r"без\s+опыта|с\s+нуля|начинающ|нулев\w*\s+уров", re.I)
+ADVANCED_TAGS = frozenset({"продвинутый", "вузы"})
+# профильные издания (веб, данные, машинное обучение, тестирование, СУБД): начинающим — только если это темы программы
+SPECIALIZED_TAGS = frozenset({"web", "data", "ml", "testing", "databases", "бэкенд", "фронтенд"})
+
+
+def _beginners(kit: Kit) -> bool:
+    audience = kit.request.audience
+    text = " ".join([audience.entry_level or "", *audience.constraints, kit.request.raw_text or ""])
     school = kit.program.type == ProgramType.DOP and bool(kit.program.audience.age_or_grade)
-    return not (school and HIGHER_ED_RE.search(f"{record.title} {' '.join(record.tags)}"))
+    return school or bool(BEGINNER_RE.search(text))
+
+
+def _level_fits(kit: Kit, record: LiteratureRecord) -> bool:
+    """Для школьников (ДОП с возрастом / классами) — без вузовских учебников; для школьников и начинающих — без
+    продвинутых и профильных изданий не по темам программы (оценка 21.10: школьникам 8–9 классов — TDD с Django,
+    анализ данных и «К вершинам мастерства»)."""
+    school = kit.program.type == ProgramType.DOP and bool(kit.program.audience.age_or_grade)
+    if school and HIGHER_ED_RE.search(f"{record.title} {' '.join(record.tags)}"):
+        return False
+    if not _beginners(kit):
+        return True
+    tags = {normalize_text(tag) for tag in record.tags}
+    if tags & ADVANCED_TAGS:
+        return False
+    wanted = {normalize_text(tag) for topic in kit.topics for tag in topic.tags}
+    wanted |= set(normalize_text(kit.program.title).split())
+    return not (tags & SPECIALIZED_TAGS) - wanted
 
 
 def shortlist(kit: Kit, registry: Registry, limit: int = MAX_SHORTLIST) -> list[ShortlistItem]:
     tools = mentioned_tools(kit, registry)
     books = registry.literature_for_tags(_query_tags(kit), limit=max(0, limit - len(tools)) + 10)
-    books = [b for b in books if blocked_service(kit, registry, b.title) is None and _level_fits(kit, b)][
-        : max(0, limit - len(tools))
-    ]
+    books = [b for b in books if blocked_service(kit, registry, b.title) is None and _level_fits(kit, b)]
+    if _beginners(kit):
+        # начинающим — без книг, совпавших с темами только общим тегом («основы»), если по предмету их достаточно
+        # (оценка 21.10: учебник по защите информации в курсе Python для 8–9 классов). Остальным — без сужения:
+        # теги тем русские («искусственный интеллект»), теги каталога — «ai», «education», и учителям оставались
+        # одни книги по ML на Python (прогон 22.10, пункт 2.8)
+        on = [b for b in books if on_topic(kit, ShortlistItem(f"lit:{b.id}", b))]
+        if len(on) >= MIN_ON_TOPIC:
+            books = on
+    books = books[: max(0, limit - len(tools))]
     items = [ShortlistItem(f"lit:{record.id}", record) for record in books]
     items += [ShortlistItem(f"doc:{tool.id}", tool) for tool in tools]
+    items += [ShortlistItem(f"svc:{svc.id}", svc) for svc in mentioned_services(kit, registry)]
     return items
 
 
@@ -159,10 +254,17 @@ def matches_title(kit: Kit, item: ShortlistItem) -> bool:
 def on_topic(kit: Kit, item: ShortlistItem) -> bool:
     """Издание по теме программы: документация упомянутого инструмента или совпадение тегов каталога с тегами тем
     (совпадение одних слов названия — «Python» в программе по 1С — не в счёт)."""
-    if isinstance(item.record, ToolRecord):
+    if isinstance(item.record, (ToolRecord, AIServiceRecord)):
         return True
-    wanted = {normalize_text(tag) for topic in kit.topics for tag in topic.tags}
+    wanted = {normalize_text(tag) for topic in kit.topics for tag in topic.tags} - GENERIC_TAGS
     return bool(wanted & {normalize_text(tag) for tag in item.record.tags})
+
+
+# теги уровня и формы, а не предмета: «основы» связывал курс Python с учебником по защите информации (21.10)
+GENERIC_TAGS = frozenset(
+    {"основы", "начинающие", "документация", "теория", "методы", "классика", "проект", "проекты", "практика"}
+)
+MIN_ON_TOPIC = 3
 
 
 def describe_shortlist(items: Iterable[ShortlistItem]) -> str:
@@ -245,6 +347,17 @@ def _source_from_item(
     record = item.record
     # запись каталога со status ≠ verified (добавлена без проверки) выводится с меткой «[не подтверждено]»
     checked = Verification.CATALOG if is_verified(record) else Verification.UNVERIFIED
+    if isinstance(record, AIServiceRecord):
+        return Source(
+            id=source_id,
+            kind=SourceKind.DOC,
+            section=SourceSection.INTERNET,
+            registry_id=record.id,
+            verification=checked,
+            title=f"{record.name}: официальный сайт сервиса",
+            url=record.url,
+            topic_ids=topic_ids,
+        )
     if isinstance(record, ToolRecord):
         return Source(
             id=source_id,

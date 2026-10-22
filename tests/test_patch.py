@@ -71,11 +71,14 @@ def assert_only_changed(before: Kit, after: Kit, changed: list[str], removed: li
 def test_graph_reverse_edges_and_closure() -> None:
     kit = load(3)
     graph = DependencyGraph.build(kit)
-    assert {"L2.3", "S6", "Q5", "Q6", "Q7"} <= graph.direct("T2.3")
+    topic_questions = {
+        q.id for q in kit.questions if q.topic_id == "T2.3"
+    }  # номера — из комплекта, не константы
+    assert topic_questions and {"L2.3", "S6", *topic_questions} <= graph.direct("T2.3")
     assert {q.id for q in kit.questions if q.test_id == "TS2"} <= graph.direct("TS2")
     module_topics = {t.id for t in kit.topics_of("M2")}
     closure = graph.closure(["M2"])
-    assert module_topics <= closure and "L2.3" in closure and "Q5" in closure
+    assert module_topics <= closure and "L2.3" in closure and topic_questions <= closure
 
 
 def test_affected_replace_topic_follows_table() -> None:

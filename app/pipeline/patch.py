@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from app.config import now_msk
+from app.core import bibliography
 from app.core.calendar import build_calendar
 from app.core.graph import Affected, GraphError, affected, kind_changes, kind_of, topic_removal
 from app.core.hours import apply_hours, fmt_hours, rebalance
@@ -907,7 +908,17 @@ class PatchEngine:
         # прежние вопросы остаются в копии: повтор их формулировки отбрасывается как дубль
         scratch = _scratch(work, ids)
         stub = Test(id="TS999", title="", scope=TestScope.MODULE, module_id=module.id)
-        created = set(apply.apply_questions(scratch, module, stub, draft.questions, quotas))
+        created = set(
+            apply.apply_questions(
+                scratch,
+                module,
+                stub,
+                draft.questions,
+                quotas,
+                replacing=ids,
+                banned=lambda text: bibliography.blocked_service(work, self.content.registry, text),
+            )
+        )
         fresh = [q for q in scratch.questions if q.id in created]
         placed = 0
         for question in old:

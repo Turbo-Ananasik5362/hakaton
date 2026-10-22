@@ -29,7 +29,9 @@ from typing import Literal
 from app.core import copycheck
 from app.core import methodist_warnings as mw
 from app.core.ids import display_numbers, issue_id
+from app.core.questions import same_question
 from app.core.registry_api import NormRecord, RegistryView, fold_yo, name_pattern, normalize_text
+from app.core.subject import without_subject
 from app.models import (
     CalendarMode,
     CopySummary,
@@ -249,7 +251,10 @@ OVERPROMISE_RE = re.compile(
     r"|гарантир\w*\s+(?:трудоустр|работ|результат|успех)|станет\w*\s+(?:профессионал|специалист|эксперт)"
     r"|стать\s+(?:профессионал|эксперт)|с\s+нуля\s+до\s+(?:профи|профессионал|эксперт|senior|middle)"
     r"|в\s+совершенстве|достаточн\w*\s+для\s+(?:начала\s+)?(?:самостоятельн\w*\s+)?(?:профессиональн\w*\s+)?работ"
-    r"|\bготов\w*\s+к\s+работе|смож\w*\s+(?:сразу\s+)?работать\s+(?:в\s+(?:эт\w+\s+)?сфер|специалист)",
+    r"|\bготов\w*\s+к\s+работе|смож\w*\s+(?:сразу\s+)?работать\s+(?:в\s+(?:эт\w+\s+)?сфер|специалист)"
+    # «для подготовки к работе в сфере кибербезопасности» за 72 ч (оценка 21.10, п. 4.8)
+    r"|подготовк\w*\s+к\s+(?:самостоятельн\w*\s+|профессиональн\w*\s+)*(?:работе|деятельности)\s+"
+    r"(?:в\s+(?:сфер|област|отрасл|професси)|по\s+специальност)",
     re.I,
 )
 EXPECTATION_RE = re.compile(
@@ -657,6 +662,19 @@ def _seminar_text(seminar: Seminar) -> str:
     return " ".join([seminar.title, seminar.situation, seminar.task, *seminar.steps, seminar.deliverable])
 
 
+def _fa_text(kit: Kit) -> str:
+    """Текст итоговой аттестации: требования, элементы портфолио, пример задания, ожидаемый результат."""
+    fa = kit.final_attestation
+    if fa is None:
+        return ""
+    example = fa.example_task
+    parts = [fa.form_text, *fa.requirements, fa.expected_result or "", *fa.data_requirements]
+    parts += [f"{item.title} {' '.join(item.requirements)}" for item in fa.portfolio_items]
+    if example is not None:
+        parts += [example.title, example.description, example.deliverable]
+    return " ".join(p for p in parts if p)
+
+
 def _regular_modules(kit: Kit) -> list:
     return [m for m in kit.modules_sorted() if m.kind != ModuleKind.INTRO]
 
@@ -731,7 +749,8 @@ def _assessments_by_lo(kit: Kit) -> dict[str, list[str]]:
         add(seminar.lo_ids, seminar.id)
     for iq in kit.interview_questions:
         add(iq.lo_ids, iq.id)
-    if kit.final_attestation is not None:
+    # аттестация без критериев ничего не оценивает (прогон 22.10: пустая ИА закрывала все РО в матрице покрытия)
+    if kit.final_attestation is not None and kit.final_attestation.criteria:
         add(kit.final_attestation.lo_ids, "FA")
     return result
 
@@ -1319,7 +1338,19 @@ def check_v09(kit: Kit, ctx: ValidationContext) -> list[Finding]:
 
 
 FORM_CLAIM_RE = re.compile(r"дистанционн\w*|\bДОТ\b|электронн\w*\s+обучени\w*|\bЭО\b", re.IGNORECASE)
-FORM_NEGATION_RE = re.compile(r"(?:\bбез\b|\bне\b)[^.;]{0,40}$", re.IGNORECASE)
+# «без использования электронного обучения и дистанционных технологий» — отрицание на всё перечисление
+# (ложное V10 в прогоне 22.10: до «дистанционных» от «без» больше 40 знаков)
+FORM_NEGATION_WINDOW = 80
+# «без отрыва от работы», «не менее половины занятий» — не отрицание ЭО и ДОТ (ревью 22.10)
+FORM_NEGATION_RE = re.compile(
+    r"(?:\bбез\b(?!\s+отрыв)|\bне\b(?!\s+(?:менее|более|только|реже|чаще)))[^.;!?]{0,80}$", re.IGNORECASE
+)
+# Отрицание после упоминания, в том же предложении: «ЭО и ДОТ не используются» (ложное V10 в прогоне 21.10)
+FORM_NEGATION_AFTER_RE = re.compile(
+    r"^[^.;!?]{0,80}?(?:\bне\s+(?:использу|применя|предусм|проводя|планиру|допуска|реализу|предполага)\w*"
+    r"|\bисключ\w*|\bотсутству\w*)",
+    re.IGNORECASE,
+)
 
 
 def _form_text_claims(kit: Kit) -> list[Finding]:
@@ -1334,7 +1365,9 @@ def _form_text_claims(kit: Kit) -> list[Finding]:
     ]
     for where, text in fields:
         for match in FORM_CLAIM_RE.finditer(text or ""):
-            if FORM_NEGATION_RE.search(text[max(0, match.start() - 40) : match.start()]):
+            if FORM_NEGATION_RE.search(text[max(0, match.start() - FORM_NEGATION_WINDOW) : match.start()]):
+                continue
+            if FORM_NEGATION_AFTER_RE.search(text[match.end() :]):
                 continue
             out.append(
                 Finding(
@@ -1373,7 +1406,7 @@ def _internship_text_claims(kit: Kit) -> list[Finding]:
             (
                 m
                 for m in CLASSROOM_RE.finditer(text)
-                if not FORM_NEGATION_RE.search(text[max(0, m.start() - 40) : m.start()])
+                if not FORM_NEGATION_RE.search(text[max(0, m.start() - FORM_NEGATION_WINDOW) : m.start()])
                 and not re.match(r"\s*не\s", text[m.end() : m.end() + 20])
             ),
             None,
@@ -2111,6 +2144,37 @@ def _test_questions(kit: Kit, test_id: str) -> list[str]:
     return ordered
 
 
+def _duplicate_questions(kit: Kit, names: _Names) -> list[Finding]:
+    """Вопросы одного теста проверяют одно и то же: та же формулировка другими словами или те же варианты с тем же
+    верным ответом (оценка 21.10: Q1 = Q9, Q9 = Q10). Сборка такие отсекает; здесь — для комплектов, собранных
+    иначе (старые сессии, правка вручную)."""
+    out: list[Finding] = []
+    by_id = {q.id: q for q in kit.questions}
+    for test in kit.tests:
+        questions = [by_id[qid] for qid in _test_questions(kit, test.id) if qid in by_id]
+        for i, first in enumerate(questions):
+            twin = next(
+                (
+                    q
+                    for q in questions[i + 1 :]
+                    if same_question(first.stem, first.options, first.correct, q.stem, q.options, q.correct)
+                ),
+                None,
+            )
+            if twin is not None:
+                out.append(
+                    Finding(
+                        WARNING,
+                        f"{names(twin.id)} повторяет {names(first.id)}: тот же вопрос другими словами.",
+                        [twin.id, first.id],
+                        "duplicate question",
+                        FixBy.LLM,
+                        refs=("K3",),
+                    )
+                )
+    return out
+
+
 def check_v18(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     names = _Names(kit)
     out: list[Finding] = []
@@ -2146,6 +2210,7 @@ def check_v18(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                     refs=("K3",),
                 )
             )
+    out += _duplicate_questions(kit, names)
     for test in kit.tests:
         count = len(_test_questions(kit, test.id))
         if count == 0:
@@ -2319,6 +2384,29 @@ def _title_matches(lecture: Lecture, topics: list[Topic]) -> bool:
     return False
 
 
+def _python_program(kit: Kit) -> bool:
+    words = [kit.program.title, *(t.title for t in kit.topics), *(tag for t in kit.topics for tag in t.tags)]
+    return any("python" in w.lower() for w in words)
+
+
+def _broken_python_examples(kit: Kit, lecture: Lecture) -> list[str]:
+    """Примеры кода на Python в тезисах лекции (строки после пояснения), которые не компилируются (оценка 21.10:
+    примеры в одну строку через «;» и с потерянными отступами не запускались)."""
+    if not _python_program(kit):
+        return []
+    broken: list[str] = []
+    for item in lecture.plan:
+        for thesis in item.theses:
+            head, _, code = thesis.partition("\n")
+            if not code.strip():
+                continue
+            try:
+                compile(code, "<thesis>", "exec")
+            except (SyntaxError, ValueError):
+                broken.append(_short(head or code, 40))
+    return broken
+
+
 def check_v20(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     names = _Names(kit)
     topics = {t.id: t for t in kit.topics}
@@ -2369,6 +2457,18 @@ def check_v20(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                     f"{names(lecture.id)} привязана к темам без лекционных часов.",
                     [lecture.id],
                     "lecture on topics without lk",
+                    FixBy.LLM,
+                )
+            )
+        broken = _broken_python_examples(kit, lecture)
+        if broken:
+            out.append(
+                Finding(
+                    WARNING,
+                    f"{names(lecture.id)}: пример кода не запускается ({_list('«' + b + '»' for b in broken)}) — "
+                    "исправьте синтаксис (отступы, двоеточия, кавычки).",
+                    [lecture.id],
+                    f"python examples do not compile: {len(broken)}",
                     FixBy.LLM,
                 )
             )
@@ -2644,6 +2744,50 @@ def check_v21(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             err("В требованиях к данным не сказано, что данные обезличены.", "data not anonymized")
         if not _filled(fa.expected_result):
             err("Не описан ожидаемый результат итогового проекта.", "no expected result")
+    out += _fa_form_in_texts(kit, fa.form)
+    return out
+
+
+# Формы итоговой аттестации, которые тексты программы называют рядом со словами «итоговая аттестация»
+# или «программа завершается»: «защита проекта» при экзамене — частый провал (оценка 21.10, запросы 2–4)
+FA_FORM_WORDS: dict[FAForm, re.Pattern[str]] = {
+    FAForm.PROJECT_DEFENSE: re.compile(r"защит\w*\s+(?:\w+\s+){0,2}проект", re.I),
+    FAForm.PORTFOLIO: re.compile(r"портфолио", re.I),
+    FAForm.EXAM_PRACTICAL: re.compile(r"экзамен", re.I),
+    FAForm.REPORT_DEFENSE: re.compile(r"защит\w*\s+(?:\w+\s+){0,2}отч[её]т", re.I),
+    FAForm.TEST: re.compile(r"тестировани|\bитогов\w*\s+тест", re.I),
+}
+FA_SENTENCE_RE = re.compile(r"[^.!?;]*(?:итогов\w*\s+аттестаци|заверша\w*)[^.!?;]*", re.I)
+
+
+def _fa_form_in_texts(kit: Kit, form: FAForm) -> list[Finding]:
+    """Тексты программы называют форму итоговой аттестации, которой в программе нет (V21)."""
+    if form not in FA_FORM_WORDS:
+        return []
+    texts = kit.texts
+    fields = [
+        ("аннотация", texts.annotation),
+        ("актуальность", texts.relevance),
+        ("форма обучения", texts.form_description),
+        ("организация образовательного процесса", texts.org_process),
+        ("методические материалы", texts.methodical),
+    ]
+    out: list[Finding] = []
+    for where, text in fields:
+        for sentence in FA_SENTENCE_RE.findall(text or ""):
+            named = [f for f, regex in FA_FORM_WORDS.items() if regex.search(sentence)]
+            if named and form not in named:
+                out.append(
+                    Finding(
+                        WARNING,
+                        f"{where}: итоговая аттестация названа «{FA_NAMES[named[0]]}», а в программе — "
+                        f"«{FA_NAMES[form]}».",
+                        ["FA"],
+                        f"fa form in texts: {named[0].value} != {form.value}",
+                        FixBy.LLM,
+                    )
+                )
+                break
     return out
 
 
@@ -2751,6 +2895,14 @@ def _tool_record(registry: RegistryView, source: Source) -> object | None:
     return None
 
 
+def _service_record(registry: RegistryView, source: Source) -> object | None:
+    """Официальный сайт ИИ-сервиса из реестра: по ID записи или домену URL; недоступный в России — не в счёт."""
+    services = [s for s in registry.ai_services() if s.available_in_ru and s.url]
+    found = next((s for s in services if source.registry_id and s.id == source.registry_id), None)
+    host = _url_host(source.url)
+    return found or next((s for s in services if host and _url_host(s.url) == host), None)
+
+
 def check_v23(kit: Kit, ctx: ValidationContext) -> list[Finding]:
     if not kit.sources:
         return []  # пустые разделы литературы — V12
@@ -2824,6 +2976,10 @@ def check_v23(kit: Kit, ctx: ValidationContext) -> list[Finding]:
             record = record or registry.find_literature(source.title, source.authors)
             if record is None and source.kind in (SourceKind.DOC, SourceKind.WEB, SourceKind.SOFTWARE):
                 record = _tool_record(registry, source)  # официальная документация из tools.json (§2.4)
+            if record is None and source.kind in (SourceKind.DOC, SourceKind.WEB):
+                record = _service_record(
+                    registry, source
+                )  # официальный сайт ИИ-сервиса (ru_ai_services.json)
             if record is None:
                 out.append(
                     Finding(
@@ -3590,7 +3746,8 @@ def _max_matching(options: list[list[str]]) -> dict[int, str]:
 
 
 def check_v33(kit: Kit, ctx: ValidationContext) -> list[Finding]:
-    requirements = kit.request.required_topics
+    # предмет программы («кибербезопасность» в «Кибербезопасность для студентов колледжа») покрывает вся программа
+    requirements = without_subject(kit.request.required_topics, kit.request.title or kit.program.title)
     if not requirements:
         return []
     names = _Names(kit)
@@ -3718,9 +3875,12 @@ def check_v36(kit: Kit, ctx: ValidationContext) -> list[Finding]:
                     FixBy.LLM,
                 )
             )
+    # вид работы из запроса засчитывается и итоговой аттестацией: «в конце каждый защищает проект — игру или
+    # чат-бота» — это итоговый проект, а не отдельное задание (ложная ошибка в прогоне 21.10)
+    works = [_seminar_text(s) for s in seminars] + [_fa_text(kit)]
     for req in kit.request.constraints.required_seminar_types:
         patterns = _requirement_patterns(req)
-        if not any(any(p.search(_seminar_text(s)) for p in patterns) for s in seminars):
+        if not any(any(p.search(text) for p in patterns) for text in works if text):
             out.append(
                 Finding(
                     ERROR,

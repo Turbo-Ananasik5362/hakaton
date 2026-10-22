@@ -1305,9 +1305,11 @@ class ModulePackDraft(DraftModel):
 
 
 class JudgeItemDraft(DraftModel):
+    # reason до passed: модель сначала перечисляет проверенное, потом выносит вердикт — с вердиктом в начале
+    # смысловая проверка ставила «пройдено» почти всему (оценка 21.10: 7–8 из 8 во всех запросах)
     criterion: str
-    passed: bool
     reason: str = ""
+    passed: bool
 
 
 class JudgeDraft(DraftModel):
